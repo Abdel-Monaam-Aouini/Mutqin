@@ -1,0 +1,24 @@
+name: C++ dependency check
+
+# Dependabot cannot read CMake / CI download URLs, so this weekly job compares the pinned versions of
+# GoogleTest, miniaudio and sherpa-onnx with their latest releases and keeps one open issue listing
+# what is outdated (it closes the issue when everything is current).
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare pinned versions with the latest releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/check_cpp_deps.sh

@@ -44,7 +44,7 @@ if(MUTQIN_BUILD_TESTS)
     set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(
         googletest
-        URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz
+        URL https://github.com/google/googletest/archive/refs/tags/v1.18.0.tar.gz
     )
     FetchContent_MakeAvailable(googletest)
     add_subdirectory(core/tests)

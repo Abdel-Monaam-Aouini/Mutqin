@@ -9,7 +9,7 @@ the license text was read from the upstream source, not from memory.
 | Item | Used for | License | Verified from | Notes |
 |------|----------|---------|---------------|-------|
 | Tanzil Quran text, v1.1 (Uthmani + Simple Clean) | Verified Quran text in `data/quran/` | Creative Commons Attribution 3.0, plus Tanzil Terms of Use | https://tanzil.net/docs/Text_License (read 2026-10-13) | See below |
-| GoogleTest v1.14.0 | C++ tests only (fetched by CMake, never linked into MutqinCore or the CLI) | BSD-3-Clause | `LICENSE` in the fetched source | |
+| GoogleTest v1.18.0 | C++ tests only (fetched by CMake, never linked into MutqinCore or the CLI) | BSD-3-Clause | `LICENSE` in the fetched source | |
 | sherpa-onnx v1.13.8 (k2-fsa/sherpa-onnx; bundles ONNX Runtime, MIT) | Optional recognition backend (`-DMUTQIN_WITH_SHERPA=ON`), linked through its C API; release archive downloaded by the developer, not committed | Apache-2.0 (GitHub API license field, read 2026-10-13) | approved by the owner 2026-10-13 ("work on sherpa-onnx backend"); default builds and CI do not use it |
 | sherpa-onnx-streaming-zipformer-ctc-multi-zh-hans-int8-2023-12-13 (public test model) | Plumbing test of the backend only (Chinese; units mapped to phonemes arbitrarily); not shipped | model card not read for the license: test use only, never redistributed | downloaded 2026-10-13 into the scratchpad, not in the repo |
 | miniaudio 0.11.25 (single header, mackron/miniaudio) | Live microphone capture in `mutqin-cli` only (never in `core/`); downloaded at CMake configure time with a pinned SHA-256, not committed | Public domain (Unlicense) or MIT No Attribution, at the user's choice | `LICENSE` in the 0.11.25 tag, read 2026-10-13; approved by the owner 2026-10-13 |
