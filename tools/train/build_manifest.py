@@ -50,13 +50,20 @@ def main() -> int:
     ap.add_argument("--audio", type=Path, default=ROOT / "data" / "audio" / "everyayah")
     ap.add_argument("--out", type=Path, default=ROOT / "data" / "train")
     ap.add_argument("--valid-reciters", default="", help="comma separated; default: the last reciter")
+    ap.add_argument(
+        "--valid-surahs",
+        default="",
+        help="comma separated surah numbers held out for validation (use when there is only one reciter; "
+        "the voice is then NOT held out, so the result is optimistic about new speakers)",
+    )
     args = ap.parse_args()
     quran = load_quran(ROOT / "data" / "quran")
     words = build_word_phonemes(quran)
     reciters = sorted(p.name for p in args.audio.iterdir() if p.is_dir())
     if not reciters:
         raise SystemExit(f"no reciter folders in {args.audio}; run tools/train/fetch_everyayah.py first")
-    valid = set(filter(None, args.valid_reciters.split(","))) or {reciters[-1]}
+    valid_surahs = {int(x) for x in args.valid_surahs.split(",") if x}
+    valid = set() if valid_surahs else (set(filter(None, args.valid_reciters.split(","))) or {reciters[-1]})
     args.out.mkdir(parents=True, exist_ok=True)
     lines: dict[str, list[str]] = {"train": [], "valid": []}
     skipped = 0
@@ -69,7 +76,11 @@ def main() -> int:
                 skipped += 1
                 continue
             seconds = max(0, wav.stat().st_size - 44) / 32000
-            lines["valid" if reciter in valid else "train"].append(
+            if seconds < 0.5 or len(labels) / seconds > 25:  # truncated download or bad conversion
+                skipped += 1
+                continue
+            held_out = surah in valid_surahs or reciter in valid
+            lines["valid" if held_out else "train"].append(
                 manifest_line(reciter, surah, ayah, wav, seconds, labels)
             )
     for split, rows in lines.items():

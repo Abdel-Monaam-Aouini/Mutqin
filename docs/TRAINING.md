@@ -30,6 +30,22 @@ each; train = 2 reciters (13.6 min), valid = the third.
 The model memorises the 110 clips and does not generalise: 55 distinct ayahs and two voices cannot
 teach acoustics. The point is that labels, features, loss and decoding work end to end.
 
+## Second CPU run: one reciter, 3 hours (2026-10-13)
+
+Data: Husary 128 kbps only (the owner chose one reciter), 314 train clips = 167 min from surahs
+1, 2, 10, 60-63, 105-111, 114; validation = whole surahs 62, 64, 112, 113 (25 clips, 8 min).
+The voice is **not** held out (there is only one), so even a good number would be optimistic about
+new speakers.
+
+| Model | Train PER | Valid PER | Time |
+|---|---|---|---|
+| 0.64M params, 40 epochs (about 2,700 steps) | 88.7% | 87.4% | 47 min on 16 CPU cores |
+
+The loss plateaued near 2.5 and the model had barely started to align. A small encoder trained
+from scratch needs far more steps than this CPU can give in a reasonable time, so further CPU runs
+of this kind are not worth it. The next real step is the pretrained-encoder fine-tuning
+(`finetune_xlsr.py`) on a GPU.
+
 ## What real training needs
 
 - **Audio:** about 100-200 hours (a full-Quran murattal recording is roughly 15-20 hours per
