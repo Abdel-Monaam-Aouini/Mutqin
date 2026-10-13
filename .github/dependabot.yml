@@ -1,0 +1,28 @@
+# Dependabot: weekly update pull requests, one grouped PR per ecosystem.
+#
+# Not covered (Dependabot cannot track them): GoogleTest (CMake FetchContent URL), miniaudio (CMake
+# download) and sherpa-onnx + its test model (CI download). Those are pinned by URL and SHA-256 and
+# are updated by hand; see docs/LICENSES.md for what each one is used for.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /tools
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      python:
+        patterns: ["*"]
