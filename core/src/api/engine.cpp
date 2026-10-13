@@ -10,6 +10,8 @@
 
 #include "align/aligner.h"
 #include "align/ctc.h"
+#include "api/session_internal.h"
+#include "features/logmel.h"
 #include "mutqin.h"
 #include "tajweed/phonemizer.h"
 #include "text/quran.h"
@@ -24,7 +26,15 @@ struct mq_session {
     std::vector<mutqin::WordRef> words;
     std::vector<mutqin::Frame> frames;
     mutqin::AlignResult aligned;
+    mutqin::LogMel logmel;
+    std::unique_ptr<mutqin::AcousticModel> model;
 };
+
+namespace mutqin {
+void SetSessionModel(mq_session* session, std::unique_ptr<AcousticModel> model) {
+    session->model = std::move(model);
+}
+}  // namespace mutqin
 
 namespace {
 
@@ -148,16 +158,39 @@ int mq_session_phoneme(const mq_session* session, size_t index, mq_phoneme* out)
     return MQ_OK;
 }
 
+namespace {
+void Realign(mq_session* session, const float* probs, size_t num_frames) {
+    for (size_t i = 0; i < num_frames; ++i)
+        session->frames.push_back(mutqin::ArgmaxFrame(probs + i * MQ_VOCAB_SIZE));
+    std::vector<mutqin::WordReading> readings;
+    for (const mutqin::WordRef& w : session->words)
+        readings.push_back(w.reading);
+    session->aligned = mutqin::AlignTokens(mutqin::GreedyDecode(session->frames), readings);
+}
+}  // namespace
+
 int mq_session_push_posteriors(mq_session* session, const float* probs, size_t num_frames) {
     if (session == nullptr || (probs == nullptr && num_frames > 0))
         return MQ_ERR_ARGUMENT;
     try {
-        for (size_t i = 0; i < num_frames; ++i)
-            session->frames.push_back(mutqin::ArgmaxFrame(probs + i * MQ_VOCAB_SIZE));
-        std::vector<mutqin::WordReading> readings;
-        for (const mutqin::WordRef& w : session->words)
-            readings.push_back(w.reading);
-        session->aligned = mutqin::AlignTokens(mutqin::GreedyDecode(session->frames), readings);
+        Realign(session, probs, num_frames);
+        return MQ_OK;
+    } catch (const std::exception&) {
+        return MQ_ERR_INTERNAL;
+    }
+}
+
+int mq_session_push_audio(mq_session* session, const float* samples, size_t num_samples) {
+    if (session == nullptr || (samples == nullptr && num_samples > 0))
+        return MQ_ERR_ARGUMENT;
+    if (!session->model)
+        return MQ_ERR_NO_MODEL;
+    try {
+        const std::vector<float> feats = session->logmel.Accept(samples, num_samples);
+        std::vector<float> posteriors;
+        session->model->Accept(feats.data(), feats.size() / 80, &posteriors);
+        if (!posteriors.empty())
+            Realign(session, posteriors.data(), posteriors.size() / MQ_VOCAB_SIZE);
         return MQ_OK;
     } catch (const std::exception&) {
         return MQ_ERR_INTERNAL;

@@ -14,6 +14,7 @@ extern "C" {
 #define MQ_ERR_ARGUMENT (-1) /* null pointer, bad range or index */
 #define MQ_ERR_DATA (-2)     /* Quran text missing or failed its checksum */
 #define MQ_ERR_INTERNAL (-3)
+#define MQ_ERR_NO_MODEL (-4) /* no recognition model is attached to the session */
 
 /* Library version as a static, NUL-terminated string, e.g. "0.1.0". */
 const char* mq_version(void);
@@ -83,6 +84,10 @@ int mq_session_phoneme(const mq_session* session, size_t index, mq_phoneme* out)
 /* Feeds num_frames rows of MQ_VOCAB_SIZE probabilities (row-major, each row sums to about 1).
  * The core decodes and aligns everything heard so far. Not real-time safe yet. */
 int mq_session_push_posteriors(mq_session* session, const float* probs, size_t num_frames);
+
+/* Feeds 16 kHz mono float samples in [-1, 1] (any chunk size). Features and the recognition model
+ * run inside; returns MQ_ERR_NO_MODEL if the session has no model. Not real-time safe yet. */
+int mq_session_push_audio(mq_session* session, const float* samples, size_t num_samples);
 
 /* Words of the range, in recitation order. */
 size_t mq_session_word_count(const mq_session* session);

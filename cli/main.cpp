@@ -1,6 +1,7 @@
 // mutqin-cli: thin client of the C API (mutqin.h). Only the public header is used.
 // Modes: print the expected phonemes of an ayah range (default), replay recorded model output
 // (--posteriors), or read a WAV (--wav; analysing audio needs a recognition model, not bundled yet).
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -53,6 +54,18 @@ const char* KindName(int kind) {
     }
 }
 
+void PrintEvents(const mq_session* session) {
+    const size_t events = mq_session_event_count(session);
+    for (size_t i = 0; i < events; ++i) {
+        mq_event e{};
+        mq_session_event(session, i, &e);
+        std::printf("%s\t%d:%d:%d\tword %zu\tconfidence %.2f\n", KindName(e.kind), e.surah, e.ayah, e.word,
+                    e.word_index, e.confidence);
+    }
+    if (events == 0)
+        std::printf("no mistakes found\n");
+}
+
 // Feeds recorded posteriors to the session and prints what the core found.
 int Replay(mq_session* session, const std::string& path) {
     std::ifstream in(path, std::ios::binary);
@@ -72,15 +85,7 @@ int Replay(mq_session* session, const std::string& path) {
         std::fprintf(stderr, "error: could not process the posteriors\n");
         return 1;
     }
-    const size_t events = mq_session_event_count(session);
-    for (size_t i = 0; i < events; ++i) {
-        mq_event e{};
-        mq_session_event(session, i, &e);
-        std::printf("%s\t%d:%d:%d\tword %zu\tconfidence %.2f\n", KindName(e.kind), e.surah, e.ayah, e.word,
-                    e.word_index, e.confidence);
-    }
-    if (events == 0)
-        std::printf("no mistakes found\n");
+    PrintEvents(session);
     return 0;
 }
 
@@ -148,8 +153,21 @@ int main(int argc, char** argv) {
         } else {
             std::printf("%s: %.2f s of 16 kHz audio\n", wav_path.c_str(),
                         static_cast<double>(wav.samples.size()) / 16000.0);
-            std::fprintf(stderr, "no recognition model is bundled yet, so the audio cannot be analysed\n");
-            status = 3;
+            const size_t chunk = 1600;  // 100 ms, as a microphone would deliver it
+            for (size_t at = 0; at < wav.samples.size() && status == 0; at += chunk) {
+                const size_t n = std::min(chunk, wav.samples.size() - at);
+                const int rc = mq_session_push_audio(session, wav.samples.data() + at, n);
+                if (rc == MQ_ERR_NO_MODEL) {
+                    std::fprintf(stderr,
+                                 "no recognition model is bundled yet, so the audio cannot be analysed\n");
+                    status = 3;
+                } else if (rc != MQ_OK) {
+                    std::fprintf(stderr, "error: could not process the audio\n");
+                    status = 1;
+                }
+            }
+            if (status == 0)
+                PrintEvents(session);
         }
         mq_session_destroy(session);
         mq_engine_destroy(engine);

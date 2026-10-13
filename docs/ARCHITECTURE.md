@@ -69,7 +69,7 @@ mutqin/
 
 Rules: `core/` contains no platform-specific code and builds on Linux, macOS, Windows.
 Microphone capture lives in `cli/` (and later in the apps), never in `core/`; the core only
-receives samples (planned `mq_push_audio`) or model posteriors through the C API.
+receives samples (`mq_session_push_audio`) or model posteriors through the C API.
 
 ## C API (`core/include/mutqin.h`)
 
@@ -80,11 +80,13 @@ mq_engine_create(data_dir, &engine, err, err_len);      /* loads + verifies the 
 mq_session_create(engine, surah, ayah_first, ayah_last, &session, err, err_len);
 mq_session_phoneme_count / mq_session_phoneme(...)      /* expected phonemes with rule tags */
 mq_session_push_posteriors(session, probs, num_frames); /* MQ_VOCAB_SIZE floats per frame */
+mq_session_push_audio(session, samples, n);             /* 16 kHz mono; needs a model, else MQ_ERR_NO_MODEL */
 mq_session_word_count / mq_session_word_status(...)     /* MQ_WORD_OK / WRONG / SKIPPED */
 mq_session_event_count / mq_session_event(...)          /* skipped, wrong, repeated, added */
 ```
 
-Still planned (needs the inference backend): `mq_push_audio` (16 kHz mono float samples),
+Models plug in through `AcousticModel` (`core/src/inference/acoustic_model.h`); no real backend exists yet
+(tests use a scripted fake). Still planned: the sherpa-onnx backend and a way for the C API to select it,
 a configuration struct (model directory, confidence threshold, madd preference), harakah and
 tajweed events with character spans and timestamps, `mq_reset`.
 

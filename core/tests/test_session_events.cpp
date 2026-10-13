@@ -2,10 +2,12 @@
 // words (no audio, no model): perfect, skipped-word and repeated-word recitations of 1:1-1:7.
 #include <gtest/gtest.h>
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "align/ctc.h"
+#include "api/session_internal.h"
 #include "mutqin.h"
 #include "tajweed/inventory.h"
 #include "tajweed/phonemizer.h"
@@ -136,4 +138,64 @@ TEST(SessionEvents, RejectsBadArguments) {
     EXPECT_EQ(mq_session_word_status(nullptr, 0), -1);
     mq_event e{};
     EXPECT_EQ(mq_session_event(nullptr, 0, &e), MQ_ERR_ARGUMENT);
+}
+
+namespace {
+
+// Plays back a scripted list of posterior rows: one row per 4 feature frames until it runs out.
+class ScriptedModel : public AcousticModel {
+public:
+    explicit ScriptedModel(std::vector<float> rows) : rows_(std::move(rows)) {}
+    void Accept(const float*, size_t frames, std::vector<float>* posteriors) override {
+        pending_ += frames;
+        while (pending_ >= 4 && next_ + MQ_VOCAB_SIZE <= rows_.size()) {
+            posteriors->insert(posteriors->end(), rows_.begin() + static_cast<std::ptrdiff_t>(next_),
+                               rows_.begin() + static_cast<std::ptrdiff_t>(next_ + MQ_VOCAB_SIZE));
+            next_ += MQ_VOCAB_SIZE;
+            pending_ -= 4;
+        }
+    }
+    void Reset() override {
+        next_ = 0;
+        pending_ = 0;
+    }
+
+private:
+    std::vector<float> rows_;
+    size_t next_ = 0, pending_ = 0;
+};
+
+}  // namespace
+
+TEST(SessionAudio, WithoutAModelPushAudioIsRefused) {
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    const std::vector<float> silence(1600, 0.0f);
+    EXPECT_EQ(mq_session_push_audio(f.session, silence.data(), silence.size()), MQ_ERR_NO_MODEL);
+    EXPECT_EQ(mq_session_push_audio(nullptr, silence.data(), silence.size()), MQ_ERR_ARGUMENT);
+}
+
+TEST(SessionAudio, AudioFlowsThroughFeaturesModelAndAligner) {
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    std::vector<size_t> order = AllWords(f.words.size());
+    order.erase(order.begin() + 8);  // the scripted "recitation" skips word 8
+    const std::vector<float> rows = f.Speak(order);
+    const size_t frames = rows.size() / MQ_VOCAB_SIZE;
+    SetSessionModel(f.session, std::make_unique<ScriptedModel>(rows));
+
+    // Audio content is irrelevant to the fake model; enough samples for 4 feature frames per row.
+    const size_t total = (frames * 4 + 2) * 160 + 400;
+    const std::vector<float> audio(total, 0.01f);
+    for (size_t at = 0; at < audio.size(); at += 1600)
+        ASSERT_EQ(
+            mq_session_push_audio(f.session, audio.data() + at, std::min<size_t>(1600, audio.size() - at)),
+            MQ_OK);
+    ASSERT_EQ(mq_session_event_count(f.session), 1u);
+    mq_event e{};
+    ASSERT_EQ(mq_session_event(f.session, 0, &e), MQ_OK);
+    EXPECT_EQ(e.kind, MQ_EVENT_SKIPPED);
+    EXPECT_EQ(e.word_index, 8u);
 }
