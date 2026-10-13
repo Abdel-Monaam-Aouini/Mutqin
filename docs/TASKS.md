@@ -8,7 +8,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [ ] 0.3 (DEFERRED) CI (GitHub Actions): build core + run C++ and Python tests
 - [x] 0.4 `tools/quran_text/download.py`: fetch Tanzil Uthmani + simple text, write SHA-256 checksums
 - [x] 0.5 Python loader + data model (surah/ayah/word IDs) with checksum check; tests: 114 surahs, 6236 ayahs
-- [ ] 0.6 C++ loader with the same behavior; test compares with Python output
+- [x] 0.6 C++ loader with the same behavior; test compares with Python output
 - [x] 0.7 `docs/LICENSES.md` with every source and its license
 
 ## Phase 1 — Rule engine
