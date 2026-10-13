@@ -12,6 +12,7 @@
 #include "align/ctc.h"
 #include "api/session_internal.h"
 #include "features/logmel.h"
+#include "inference/sherpa_recognizer.h"
 #include "mutqin.h"
 #include "tajweed/phonemizer.h"
 #include "text/quran.h"
@@ -29,11 +30,15 @@ struct mq_session {
     std::unique_ptr<mutqin::StreamingAligner> aligner;
     mutqin::LogMel logmel;
     std::unique_ptr<mutqin::AcousticModel> model;
+    std::unique_ptr<mutqin::TokenRecognizer> recognizer;
 };
 
 namespace mutqin {
 void SetSessionModel(mq_session* session, std::unique_ptr<AcousticModel> model) {
     session->model = std::move(model);
+}
+void SetSessionRecognizer(mq_session* session, std::unique_ptr<TokenRecognizer> recognizer) {
+    session->recognizer = std::move(recognizer);
 }
 }  // namespace mutqin
 
@@ -160,16 +165,24 @@ int mq_session_phoneme(const mq_session* session, size_t index, mq_phoneme* out)
 }
 
 namespace {
+void EnsureAligner(mq_session* session) {
+    if (session->aligner)
+        return;
+    std::vector<mutqin::WordReading> readings;
+    for (const mutqin::WordRef& w : session->words)
+        readings.push_back(w.reading);
+    session->aligner = std::make_unique<mutqin::StreamingAligner>(std::move(readings));
+}
+
+void AlignHeard(mq_session* session, const std::vector<mutqin::HeardToken>& heard) {
+    EnsureAligner(session);
+    session->aligned = session->aligner->Update(heard);
+}
+
 void Realign(mq_session* session, const float* probs, size_t num_frames) {
     for (size_t i = 0; i < num_frames; ++i)
         session->frames.push_back(mutqin::ArgmaxFrame(probs + i * MQ_VOCAB_SIZE));
-    if (!session->aligner) {
-        std::vector<mutqin::WordReading> readings;
-        for (const mutqin::WordRef& w : session->words)
-            readings.push_back(w.reading);
-        session->aligner = std::make_unique<mutqin::StreamingAligner>(std::move(readings));
-    }
-    session->aligned = session->aligner->Update(mutqin::GreedyDecode(session->frames));
+    AlignHeard(session, mutqin::GreedyDecode(session->frames));
 }
 }  // namespace
 
@@ -187,6 +200,16 @@ int mq_session_push_posteriors(mq_session* session, const float* probs, size_t n
 int mq_session_push_audio(mq_session* session, const float* samples, size_t num_samples) {
     if (session == nullptr || (samples == nullptr && num_samples > 0))
         return MQ_ERR_ARGUMENT;
+    if (session->recognizer) {
+        try {
+            std::vector<mutqin::HeardToken> heard;
+            session->recognizer->Accept(samples, num_samples, &heard);
+            AlignHeard(session, heard);
+            return MQ_OK;
+        } catch (const std::exception&) {
+            return MQ_ERR_INTERNAL;
+        }
+    }
     if (!session->model)
         return MQ_ERR_NO_MODEL;
     try {
@@ -199,6 +222,49 @@ int mq_session_push_audio(mq_session* session, const float* samples, size_t num_
     } catch (const std::exception&) {
         return MQ_ERR_INTERNAL;
     }
+}
+
+int mq_session_finish_audio(mq_session* session) {
+    if (session == nullptr)
+        return MQ_ERR_ARGUMENT;
+    if (!session->recognizer)
+        return session->model ? MQ_OK : MQ_ERR_NO_MODEL;
+    try {
+        std::vector<mutqin::HeardToken> heard;
+        session->recognizer->Finish(&heard);
+        AlignHeard(session, heard);
+        return MQ_OK;
+    } catch (const std::exception&) {
+        return MQ_ERR_INTERNAL;
+    }
+}
+
+int mq_session_load_model(mq_session* session, const char* manifest_path, char* err, size_t err_len) {
+    if (session == nullptr || manifest_path == nullptr)
+        return MQ_ERR_ARGUMENT;
+#ifdef MUTQIN_HAVE_SHERPA
+    try {
+        mutqin::SherpaConfig config;
+        std::string error;
+        if (!mutqin::ReadModelManifest(manifest_path, &config, &error)) {
+            SetError(err, err_len, error);
+            return MQ_ERR_DATA;
+        }
+        std::unique_ptr<mutqin::TokenRecognizer> recognizer = mutqin::CreateSherpaRecognizer(config, &error);
+        if (!recognizer) {
+            SetError(err, err_len, error);
+            return MQ_ERR_DATA;
+        }
+        session->recognizer = std::move(recognizer);
+        return MQ_OK;
+    } catch (const std::exception& e) {
+        SetError(err, err_len, e.what());
+        return MQ_ERR_INTERNAL;
+    }
+#else
+    SetError(err, err_len, "this build has no inference backend (configure with -DMUTQIN_WITH_SHERPA=ON)");
+    return MQ_ERR_NO_MODEL;
+#endif
 }
 
 size_t mq_session_word_count(const mq_session* session) {

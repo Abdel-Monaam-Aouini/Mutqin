@@ -90,6 +90,32 @@ Models plug in through `AcousticModel` (`core/src/inference/acoustic_model.h`); 
 a configuration struct (model directory, confidence threshold, madd preference), harakah and
 tajweed events with character spans and timestamps, `mq_reset`.
 
+## Recognition backends
+
+A model plugs into a session in one of two shapes (`core/src/inference/`):
+
+- `AcousticModel`: log-mel frames in, CTC posteriors out (full confidences; used by tests and by
+  a future ONNX Runtime backend).
+- `TokenRecognizer`: raw audio in, recognised phoneme tokens with timestamps out. The
+  **sherpa-onnx backend** (`sherpa_recognizer.cpp`, Apache-2.0, optional) is this shape: its C API
+  returns tokens and times but no probabilities, so every token has confidence 1.0.
+
+Build it with `-DMUTQIN_WITH_SHERPA=ON -DSHERPA_ONNX_DIR=<extracted sherpa-onnx release>`; without
+the switch `mq_session_load_model` explains that the backend is not built. A model is loaded from a
+manifest (`mutqin_model.txt`, `key=value` lines, paths relative to it):
+
+```
+model=model.int8.onnx        # streaming Zipformer2 CTC
+tokens=tokens.txt
+token_map=token_map.tsv      # "<model unit><TAB><our phoneme symbols>", one line per unit
+threads=2
+```
+
+`token_map.tsv` maps each of the model's units to one or more of our 31 symbols (a long vowel unit
+becomes the vowel; a geminate unit may become two symbols); units not in the map are dropped. It
+has to be written against the real model's `tokens.txt` and checked by someone who knows its units.
+Tested with a public Chinese streaming model only (plumbing, real-time factor 0.04 on the dev CPU).
+
 ## Threading
 
 - Audio callback (CLI/app): only copies samples into a lock-free ring buffer.

@@ -5,12 +5,16 @@
 #include <memory>
 
 #include "inference/acoustic_model.h"
+#include "inference/token_recognizer.h"
 #include "mutqin.h"
 
 namespace mutqin {
 
 // Gives the session its recognition model; mq_session_push_audio needs one.
 void SetSessionModel(mq_session* session, std::unique_ptr<AcousticModel> model);
+
+// Gives the session a recognizer that returns tokens directly (sherpa-onnx style).
+void SetSessionRecognizer(mq_session* session, std::unique_ptr<TokenRecognizer> recognizer);
 
 }  // namespace mutqin
 

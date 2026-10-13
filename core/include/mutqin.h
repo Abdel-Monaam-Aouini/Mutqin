@@ -89,6 +89,14 @@ int mq_session_push_posteriors(mq_session* session, const float* probs, size_t n
  * run inside; returns MQ_ERR_NO_MODEL if the session has no model. Not real-time safe yet. */
 int mq_session_push_audio(mq_session* session, const float* samples, size_t num_samples);
 
+/* Signals the end of the audio so the last words are decoded (token recognizers only). */
+int mq_session_finish_audio(mq_session* session);
+
+/* Loads a recognition model from a manifest file (key=value lines: model=, tokens=, token_map=,
+ * threads=; paths relative to the manifest). Returns MQ_ERR_NO_MODEL with a message if this build
+ * has no inference backend (-DMUTQIN_WITH_SHERPA=ON). */
+int mq_session_load_model(mq_session* session, const char* manifest_path, char* err, size_t err_len);
+
 /* Words of the range, in recitation order. */
 size_t mq_session_word_count(const mq_session* session);
 int mq_session_word_status(const mq_session* session, size_t word_index); /* MQ_WORD_*, -1 if bad index */

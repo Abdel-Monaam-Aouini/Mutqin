@@ -29,6 +29,7 @@ void Usage() {
         "  --posteriors FILE  replay model output: raw little-endian float32, 32 values per frame\n"
         "                     (blank + 31 phonemes); prints word statuses and events\n"
         "  --chunk N          with --posteriors: push N frames at a time (streaming), prints the time\n"
+        "  --model FILE       recognition model manifest (mutqin_model.txt), needed by --wav and --mic\n"
         "  --mic [--seconds N]  live microphone (stop with Ctrl-C or after N seconds); needs a model\n"
         "  --wav FILE         16 kHz WAV (mono or stereo, 16-bit or float)\n"
         "  --version    print the library version\n",
@@ -155,9 +156,9 @@ int Replay(mq_session* session, const std::string& path, size_t chunk_frames) {
 
 int main(int argc, char** argv) {
     std::string data_dir = "data/quran";
-    std::string posteriors_path, wav_path;
+    std::string posteriors_path, wav_path, model_path;
     bool use_mic = false;
-    int mic_seconds = 0;
+    [[maybe_unused]] int mic_seconds = 0;  // unused when built without microphone support
     size_t chunk_frames = 0;
     int surah = 0, first = 0, last = 0;
     for (int i = 1; i < argc; ++i) {
@@ -170,6 +171,8 @@ int main(int argc, char** argv) {
             data_dir = argv[++i];
         } else if (arg == "--posteriors" && has_value) {
             posteriors_path = argv[++i];
+        } else if (arg == "--model" && has_value) {
+            model_path = argv[++i];
         } else if (arg == "--mic") {
             use_mic = true;
         } else if (arg == "--seconds" && has_value) {
@@ -209,6 +212,12 @@ int main(int argc, char** argv) {
         return 1;
     }
     int status = 0;
+    if (!model_path.empty() && mq_session_load_model(session, model_path.c_str(), err, sizeof err) != MQ_OK) {
+        std::fprintf(stderr, "error: %s\n", err);
+        mq_session_destroy(session);
+        mq_engine_destroy(engine);
+        return 1;
+    }
     if (!posteriors_path.empty()) {
         status = Replay(session, posteriors_path, chunk_frames);
         mq_session_destroy(session);
@@ -248,7 +257,7 @@ int main(int argc, char** argv) {
                     status = 1;
                 }
             }
-            if (status == 0)
+            if (status == 0 && mq_session_finish_audio(session) == MQ_OK)
                 PrintEvents(session);
         }
         mq_session_destroy(session);

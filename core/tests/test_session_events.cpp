@@ -199,3 +199,95 @@ TEST(SessionAudio, AudioFlowsThroughFeaturesModelAndAligner) {
     EXPECT_EQ(e.kind, MQ_EVENT_SKIPPED);
     EXPECT_EQ(e.word_index, 8u);
 }
+
+#include <fstream>
+
+#include "inference/sherpa_recognizer.h"
+
+namespace {
+
+// Returns a scripted token hypothesis: the first half after Accept, everything after Finish.
+class ScriptedRecognizer : public TokenRecognizer {
+public:
+    explicit ScriptedRecognizer(std::vector<HeardToken> all) : all_(std::move(all)) {}
+    void Accept(const float*, size_t, std::vector<HeardToken>* tokens) override {
+        tokens->assign(all_.begin(), all_.begin() + static_cast<std::ptrdiff_t>(all_.size() / 2));
+    }
+    void Finish(std::vector<HeardToken>* tokens) override { *tokens = all_; }
+    void Reset() override {}
+
+private:
+    std::vector<HeardToken> all_;
+};
+
+}  // namespace
+
+TEST(SessionTokens, TokenRecognizerFeedsTheAlignerAndFinishFlushes) {
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    std::vector<HeardToken> heard;
+    int frame = 0;
+    for (size_t w = 0; w < f.words.size(); ++w) {
+        if (w == 8)
+            continue;  // the scripted recitation skips word 8
+        for (const std::string& sym : f.words[w].reading.cont) {
+            HeardToken t;
+            t.symbol = sym;
+            t.confidence = 1.0;
+            t.start = frame;
+            t.end = frame + 4;
+            frame += 4;
+            heard.push_back(t);
+        }
+    }
+    SetSessionRecognizer(f.session, std::make_unique<ScriptedRecognizer>(heard));
+    const std::vector<float> audio(1600, 0.0f);
+    ASSERT_EQ(mq_session_push_audio(f.session, audio.data(), audio.size()), MQ_OK);
+    ASSERT_EQ(mq_session_finish_audio(f.session), MQ_OK);
+    ASSERT_EQ(mq_session_event_count(f.session), 1u);
+    mq_event e{};
+    ASSERT_EQ(mq_session_event(f.session, 0, &e), MQ_OK);
+    EXPECT_EQ(e.kind, MQ_EVENT_SKIPPED);
+    EXPECT_EQ(e.word_index, 8u);
+}
+
+TEST(TokenMap, ParsesAndValidates) {
+    TokenMap map;
+    std::string error;
+    ASSERT_TRUE(ParseTokenMap("# comment\nAA\ta a\nB\tb\n\nSIL\t\n", &map, &error)) << error;
+    EXPECT_EQ(map.at("AA"), (std::vector<std::string>{"a", "a"}));
+    EXPECT_EQ(map.at("B"), (std::vector<std::string>{"b"}));
+    EXPECT_TRUE(map.at("SIL").empty());
+    EXPECT_FALSE(ParseTokenMap("X\tnotaphoneme\n", &map, &error));
+    EXPECT_NE(error.find("notaphoneme"), std::string::npos);
+    EXPECT_FALSE(ParseTokenMap("no tab here\n", &map, &error));
+}
+
+TEST(ModelManifest, ResolvesPathsRelativeToTheManifest) {
+    const std::string dir = ::testing::TempDir();
+    const std::string path = dir + "/mutqin_manifest_test.txt";
+    {
+        std::ofstream out(path);
+        out << "# model\nmodel=encoder.onnx\ntokens=tokens.txt\ntoken_map=/abs/map.tsv\nthreads=3\n";
+    }
+    SherpaConfig config;
+    std::string error;
+    ASSERT_TRUE(ReadModelManifest(path, &config, &error)) << error;
+    EXPECT_EQ(config.model, dir + "/encoder.onnx");
+    EXPECT_EQ(config.tokens, dir + "/tokens.txt");
+    EXPECT_EQ(config.token_map, "/abs/map.tsv");
+    EXPECT_EQ(config.threads, 3);
+    EXPECT_FALSE(ReadModelManifest(dir + "/does_not_exist.txt", &config, &error));
+}
+
+#ifndef MUTQIN_HAVE_SHERPA
+TEST(ModelManifest, LoadModelExplainsWhenTheBackendIsNotBuilt) {
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    char err[256];
+    EXPECT_EQ(mq_session_load_model(f.session, "whatever.txt", err, sizeof err), MQ_ERR_NO_MODEL);
+    EXPECT_NE(std::string(err).find("MUTQIN_WITH_SHERPA"), std::string::npos);
+}
+#endif

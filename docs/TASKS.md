@@ -35,7 +35,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 
 ## Phase 3 — C++ core + mutqin-cli
 - [x] 3.1 C++ audio ring buffer, VAD, features — ring buffer, log-mel (80 bins, 25/10 ms) and energy VAD done; Silero VAD and exact model feature settings follow with task 2.1
-- [ ] 3.2 sherpa-onnx integration in core
+- [ ] 3.2 sherpa-onnx integration in core — backend written and plumbing-tested with a public streaming CTC model (RTF 0.04); needs the real phoneme model and its token map
 - [x] 3.3 Port aligner + detector to C++, with Python-vs-C++ parity test — 180 generated cases match the Python prototype
 - [ ] 3.4 C API (`mq_`) + tests — expected phonemes, posteriors in, word statuses and events out are done and tested; only the inference backend and live audio are missing
 - [ ] 3.5 (DEFERRED to Phase 3b) Android demo app (Oboe + JNI)
