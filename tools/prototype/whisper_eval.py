@@ -3,7 +3,9 @@
 The recording must be a correct recitation of known ayahs; every difference is then an error of
 the model (a false alarm for Mutqin). The reference is read from data/quran/, never typed.
 Usage: python3 -I tools/prototype/whisper_eval.py WAV --surah N --ayahs A-B [--seconds S] [--model DIR]
-The transcript is cached next to the WAV (.transcript.txt). WAV is 16 kHz mono (e.g. ffmpeg -i in.mp3 -ac 1 -ar 16000 out.wav). Dev-only: needs torch + transformers.
+The transcript is cached next to the WAV (.transcript.txt).
+WAV is 16 kHz mono (e.g. ffmpeg -i in.mp3 -ac 1 -ar 16000 out.wav).
+Dev-only: needs torch + transformers.
 """
 
 from __future__ import annotations
@@ -106,9 +108,8 @@ def main() -> int:
     total, ops = align_words(ref, hyp)
     n_ref = sum(1 for o in ops if o[0] != "ins")
     kinds = {k: sum(1 for o in ops if o[0] == k) for k in ("ok", "sub", "del", "ins")}
-    print(
-        f"heard words {len(hyp)}, reference words covered {n_ref}, errors {total} -> {total / max(1, n_ref):.1%}"
-    )
+    rate = total / max(1, n_ref)
+    print(f"heard words {len(hyp)}, reference words covered {n_ref}, errors {total} -> {rate:.1%}")
     print(kinds)
     for kind, r, h in ops:
         if kind != "ok":
