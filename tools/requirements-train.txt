@@ -1,0 +1,4 @@
+# Model training (development machine / rented GPU only; CI does not install these).
+-r requirements.txt
+torch>=2.5          # BSD-3-Clause: use the CPU or CUDA build that fits the machine
+soundfile>=0.12     # BSD-3-Clause: read WAV files

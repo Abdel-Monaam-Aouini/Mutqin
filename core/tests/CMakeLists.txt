@@ -79,6 +79,19 @@ if(MUTQIN_PYTHON AND EXISTS "${MUTQIN_DATA_DIR}/checksums.txt"
     set_tests_properties(WordsParity.CppEqualsPython PROPERTIES
         FIXTURES_REQUIRED words_py_dump
         ENVIRONMENT "MUTQIN_PY_WORDS_DUMP=${MUTQIN_PY_WORDS_DUMP}")
+    add_executable(mutqin_features_parity_tests test_features_parity.cpp)
+    target_include_directories(mutqin_features_parity_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
+    target_link_libraries(mutqin_features_parity_tests PRIVATE Mutqin::Core GTest::gtest_main)
+
+    set(MUTQIN_PY_FEATURES_DUMP "${CMAKE_CURRENT_BINARY_DIR}/features_py_dump.bin")
+    add_test(NAME FeaturesParity.PythonDump
+        COMMAND ${MUTQIN_PYTHON} -I "${PROJECT_SOURCE_DIR}/tools/train/dump_features.py" "${MUTQIN_PY_FEATURES_DUMP}")
+    set_tests_properties(FeaturesParity.PythonDump PROPERTIES FIXTURES_SETUP features_py_dump)
+
+    add_test(NAME FeaturesParity.CppEqualsNumpy COMMAND mutqin_features_parity_tests)
+    set_tests_properties(FeaturesParity.CppEqualsNumpy PROPERTIES
+        FIXTURES_REQUIRED features_py_dump
+        ENVIRONMENT "MUTQIN_PY_FEATURES_DUMP=${MUTQIN_PY_FEATURES_DUMP}")
 else()
     message(STATUS "Quran parity test disabled (need data/quran/ and python)")
 endif()

@@ -1,1 +1,2 @@
 pytest>=8,<9   # MIT
+numpy>=2,<3    # BSD-3-Clause: training features (tools/train) and their C++ parity test
