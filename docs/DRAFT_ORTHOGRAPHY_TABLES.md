@@ -1,6 +1,6 @@
 # DRAFT: orthography to phoneme tables (NOT part of the spec yet)
 
-**Status: DRAFT, UNVERIFIED.** Proposed 2026-10-13 to answer the two open questions in
+**Status: DRAFT, UNVERIFIED. Owner asked for it to be implemented for testing on 2026-10-13 ("implement, I'll test"); `tools/phonemizer/phonemize.py` follows these tables and is provisional until a teacher confirms them.** Proposed 2026-10-13 to answer the two open questions in
 `docs/TAJWEED_SPEC.md` (meaning of the small signs; letter-variant mapping). AGENTS.md says to
 implement only what the spec contains, so **nothing here may be implemented until the owner or
 the teacher confirms a row and it is moved into the spec.**
@@ -83,3 +83,16 @@ sajdah. U+06DD (end of ayah) and U+06DE (rub el hizb) are not present in our dow
 2. Starting vowel of hamzat al-wasl (only the definite article is clear from the data).
 3. The meaning of U+06E0 and U+06E7, and what a waw / yeh with no sign after a fatha is.
 4. The new special case at 21:88:7.
+
+## Additions found while implementing task 1.3 (all from the Tanzil data; Verify)
+
+| Case | Implemented as | Evidence |
+|------|----------------|----------|
+| Yeh-shaped letter (U+0649) with its own vowel, shaddah or sukun | consonant `y` (+ vowel) | 843 cases, mostly after kasra / fatha, final or before hamza |
+| Alef maksura after tanween fatha | tanween alef (same as alef after tanween fatha) | 93 cases, previous unit is a tanween |
+| Small waw / small yeh with its own vowel | consonant `w` / `y` + vowel | 1 case (small yeh + fatha) |
+| Tatweel carrying small high yeh and its own kasra | consonant `y` + `i` | 4 cases |
+| Hamza above on a non-tatweel host | `hz` emitted in mark order after the long a | 1 case (2:72:4) |
+| Bare waw after fatha before a silent alef (U+06DF) | consonant `w` with tag `implicit_sukun` | 22 of 23 cases |
+| Word with no vowel, tanween, sukun or shaddah on any letter | disconnected letters (surah openings): skipped, letter names come from task 1.9 data | finds exactly 30 words: ayah 1 word 1 of 29 surahs and 42:2:1 |
+| 11:41:6, 68:6:1, 83:3:3 | not handled; reported as diagnostics for task 1.9 | one case each |
