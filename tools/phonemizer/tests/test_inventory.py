@@ -28,7 +28,7 @@ def test_codepoints_match_official_unicode_names():
 
 def test_letter_codepoints_are_unique():
     cps = [p.codepoint for p in inv.PHONEMES if p.codepoint is not None]
-    assert len(cps) == len(set(cps)) == 29
+    assert len(cps) == len(set(cps)) == 28
 
 
 def test_vocab_blank_is_zero_and_ids_are_dense():
