@@ -672,6 +672,8 @@ def apply_waqf(items: list[Item]) -> None:
         vowel = items[v_idx]
         if not (vowel.role == "vowel" and vowel.dur == (1,) and vowel.variant is Variant.BOTH):
             continue
+        if any(items[k].role == "cons" for k in idxs if k > v_idx):
+            continue  # a stop-only consonant (the noon of an idgham) follows: the vowel is not final
         cons = [k for k in cont[:end - 1] if items[k].role == "cons"]
         c_idx = cons[-1] if cons else None
 

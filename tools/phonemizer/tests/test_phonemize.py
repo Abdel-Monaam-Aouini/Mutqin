@@ -520,3 +520,11 @@ def test_idgham_into_a_letter_the_text_already_doubles_keeps_a_plain_form_after_
     assert cont == [("l", []), ("l", ["idgham_no_ghunnah"])]
     stopped = [(i.ph, i.rules) for i in select_reading(r.items, stops={(1, 1, 1)}) if i.ph in "nl"]
     assert stopped == [("n", []), ("l", []), ("l", [])]
+
+
+def test_vowel_before_an_idgham_noon_is_kept_when_stopping_on_that_word():
+    r = two_words(BA + FATHA + NOON, YEH_ + FATHA)
+    stopped = [(i.ph, i.dur) for i in select_reading(r.items, stops={(1, 1, 1)}) if i.ph in "bna"][:3]
+    assert stopped == [("b", ()), ("a", (1,)), ("n", ())]
+    cont = [i.ph for i in select_reading(r.items) if i.ph in "bna"][:3]
+    assert cont == ["b", "a", "a"]  # reading on: the noon disappears into the next letter
