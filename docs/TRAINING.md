@@ -1,5 +1,9 @@
 # Training our own phoneme model
 
+**On hold (owner decision, 2026-10-13):** training is skipped for now (no GPU); the project waits for
+access to Muno459/zipformer_p-quran. The pipeline below stays in the repository so training can be
+resumed without rework.
+
 Status (2026-10-13): the whole pipeline exists and runs on CPU; real training needs a GPU and much
 more audio. Decisions by the owner: EveryAyah audio for **research only** (the trained model stays
 private until the audio license is cleared, see `LICENSES.md`); no GPU yet.
