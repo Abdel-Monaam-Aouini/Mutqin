@@ -40,7 +40,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [ ] 3.4 C API (`mq_`) + tests — expected phonemes, posteriors in, word statuses and events out are done and tested; only the inference backend and live audio are missing
 - [ ] 3.5 (DEFERRED to Phase 3b) Android demo app (Oboe + JNI)
 - [ ] 3.6 (DEFERRED to Phase 3b) iOS demo app (AVAudioEngine + Swift bridge)
-- [ ] 3.7 Desktop benchmarks (RTF, latency); phone benchmarks deferred to Phase 3b
+- [ ] 3.7 Desktop benchmarks (RTF, latency); phone benchmarks deferred to Phase 3b — front end, aligner and a stand-in model measured on desktop (docs/EVAL_RESULTS.md); the real model and latency to an event are pending
 - [ ] 3.8 `mutqin-cli`: WAV (16 kHz mono) and live microphone input, surah + ayah range, prints events and mistakes — expected phonemes, WAV reader, live microphone (--mic) and posterior replay done; analysing audio needs a model
 
 ## Phase 4–6

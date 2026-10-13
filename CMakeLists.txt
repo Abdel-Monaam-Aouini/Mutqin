@@ -10,6 +10,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(MUTQIN_BUILD_TESTS "Build MutqinCore tests (fetches GoogleTest)" ON)
+option(MUTQIN_BUILD_BENCH "Build the micro-benchmark (core/bench)" OFF)
 option(MUTQIN_WERROR "Treat compiler warnings as errors (used by CI)" OFF)
 
 if(MSVC)
@@ -28,6 +29,12 @@ endif()
 
 add_subdirectory(core)
 add_subdirectory(cli)
+
+if(MUTQIN_BUILD_BENCH)
+    add_executable(mutqin_bench core/bench/bench.cpp)
+    target_include_directories(mutqin_bench PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
+    target_link_libraries(mutqin_bench PRIVATE Mutqin::Core)
+endif()
 
 if(MUTQIN_BUILD_TESTS)
     include(CTest)

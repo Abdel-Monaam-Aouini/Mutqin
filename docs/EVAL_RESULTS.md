@@ -116,3 +116,25 @@ only, on the first minute of the same surah 5 recitation in 15 s chunks. Finding
 - It is not streaming (full-attention wav2vec2). Speed is good (about 1 s per 15 s on the dev CPU).
 
 Not usable for ayah-level tracking as released. It could only serve for single-word clips.
+
+## Desktop speed (task 3.7, pieces measured; full-model figure pending)
+
+Release build, AMD Ryzen 7 5800H (16 threads), one thread used. Real-time factor (RTF) =
+processing time / audio time; lower is faster. Reproduce: `-DMUTQIN_BUILD_BENCH=ON`, run
+`mutqin_bench 120`, and `mutqin-cli ... --posteriors FILE --chunk N`.
+
+| Stage | Measurement | RTF |
+|---|---|---|
+| Log-mel features | 120 s of audio in 0.27 s | 0.0022 |
+| Energy VAD | 120 s in 1.6 ms | 0.00001 |
+| Aligner + detector, whole 167 s recitation of 2:6-40 (700+ words) pushed at once | 214 ms | 0.0013 |
+| same, pushed every 250 ms (668 pushes) | 766 ms total | 0.0046 |
+| same, pushed every 40 ms (4,175 pushes) | 2.97 s total, 0.7 ms per push | 0.018 |
+| same, pushed every 10 ms (16,699 pushes) | 10.7 s total, 0.64 ms per push | 0.064 |
+| sherpa-onnx backend with a public int8 streaming Zipformer CTC test model (Chinese, 5.6 s and 1.8 s clips) | 0.24 s and 0.08 s | 0.04 |
+
+Reading: the front end and the aligner cost almost nothing next to a model; even pushing every
+10 ms keeps the aligner far below the 0.3 target. The test model is not our phoneme model (the
+Zipformer from the candidate list is 65M parameters, similar in size to this one), so the model
+row is indicative only; the real figure and the latency to a reported mistake need the real model.
+Phone benchmarks are deferred to Phase 3b.

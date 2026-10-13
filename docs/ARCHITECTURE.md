@@ -24,7 +24,7 @@ phoneme sequence (with waqf / continue variants).
 |---|---|
 | Quran text, rule engine (phonemizer), word readings | done in C++, checked against the Python reference for the whole Quran |
 | Ring buffer, log-mel features, energy VAD | done in C++ (`audio/`, `features/`, `vad/`) |
-| Acoustic model | **not chosen yet**; the core takes CTC posteriors over a fixed 32-token vocabulary (blank + the 31 phonemes of `PHONEME_INVENTORY.md`), so a backend only has to map its output to those tokens |
+| Recognition model | **not chosen yet** (candidates and results in `EVAL_RESULTS.md`). Two plug-in shapes exist: CTC posteriors over a fixed 32-token vocabulary (blank + the 31 phonemes of `PHONEME_INVENTORY.md`), or phoneme tokens from the optional sherpa-onnx backend (see "Recognition backends") |
 | CTC decoding, aligner, word detector | done in C++ (`align/`), same results as the Python prototype on generated cases |
 | C API | expected phonemes, posteriors in, word statuses and events out (see below) |
 | `mutqin-cli` | prints expected phonemes, reads WAV, replays recorded posteriors (`--posteriors`) |
