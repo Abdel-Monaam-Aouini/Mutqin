@@ -158,3 +158,7 @@ hardcode Arabic text.
 - [ ] Orthography to phoneme mapping for letter variants: alef (long a vs hamza seat vs silent),
   alef maksura, teh marbuta (teh vs heh at waqf), hamza on alef / waw / yeh, alef wasla
   (U+0671), and which letters are silent. Task 1.3 needs a written table; none is in this spec.
+- [ ] DRAFT answers for the two questions above are in `docs/DRAFT_ORTHOGRAPHY_TABLES.md`
+  (unverified; not to be implemented before confirmation and merge into this spec).
+- [ ] New special case: U+06E8 small high noon occurs once, at 21:88:7, and is not listed in
+  section 3.9. Confirm what it marks.
