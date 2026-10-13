@@ -23,7 +23,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [x] 1.9 Special cases data file (3.9) — empty structure first, filled with teacher (structure, loader, candidates report done; contents wait for the teacher)
 - [x] 1.10 Validation against annotation dataset; report of all differences (see docs/VALIDATION_REPORT.md)
 - [x] 1.11 Human-readable report generator for teacher review (HTML/PDF)
-- [ ] 1.12 C++ port + full-Quran equality test with Python
+- [x] 1.12 C++ port + full-Quran equality test with Python (phonemizer ported to core/src/tajweed; tools such as report, validate and show stay in Python)
 
 ## Phase 2 — Desktop prototype
 - [ ] 2.1 Evaluate 2–3 candidate CTC models on EveryAyah subset; pick one

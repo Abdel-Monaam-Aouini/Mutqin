@@ -2,6 +2,10 @@ add_library(MutqinCore
     src/api/version.cpp
     src/text/quran.cpp
     src/text/sha256.cpp
+    src/text/utf8.cpp
+    src/tajweed/inventory.cpp
+    src/tajweed/uthmani.cpp
+    src/tajweed/phonemizer.cpp
 )
 add_library(Mutqin::Core ALIAS MutqinCore)
 
