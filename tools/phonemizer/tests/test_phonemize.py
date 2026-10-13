@@ -5,7 +5,7 @@ import pytest
 
 from tools.phonemizer import uthmani as u
 from tools.phonemizer.inventory import BY_SYMBOL, Variant
-from tools.phonemizer.phonemize import phonemize_ayah
+from tools.phonemizer.phonemize import phonemize_ayah, phonemize_range
 from tools.quran_text import loader
 from tools.quran_text.download import CHECKSUMS_NAME
 from tools.quran_text.model import Ayah, Word
@@ -124,6 +124,7 @@ EXPECTED_SPECIAL = {
     "long_a_without_fatha": {"11:41:6"},
     "bare_yeh_after_a": {"68:6:1"},
     "bare_waw_after_a": {"83:3:3"},
+    "noon_sukun_before_non_izhar_letter": {"75:27:2"},  # sakt location listed in spec 3.9
 }
 
 
@@ -142,8 +143,9 @@ def test_whole_quran_phonemizes_with_only_known_special_cases():
                 assert 0 <= p.char_span[0] < p.char_span[1] <= len(words[p.word].text)
                 if p.ph in "aiu":
                     assert p.dur in ((1,), (2,))
-                else:
-                    assert p.dur == ()
+                else:  # consonants have no duration, except ghunnah (2 counts) from noon / meem rules
+                    assert p.dur == () or (p.dur == (2,) and any(
+                        r.startswith(("ikhfa", "iqlab", "idgham_ghunnah")) for r in p.rules))
             for d in result.diagnostics:
                 if d.kind == "disconnected_letters":
                     disconnected.add(d.word_id)
@@ -176,3 +178,110 @@ def test_article_lam_sun_and_moon_letters_come_out_consistent():
                             clear.add(units[i + 1].char)
     assert len(assimilated) == 14
     assert assimilated & clear == {"\u062A"}
+
+
+# -- noon sakinah and tanween (spec 3.1) --------------------------------------------------------
+HEH, KAF, YEH_, REH, MEEM = "\u0647", "\u0643", "\u064A", "\u0631", "\u0645"
+
+
+def two_words(first: str, second: str):
+    return run(first, second)
+
+
+def vs(result, kinds=None):
+    """(ph, variant value, dur, rules) of consonant items, optionally restricted by symbol."""
+    return [(p.ph, p.variant.value, p.dur, p.rules) for p in result.phonemes
+            if p.ph not in "aiu" and (kinds is None or p.ph in kinds)]
+
+
+def test_izhar_halqi_keeps_the_noon():
+    r = two_words(BA + FATHA + NOON + SUKUN, HEH + FATHA)
+    assert vs(r, "n") == [("n", "both", (), ("izhar_halqi",))]
+
+
+def test_ikhfa_hides_the_noon_with_ghunnah_only_when_continuing():
+    r = two_words(BA + FATHA + NOON, KAF + FATHA)
+    assert vs(r, "n") == [("n", "continue_only", (2,), ("ikhfa",)), ("n", "waqf_only", (), ())]
+
+
+def test_iqlab_turns_the_noon_into_meem():
+    r = two_words(BA + FATHA + NOON, BA + FATHA)
+    assert vs(r, "nm") == [("m", "continue_only", (2,), ("iqlab",)), ("n", "waqf_only", (), ())]
+
+
+def test_idgham_without_ghunnah_doubles_the_next_letter():
+    r = two_words(BA + FATHA + NOON, LAM + FATHA)
+    assert vs(r, "nl") == [
+        ("n", "waqf_only", (), ()),
+        ("l", "both", (), ("idgham_no_ghunnah",)),
+        ("l", "after_continue", (), ("idgham_no_ghunnah",))]
+
+
+def test_idgham_with_ghunnah_gives_the_doubled_letter_two_counts():
+    r = two_words(BA + FATHA + NOON, YEH_ + FATHA)
+    assert vs(r, "ny") == [
+        ("n", "waqf_only", (), ()),
+        ("y", "both", (), ("idgham_ghunnah",)),
+        ("y", "after_continue", (2,), ("idgham_ghunnah",))]
+
+
+def test_idgham_inside_a_word_is_izhar_mutlaq():
+    r = run(BA + FATHA + NOON + SUKUN + YEH_ + FATHA)
+    assert vs(r, "n") == [("n", "both", (), ("izhar_mutlaq",))]
+
+
+def test_tanween_before_iqlab_and_idgham():
+    iq = two_words(BA + DAMMA + TA + "\u064C", BA + FATHA)  # dammatan then beh
+    assert vs(iq, "nm") == [("m", "continue_only", (2,), ("iqlab",))]
+    idg = two_words(BA + FATHA + TA + FATHATAN, MEEM + FATHA)  # fathatan then meem
+    assert vs(idg, "nm") == [
+        ("m", "both", (), ("idgham_ghunnah",)),
+        ("m", "after_continue", (2,), ("idgham_ghunnah",))]
+
+
+def test_tanween_before_izhar_keeps_a_continue_only_noon():
+    r = two_words(BA + FATHA + TA + FATHATAN, HEH + FATHA)
+    assert vs(r, "n") == [("n", "continue_only", (), ("izhar_halqi",))]
+
+
+def test_next_letter_is_found_past_a_silent_hamzat_wasl():
+    r = two_words(BA + FATHA + NOON, WASLA + LAM + SUKUN + KAF + FATHA)
+    assert any("idgham_no_ghunnah" in x[3] for x in vs(r, "l"))
+
+
+def test_noon_at_an_ayah_end_only_sees_the_next_ayah_in_a_range():
+    a1 = Ayah(1, 1, (Word(1, 1, 1, BA + FATHA + NOON),), "")
+    a2 = Ayah(1, 2, (Word(1, 2, 1, BA + FATHA),), "")
+    alone = phonemize_ayah(a1)
+    chained = phonemize_range([a1, a2])
+    assert vs(alone, "nm") == [("n", "both", (), ())]
+    assert ("m", "continue_only", (2,), ("iqlab",)) in vs(chained, "nm")
+    assert all(p.ayah in (1, 2) and p.surah == 1 for p in chained.phonemes)
+
+
+def test_noon_with_a_vowel_or_shaddah_is_not_sakin():
+    r = two_words(BA + FATHA + NOON + FATHA, KAF + FATHA)
+    assert vs(r, "n") == [("n", "both", (), ())]
+    r = two_words(BA + FATHA + NOON + SHADDA + FATHA, KAF + FATHA)
+    assert [x[0] for x in vs(r, "n")] == ["n", "n"] and all(not x[3] for x in vs(r, "n"))
+
+
+@needs_data
+def test_noon_rules_agree_with_the_encoding_of_the_text():
+    """The mushaf marks izhar with a sukun on the noon, hiding / merging with a bare noon and
+    iqlab with a meem sign. The spec's next-letter rules must predict exactly that."""
+    quran = loader.load_quran()
+    result = phonemize_range([a for s in quran.surahs for a in s.ayahs])
+    iqlab_sign = {0x06E2, 0x06ED}
+    seen_sukun_rules, seen_bare_rules, iqlab_without_sign = set(), set(), 0
+    for item in result.items:
+        rule = next((r for r in item.rules if r.startswith(("izhar", "ikhfa", "iqlab", "idgham"))), None)
+        sakin = not item.host_marks & {u.FATHA, u.DAMMA, u.KASRA, u.SHADDA}
+        if item.role != "cons" or item.letter != 0x0646 or rule is None or not sakin:
+            continue
+        (seen_sukun_rules if u.SUKUN in item.host_marks else seen_bare_rules).add(rule)
+        if rule == "iqlab" and not item.signs & iqlab_sign:
+            iqlab_without_sign += 1
+    assert seen_sukun_rules == {"izhar_halqi", "izhar_mutlaq"}
+    assert seen_bare_rules == {"ikhfa", "iqlab"}
+    assert iqlab_without_sign == 0

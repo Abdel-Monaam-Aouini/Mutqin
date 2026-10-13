@@ -172,3 +172,9 @@ hardcode Arabic text.
   a word starts a recitation or follows a stop; used for hamzat al-wasl). Confirm.
 - [ ] Article lam before a verb: the 10 words with alef wasla + lam sukun + teh are verbs, not the
   definite article, but are tagged `lam_qamariyyah` (the encoding cannot tell them apart).
+- [ ] Task 1.5 follows 3.1 by the next letter and checks it against the text: izhar noons carry a
+  sukun, ikhfa / idgham noons are bare, iqlab noons carry the meem sign (all agree over the whole
+  Quran). The one exception, 75:27:2 (noon with a sukun before a letter that would merge it), is the
+  sakt location from 3.9 and is reported, not handled, until the special-cases data (1.9) exists.
+- [ ] Idgham with ghunnah: the doubled letter is emitted as two consonants, the second tagged
+  `ghunnah` duration (2,) and marked `after_continue`. Confirm this representation.

@@ -90,6 +90,9 @@ class Variant(str, Enum):
     # Only when the word starts a recitation (first word of the range) or follows a stop.
     # Extension of the spec's three variants, needed for hamzat al-wasl (spec 3.9).
     START_ONLY = "start_only"
+    # Only when the previous word boundary is a continuation (e.g. the doubled consonant of an
+    # idgham). Counterpart of START_ONLY; extension of the spec's variants, to be confirmed.
+    AFTER_CONTINUE = "after_continue"
 
 
 @dataclass(frozen=True)
@@ -102,6 +105,8 @@ class ExpectedPhoneme:
     rules: tuple[str, ...] = ()  # rule tags, defined with each rule in spec section 3
     dur: tuple[int, ...] = ()  # allowed duration in counts, e.g. (2,), (4, 5), (2, 4, 6)
     variant: Variant = Variant.BOTH
+    surah: int = 0  # 0 when the phonemizer was run on a bare Ayah without location
+    ayah: int = 0
 
     def __post_init__(self) -> None:
         if self.ph not in BY_SYMBOL:
