@@ -22,7 +22,8 @@ Read and follow `AGENTS.md` (rules) and the relevant file in `docs/` before ever
 ## Workflow
 - One task from `docs/TASKS.md` at a time, in order. Use `/next-task`.
 - Before: 2–3 lines on what and which files. After: run tests, show results, tick the box,
-  suggest commit message `phase0: description`. Then STOP and wait for "next".
+  commit (Conventional Commits, e.g. `feat(tools): add Tanzil download script`, no AI mention),
+  push, then continue with the next task. Stop only when blocked on the user.
 - Track multi-step state with claude-mem `work_state_write`.
 
 ## Layout

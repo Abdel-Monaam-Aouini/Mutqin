@@ -13,4 +13,5 @@ description: Execute the next unchecked task in docs/TASKS.md following the Mutq
 5. Run the tests (C++: `ctest --test-dir build --output-on-failure`; Python: `python -I -m pytest tools`)
    and show the real output. If anything fails, say so; do not tick the box.
 6. Tick the box in `docs/TASKS.md` only when tests pass.
-7. Suggest a commit message: `phaseN: description`, then STOP and wait for "next".
+7. Commit with a Conventional Commits message (`type(scope): subject`, lower-case, no period, no AI
+   mention), push to origin, then continue with the next task. Stop only if blocked on the user.

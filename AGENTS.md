@@ -77,4 +77,8 @@ C++ namespace **`mutqin`**.
   commit message, then stop and wait for "next".
 - If something in the docs is contradictory or missing, ask instead of assuming.
 - If a download fails because of network restrictions, give the user the exact command.
-- Commit messages: `phaseN: short description`.
+- Commit messages follow Conventional Commits (commitlint `config-conventional` rules):
+  `type(scope): subject`, e.g. `build(core): add CMake project with GoogleTest`. Types: feat, fix,
+  docs, test, build, chore, refactor, perf, ci. Scopes: core, cli, tools, docs, data, repo.
+  Subject is lower-case imperative, no trailing period, header <= 100 chars. Never mention
+  Claude or any AI tool in commit messages.
