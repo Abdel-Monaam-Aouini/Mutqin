@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "status": "EMPTY: to be filled together with a qualified teacher (docs/TAJWEED_SPEC.md section 3.9)",
+  "kinds": ["sakt", "imalah", "ishmam", "tashil", "dual_reading", "disconnected_letters", "izhar_mutlaq", "other"],
+  "cases": {}
+}
