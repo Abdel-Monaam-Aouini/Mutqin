@@ -83,3 +83,21 @@ False alarms on correct recitations: **2.25% of words** (168/7473); recitations 
 | wrong | 150 | 72.7% | 81.3% | 0.61 |
 | repeated | 150 | 62.0% | 87.3% | 0.61 |
 | added | 150 | 59.3% | 78.7% | 0.67 |
+
+## Real model: tarteel-ai/whisper-base-ar-quran (task 2.1, first candidate)
+
+`tools/prototype/whisper_eval.py`: first 10 minutes (20 chunks of 30 s) of a professional,
+correct recitation of surah 5, transcribed with greedy decoding and compared word by word to the
+Tanzil simple-clean text of ayahs 1-60 (diacritics ignored; the model writes plain text).
+
+| Result | Value |
+|---|---|
+| Words heard / reference words covered | 566 / 559 |
+| Word error rate on a **correct** recitation | **10.2%** (26 substituted, 12 dropped, 19 inserted words) |
+| Speed on the dev CPU | about 21 s per 30 s chunk (real-time factor 0.7, not streaming) |
+
+Reading: every error here would be a false alarm for Mutqin, against a target below 2%. Errors
+cluster where the reciter is fast or a word is rare (for example four consecutive words of
+5:3 were replaced by unrelated words); Whisper also cannot see vowel or tajweed errors. It is not
+usable as the mistake detector. The phoneme CTC candidates (Zipformer, wav2vec2) are still to be
+measured the same way.
