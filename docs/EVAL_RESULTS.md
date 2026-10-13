@@ -101,3 +101,18 @@ cluster where the reciter is fast or a word is rare (for example four consecutiv
 5:3 were replaced by unrelated words); Whisper also cannot see vowel or tajweed errors. It is not
 usable as the mistake detector. The phoneme CTC candidates (Zipformer, wav2vec2) are still to be
 measured the same way.
+
+## Real model: TBOGamer22/wav2vec2-quran-phonetics (task 2.1, second candidate)
+
+Apache-2.0, not gated, wav2vec2-base (95M parameters, 378 MB in fp32), greedy CTC. Qualitative check
+only, on the first minute of the same surah 5 recitation in 15 s chunks. Findings:
+
+- It was trained on **single-word clips** (Buraaq/quran-md-words), not connected recitation. On
+  continuous recitation the output is mostly unreadable: the opening words "yā ayyuhā alladhīna
+  āmanū awfū bil-ʿuqūd" came out as "bisidahihamhuhiyayhhnānūafūb'naūduḥil-nakūbahmatu...", with
+  only fragments right and no word delimiters.
+- Its vocabulary is a transliteration (ā ī ū, ʿ, ṭ ...), not our 31 phonemes, so a mapping would be
+  needed; its vowels do not mark shaddah or tajweed.
+- It is not streaming (full-attention wav2vec2). Speed is good (about 1 s per 15 s on the dev CPU).
+
+Not usable for ayah-level tracking as released. It could only serve for single-word clips.
