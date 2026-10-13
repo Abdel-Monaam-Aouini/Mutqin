@@ -131,6 +131,16 @@ int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ay
                                    [&](const mutqin::PhonemeItem& it) { return it.ayah > ayah_last; }),
                     items.end());
         session->words = mutqin::BuildWordReadings(items, ayah_words);
+        size_t expected = 0;
+        for (const mutqin::WordRef& w : session->words)
+            expected += w.reading.cont.size();
+        if (expected > MQ_MAX_EXPECTED_PHONEMES) {
+            delete session;
+            SetError(err, err_len,
+                     "range too long (" + std::to_string(expected) + " phonemes, at most " +
+                         std::to_string(MQ_MAX_EXPECTED_PHONEMES) + ")");
+            return MQ_ERR_LIMIT;
+        }
         for (const mutqin::PhonemeItem& item : session->result.items)
             session->rules.push_back(Join(item.rules));
         *out = session;
@@ -174,15 +184,22 @@ void EnsureAligner(mq_session* session) {
     session->aligner = std::make_unique<mutqin::StreamingAligner>(std::move(readings));
 }
 
-void AlignHeard(mq_session* session, const std::vector<mutqin::HeardToken>& heard) {
+// False if more was heard than the session may hold (memory bound, see mutqin.h).
+bool AlignHeard(mq_session* session, const std::vector<mutqin::HeardToken>& heard) {
+    size_t expected = 0;
+    for (const mutqin::WordRef& w : session->words)
+        expected += w.reading.cont.size();
+    if (heard.size() > 2 * expected + 500)
+        return false;
     EnsureAligner(session);
     session->aligned = session->aligner->Update(heard);
+    return true;
 }
 
-void Realign(mq_session* session, const float* probs, size_t num_frames) {
+bool Realign(mq_session* session, const float* probs, size_t num_frames) {
     for (size_t i = 0; i < num_frames; ++i)
         session->frames.push_back(mutqin::ArgmaxFrame(probs + i * MQ_VOCAB_SIZE));
-    AlignHeard(session, mutqin::GreedyDecode(session->frames));
+    return AlignHeard(session, mutqin::GreedyDecode(session->frames));
 }
 }  // namespace
 
@@ -190,8 +207,7 @@ int mq_session_push_posteriors(mq_session* session, const float* probs, size_t n
     if (session == nullptr || (probs == nullptr && num_frames > 0))
         return MQ_ERR_ARGUMENT;
     try {
-        Realign(session, probs, num_frames);
-        return MQ_OK;
+        return Realign(session, probs, num_frames) ? MQ_OK : MQ_ERR_LIMIT;
     } catch (const std::exception&) {
         return MQ_ERR_INTERNAL;
     }
@@ -204,8 +220,7 @@ int mq_session_push_audio(mq_session* session, const float* samples, size_t num_
         try {
             std::vector<mutqin::HeardToken> heard;
             session->recognizer->Accept(samples, num_samples, &heard);
-            AlignHeard(session, heard);
-            return MQ_OK;
+            return AlignHeard(session, heard) ? MQ_OK : MQ_ERR_LIMIT;
         } catch (const std::exception&) {
             return MQ_ERR_INTERNAL;
         }
@@ -216,8 +231,8 @@ int mq_session_push_audio(mq_session* session, const float* samples, size_t num_
         const std::vector<float> feats = session->logmel.Accept(samples, num_samples);
         std::vector<float> posteriors;
         session->model->Accept(feats.data(), feats.size() / 80, &posteriors);
-        if (!posteriors.empty())
-            Realign(session, posteriors.data(), posteriors.size() / MQ_VOCAB_SIZE);
+        if (!posteriors.empty() && !Realign(session, posteriors.data(), posteriors.size() / MQ_VOCAB_SIZE))
+            return MQ_ERR_LIMIT;
         return MQ_OK;
     } catch (const std::exception&) {
         return MQ_ERR_INTERNAL;
@@ -232,8 +247,7 @@ int mq_session_finish_audio(mq_session* session) {
     try {
         std::vector<mutqin::HeardToken> heard;
         session->recognizer->Finish(&heard);
-        AlignHeard(session, heard);
-        return MQ_OK;
+        return AlignHeard(session, heard) ? MQ_OK : MQ_ERR_LIMIT;
     } catch (const std::exception&) {
         return MQ_ERR_INTERNAL;
     }

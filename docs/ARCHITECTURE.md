@@ -116,6 +116,20 @@ becomes the vowel; a geminate unit may become two symbols); units not in the map
 has to be written against the real model's `tokens.txt` and checked by someone who knows its units.
 Tested with a public Chinese streaming model only (plumbing, real-time factor 0.04 on the dev CPU).
 
+## Threading contract and limits (for the apps)
+
+Written in `core/include/mutqin.h` and repeated here:
+
+- One session = one thread at a time (any thread, never concurrently); sessions are independent;
+  an engine is read-only and can be shared across sessions and threads.
+- `mq_session_push_audio` / `push_posteriors` allocate memory and run the aligner. Call them from a
+  **worker thread**, never from the platform's real-time audio callback (copy samples into your own
+  queue there). The core starts no threads.
+- Memory is bounded: a range may have at most `MQ_MAX_EXPECTED_PHONEMES` (5000, about 900 words) and a
+  session accepts at most 2 x expected + 500 heard phonemes, then returns `MQ_ERR_LIMIT`. The aligner
+  keeps one byte per cell plus a few cost rows; the 700-word test session peaks at about 25 MB above
+  the base process (it was 150-230 MB before the bound).
+
 ## Threading
 
 - Audio callback (CLI/app): only copies samples into a lock-free ring buffer.

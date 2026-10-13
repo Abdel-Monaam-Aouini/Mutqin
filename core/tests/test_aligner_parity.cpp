@@ -116,6 +116,17 @@ TEST(AlignerParity, CppEqualsPython) {
         const AlignResult stream_all = streaming.Update(heard);
         EXPECT_EQ(stream_all.statuses, got.statuses) << "case " << id;
 
+        // An old token changing (older than the kept cost rows) forces a rebuild; the result after
+        // restoring it must still be the batch result.
+        if (heard.size() > 30) {
+            std::vector<HeardToken> altered = heard;
+            altered[2].confidence = 0.1;
+            streaming.Update(altered);
+            const AlignResult restored = streaming.Update(heard);
+            EXPECT_EQ(restored.statuses, got.statuses) << "case " << id;
+            ASSERT_EQ(restored.events.size(), got.events.size()) << "case " << id;
+        }
+
         ++cases;
         EXPECT_EQ(got.has_span, want_span) << "case " << id;
         if (want_span) {

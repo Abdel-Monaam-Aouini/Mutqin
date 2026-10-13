@@ -76,9 +76,15 @@ struct DpState {
     std::vector<Jump> jumps;
     int m = 0, n_words = 0;
     size_t stride = 0;
-    std::vector<double> cost;
+    // Memory is bounded: the backtrace needs one byte per cell (bt) and the jump sources, but the
+    // costs only matter for the last rows, so only kRing of them are kept (plus row 0).
+    static constexpr size_t kRing = 8;
+    std::vector<double> row0;
+    std::vector<double> ring;  // row i (i >= 1) lives in slot i % kRing
     std::vector<unsigned char> bt;
-    std::vector<int> src;
+    std::vector<std::vector<std::pair<int, int>>> jump_src;  // per row: (to, from) of the jump cells
+
+    double* Cost(size_t i) { return i == 0 ? row0.data() : &ring[(i % kRing) * stride]; }
     std::vector<int> row_sym;  // symbol of the heard token behind DP row i + 1
     std::vector<char> row_low;
 };
@@ -105,11 +111,12 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
                     {st.bounds[b], st.bounds[b - r], params.repeat_cost + 0.5 * (r - 1), false, b - 1});
         }
         st.stride = static_cast<size_t>(st.m) + 1;
-        st.cost.assign(st.stride, std::numeric_limits<double>::infinity());
+        st.row0.assign(st.stride, std::numeric_limits<double>::infinity());
+        st.ring.assign(DpState::kRing * st.stride, std::numeric_limits<double>::infinity());
         st.bt.assign(st.stride, 0);
-        st.src.assign(st.stride, 0);
+        st.jump_src.assign(1, {});
         for (int b : st.bounds)
-            st.cost[static_cast<size_t>(b)] = 0.0;  // free start at a word boundary
+            st.row0[static_cast<size_t>(b)] = 0.0;  // free start at a word boundary
         st.ready = true;
     }
     auto& flat_word = st.flat_word;
@@ -117,9 +124,7 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
     auto& bounds = st.bounds;
     auto& jumps = st.jumps;
     auto& interner = st.interner;
-    auto& cost = st.cost;
     auto& bt = st.bt;
-    auto& src = st.src;
     const int m = st.m;
     const size_t stride = st.stride;
     const int n = static_cast<int>(heard.size());
@@ -138,20 +143,24 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
     while (keep < st.row_sym.size() && keep < heard.size() && st.row_sym[keep] == heard_sym[keep] &&
            st.row_low[keep] == low[keep])
         ++keep;
+    // Only the last kRing cost rows survive; if the first changed row is older than that, start over.
+    const size_t rows_before = st.row_sym.size();
+    if (keep > 0 && keep + DpState::kRing <= rows_before)
+        keep = 0;
     st.row_sym.assign(heard_sym.begin(), heard_sym.end());
     st.row_low.assign(low.begin(), low.end());
-    cost.resize(static_cast<size_t>(n + 1) * stride, std::numeric_limits<double>::infinity());
     bt.resize(static_cast<size_t>(n + 1) * stride, 0);
-    src.resize(static_cast<size_t>(n + 1) * stride, 0);
+    st.jump_src.resize(static_cast<size_t>(n) + 1);
 
     const double sub_low = 0.4, ins_low = 0.5;
     for (int i = static_cast<int>(keep) + 1; i <= n; ++i) {
         const double sub = low[i - 1] ? sub_low : 1.0;
         const double ins = low[i - 1] ? ins_low : 1.0;
-        const double* prev = &cost[static_cast<size_t>(i - 1) * stride];
-        double* row = &cost[static_cast<size_t>(i) * stride];
+        const double* prev = st.Cost(static_cast<size_t>(i - 1));
+        double* row = st.Cost(static_cast<size_t>(i));
         unsigned char* brow = &bt[static_cast<size_t>(i) * stride];
-        int* srow = &src[static_cast<size_t>(i) * stride];
+        auto& jump_src = st.jump_src[static_cast<size_t>(i)];
+        jump_src.clear();
         for (int j = 0; j <= m; ++j) {
             double best = prev[j] + ins;
             unsigned char kind = kIns;
@@ -178,7 +187,15 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
                 if (row[jp.from] + jp.cost < row[jp.to] - 1e-9) {
                     row[jp.to] = row[jp.from] + jp.cost;
                     brow[jp.to] = kJump;
-                    srow[jp.to] = jp.from;
+                    bool found = false;
+                    for (auto& entry : jump_src) {
+                        if (entry.first == jp.to) {
+                            entry.second = jp.from;
+                            found = true;
+                        }
+                    }
+                    if (!found)
+                        jump_src.push_back({jp.to, jp.from});
                     changed = true;
                 }
             }
@@ -189,7 +206,7 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
 
     int j = 0;
     {
-        const double* last = &cost[static_cast<size_t>(n) * stride];
+        const double* last = st.Cost(static_cast<size_t>(n));
         for (int jj = 1; jj <= m; ++jj)
             if (last[jj] <= last[j])
                 j = jj;  // lowest cost, ties to the larger index
@@ -211,7 +228,10 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
             ops.push_back({Step::kInsStep, i - 1, 0});
             --i;
         } else {
-            const int frm = src[static_cast<size_t>(i) * stride + j];
+            int frm = 0;
+            for (const auto& entry : st.jump_src[static_cast<size_t>(i)])
+                if (entry.first == j)
+                    frm = entry.second;
             ops.push_back({Step::kJumpStep, frm, j});
             j = frm;
         }

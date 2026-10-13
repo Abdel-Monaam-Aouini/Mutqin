@@ -15,6 +15,7 @@ extern "C" {
 #define MQ_ERR_DATA (-2)     /* Quran text missing or failed its checksum */
 #define MQ_ERR_INTERNAL (-3)
 #define MQ_ERR_NO_MODEL (-4) /* no recognition model is attached to the session */
+#define MQ_ERR_LIMIT (-5)    /* range or session too long: memory is bounded, see "Limits" below */
 
 /* Library version as a static, NUL-terminated string, e.g. "0.1.0". */
 const char* mq_version(void);
@@ -45,6 +46,22 @@ typedef struct mq_phoneme {
     int dur_min;       /* allowed duration in counts, 0 and 0 if not constrained */
     int dur_max;
 } mq_phoneme;
+
+/* Threading contract
+ *  - A session is not thread-safe: call all functions of one session from one thread at a time
+ *    (any thread, but never concurrently). Different sessions are independent.
+ *  - An engine is read-only after creation and may be shared by sessions on different threads.
+ *  - mq_session_push_audio / push_posteriors allocate memory and run the aligner: call them from a
+ *    worker thread, never from a real-time audio callback. Copy the callback's samples into your own
+ *    queue and push from the worker. The core starts no threads of its own.
+ *
+ * Limits (memory is bounded so a phone cannot run out of it)
+ *  - A range may have at most MQ_MAX_EXPECTED_PHONEMES expected phonemes (about 900 words, more than
+ *    a mushaf page); mq_session_create returns MQ_ERR_LIMIT for a longer range.
+ *  - A session accepts at most 2 x (expected phonemes) + 500 heard phonemes; beyond that
+ *    push functions return MQ_ERR_LIMIT and the app should end the session. Memory stays below about
+ *    60 MB at the maximum range. */
+#define MQ_MAX_EXPECTED_PHONEMES 5000
 
 /* Size of the posterior vocabulary the core expects: token 0 is the CTC blank, tokens 1..31 are
  * the phonemes of docs/PHONEME_INVENTORY.md in contract order. An inference backend maps its own

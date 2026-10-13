@@ -291,3 +291,27 @@ TEST(ModelManifest, LoadModelExplainsWhenTheBackendIsNotBuilt) {
     EXPECT_NE(std::string(err).find("MUTQIN_WITH_SHERPA"), std::string::npos);
 }
 #endif
+
+TEST(SessionLimits, TooLongRangesAndTooMuchSpeechAreRefused) {
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    char err[256];
+    mq_session* big = nullptr;
+    EXPECT_EQ(mq_session_create(f.engine, 2, 1, 286, &big, err, sizeof err),
+              MQ_ERR_LIMIT);  // all of al-Baqarah
+    EXPECT_EQ(big, nullptr);
+    EXPECT_NE(std::string(err).find("too long"), std::string::npos);
+
+    // Far more heard phonemes than the range could ever need.
+    size_t expected = 0;
+    for (const WordRef& w : f.words)
+        expected += w.reading.cont.size();
+    const size_t frames = (2 * expected + 600) * 4;
+    std::vector<float> rows(frames * MQ_VOCAB_SIZE, 0.0f);
+    for (size_t i = 0; i < frames; ++i) {  // alternate two phonemes separated by blanks
+        const size_t label = (i % 4 == 3) ? 0 : (i / 4 % 2 == 0 ? 1 : 2);
+        rows[i * MQ_VOCAB_SIZE + label] = 1.0f;
+    }
+    EXPECT_EQ(mq_session_push_posteriors(f.session, rows.data(), frames), MQ_ERR_LIMIT);
+}
