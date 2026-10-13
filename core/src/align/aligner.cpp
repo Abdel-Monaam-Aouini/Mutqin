@@ -64,21 +64,65 @@ int LcsWild(const std::vector<int>& heard, const std::vector<char>& wild, const 
 
 }  // namespace
 
-AlignResult AlignTokens(const std::vector<HeardToken>& heard, const std::vector<WordReading>& words,
-                        const AlignParams& params) {
-    AlignResult result;
+namespace {
+
+// DP state kept between updates: rows only depend on earlier rows, so appended heard tokens
+// only need new rows. A row is recomputed if its token changed (the last token of a growing
+// decode can change confidence or symbol).
+struct DpState {
+    bool ready = false;
     Interner interner;
     std::vector<int> flat_word, flat_sym, bounds;
-    for (size_t w = 0; w < words.size(); ++w) {
-        bounds.push_back(static_cast<int>(flat_sym.size()));
-        for (const std::string& s : words[w].cont) {
-            flat_word.push_back(static_cast<int>(w));
-            flat_sym.push_back(interner.Id(s));
+    std::vector<Jump> jumps;
+    int m = 0, n_words = 0;
+    size_t stride = 0;
+    std::vector<double> cost;
+    std::vector<unsigned char> bt;
+    std::vector<int> src;
+    std::vector<int> row_sym;  // symbol of the heard token behind DP row i + 1
+    std::vector<char> row_low;
+};
+
+AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
+                      const std::vector<WordReading>& words, const AlignParams& params) {
+    AlignResult result;
+    if (!st.ready) {
+        for (size_t w = 0; w < words.size(); ++w) {
+            st.bounds.push_back(static_cast<int>(st.flat_sym.size()));
+            for (const std::string& s : words[w].cont) {
+                st.flat_word.push_back(static_cast<int>(w));
+                st.flat_sym.push_back(st.interner.Id(s));
+            }
         }
+        st.bounds.push_back(static_cast<int>(st.flat_sym.size()));
+        st.m = static_cast<int>(st.flat_sym.size());
+        st.n_words = static_cast<int>(words.size());
+        for (int b = 1; b < st.n_words; ++b) {
+            for (int k = 1; k <= std::min(params.max_jump_words, st.n_words - 1 - b); ++k)
+                st.jumps.push_back({st.bounds[b], st.bounds[b + k], params.skip_cost * k, true, b});
+            for (int r = 1; r <= std::min(params.max_jump_words, b); ++r)
+                st.jumps.push_back(
+                    {st.bounds[b], st.bounds[b - r], params.repeat_cost + 0.5 * (r - 1), false, b - 1});
+        }
+        st.stride = static_cast<size_t>(st.m) + 1;
+        st.cost.assign(st.stride, std::numeric_limits<double>::infinity());
+        st.bt.assign(st.stride, 0);
+        st.src.assign(st.stride, 0);
+        for (int b : st.bounds)
+            st.cost[static_cast<size_t>(b)] = 0.0;  // free start at a word boundary
+        st.ready = true;
     }
-    bounds.push_back(static_cast<int>(flat_sym.size()));
-    const int n = static_cast<int>(heard.size()), m = static_cast<int>(flat_sym.size());
-    const int n_words = static_cast<int>(words.size());
+    auto& flat_word = st.flat_word;
+    auto& flat_sym = st.flat_sym;
+    auto& bounds = st.bounds;
+    auto& jumps = st.jumps;
+    auto& interner = st.interner;
+    auto& cost = st.cost;
+    auto& bt = st.bt;
+    auto& src = st.src;
+    const int m = st.m;
+    const size_t stride = st.stride;
+    const int n = static_cast<int>(heard.size());
     if (n == 0 || m == 0)
         return result;
 
@@ -89,24 +133,19 @@ AlignResult AlignTokens(const std::vector<HeardToken>& heard, const std::vector<
         low[i] = heard[i].confidence < params.low_conf;
     }
 
-    std::vector<Jump> jumps;
-    for (int b = 1; b < n_words; ++b) {
-        for (int k = 1; k <= std::min(params.max_jump_words, n_words - 1 - b); ++k)
-            jumps.push_back({bounds[b], bounds[b + k], params.skip_cost * k, true, b});
-        for (int r = 1; r <= std::min(params.max_jump_words, b); ++r)
-            jumps.push_back({bounds[b], bounds[b - r], params.repeat_cost + 0.5 * (r - 1), false, b - 1});
-    }
+    // First row whose token differs from the stored one; everything before it is reused.
+    size_t keep = 0;
+    while (keep < st.row_sym.size() && keep < heard.size() && st.row_sym[keep] == heard_sym[keep] &&
+           st.row_low[keep] == low[keep])
+        ++keep;
+    st.row_sym.assign(heard_sym.begin(), heard_sym.end());
+    st.row_low.assign(low.begin(), low.end());
+    cost.resize(static_cast<size_t>(n + 1) * stride, std::numeric_limits<double>::infinity());
+    bt.resize(static_cast<size_t>(n + 1) * stride, 0);
+    src.resize(static_cast<size_t>(n + 1) * stride, 0);
 
-    const double inf = std::numeric_limits<double>::infinity();
     const double sub_low = 0.4, ins_low = 0.5;
-    const size_t stride = static_cast<size_t>(m) + 1;
-    std::vector<double> cost(static_cast<size_t>(n + 1) * stride, inf);
-    std::vector<unsigned char> bt(static_cast<size_t>(n + 1) * stride, 0);
-    std::vector<int> src(static_cast<size_t>(n + 1) * stride, 0);
-    for (int b : bounds)
-        cost[static_cast<size_t>(b)] = 0.0;
-
-    for (int i = 1; i <= n; ++i) {
+    for (int i = static_cast<int>(keep) + 1; i <= n; ++i) {
         const double sub = low[i - 1] ? sub_low : 1.0;
         const double ins = low[i - 1] ? ins_low : 1.0;
         const double* prev = &cost[static_cast<size_t>(i - 1) * stride];
@@ -341,6 +380,34 @@ AlignResult AlignTokens(const std::vector<HeardToken>& heard, const std::vector<
                          return x.index != y.index ? x.index < y.index : x.kind < y.kind;
                      });
     return result;
+}
+
+}  // namespace
+
+AlignResult AlignTokens(const std::vector<HeardToken>& heard, const std::vector<WordReading>& words,
+                        const AlignParams& params) {
+    DpState state;
+    return AlignImpl(state, heard, words, params);
+}
+
+struct StreamingAligner::Impl {
+    std::vector<WordReading> words;
+    AlignParams params;
+    DpState state;
+    AlignResult result;
+};
+
+StreamingAligner::StreamingAligner(std::vector<WordReading> words, const AlignParams& params)
+    : impl_(new Impl()) {
+    impl_->words = std::move(words);
+    impl_->params = params;
+}
+
+StreamingAligner::~StreamingAligner() = default;
+
+const AlignResult& StreamingAligner::Update(const std::vector<HeardToken>& heard) {
+    impl_->result = AlignImpl(impl_->state, heard, impl_->words, impl_->params);
+    return impl_->result;
 }
 
 }  // namespace mutqin

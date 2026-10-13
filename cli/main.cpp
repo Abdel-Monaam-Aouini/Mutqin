@@ -2,6 +2,7 @@
 // Modes: print the expected phonemes of an ayah range (default), replay recorded model output
 // (--posteriors), or read a WAV (--wav; analysing audio needs a recognition model, not bundled yet).
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -21,6 +22,7 @@ void Usage() {
         "  --data DIR         verified Quran text (default: data/quran)\n"
         "  --posteriors FILE  replay model output: raw little-endian float32, 32 values per frame\n"
         "                     (blank + 31 phonemes); prints word statuses and events\n"
+        "  --chunk N          with --posteriors: push N frames at a time (streaming), prints the time\n"
         "  --wav FILE         16 kHz WAV (mono or stereo, 16-bit or float)\n"
         "  --version    print the library version\n",
         stderr);
@@ -67,7 +69,7 @@ void PrintEvents(const mq_session* session) {
 }
 
 // Feeds recorded posteriors to the session and prints what the core found.
-int Replay(mq_session* session, const std::string& path) {
+int Replay(mq_session* session, const std::string& path, size_t chunk_frames) {
     std::ifstream in(path, std::ios::binary);
     if (!in) {
         std::fprintf(stderr, "error: cannot open %s\n", path.c_str());
@@ -81,10 +83,19 @@ int Replay(mq_session* session, const std::string& path) {
         std::fprintf(stderr, "error: %s must hold rows of %d float32 values\n", path.c_str(), MQ_VOCAB_SIZE);
         return 1;
     }
-    if (mq_session_push_posteriors(session, data.data(), data.size() / MQ_VOCAB_SIZE) != MQ_OK) {
-        std::fprintf(stderr, "error: could not process the posteriors\n");
-        return 1;
+    const size_t frames = data.size() / MQ_VOCAB_SIZE;
+    const size_t step = chunk_frames == 0 ? frames : chunk_frames;
+    const auto started = std::chrono::steady_clock::now();
+    for (size_t at = 0; at < frames; at += step) {
+        if (mq_session_push_posteriors(session, data.data() + at * MQ_VOCAB_SIZE,
+                                       std::min(step, frames - at)) != MQ_OK) {
+            std::fprintf(stderr, "error: could not process the posteriors\n");
+            return 1;
+        }
     }
+    const double ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    std::fprintf(stderr, "%zu frames in %zu pushes: %.1f ms\n", frames, (frames + step - 1) / step, ms);
     PrintEvents(session);
     return 0;
 }
@@ -94,6 +105,7 @@ int Replay(mq_session* session, const std::string& path) {
 int main(int argc, char** argv) {
     std::string data_dir = "data/quran";
     std::string posteriors_path, wav_path;
+    size_t chunk_frames = 0;
     int surah = 0, first = 0, last = 0;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -105,6 +117,8 @@ int main(int argc, char** argv) {
             data_dir = argv[++i];
         } else if (arg == "--posteriors" && has_value) {
             posteriors_path = argv[++i];
+        } else if (arg == "--chunk" && has_value) {
+            chunk_frames = static_cast<size_t>(std::atoi(argv[++i]));
         } else if (arg == "--wav" && has_value) {
             wav_path = argv[++i];
         } else if (arg == "--surah" && has_value) {
@@ -139,7 +153,7 @@ int main(int argc, char** argv) {
     }
     int status = 0;
     if (!posteriors_path.empty()) {
-        status = Replay(session, posteriors_path);
+        status = Replay(session, posteriors_path, chunk_frames);
         mq_session_destroy(session);
         mq_engine_destroy(engine);
         return status;

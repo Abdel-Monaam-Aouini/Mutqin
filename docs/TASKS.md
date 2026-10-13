@@ -29,7 +29,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [ ] 2.1 Evaluate 2–3 candidate CTC models on EveryAyah subset; pick one
 - [x] 2.2 Synthetic error generator (text-side and audio-side)
 - [ ] 2.3 Streaming pipeline: VAD → model → posteriors
-- [ ] 2.4 Incremental aligner with re-anchoring
+- [ ] 2.4 Incremental aligner with re-anchoring — streaming aligner with incremental DP done in C++ (equal to batch at every prefix); re-anchoring by skip/repeat jump arcs; tuning on real model output pending
 - [ ] 2.5 Word error detector + confidence thresholds
 - [x] 2.6 Evaluation script + first results in EVAL_RESULTS.md
 

@@ -6,6 +6,7 @@
 
 #include <array>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -54,6 +55,24 @@ struct AlignResult {
 
 AlignResult AlignTokens(const std::vector<HeardToken>& heard, const std::vector<WordReading>& words,
                         const AlignParams& params = AlignParams());
+
+// Same result as AlignTokens on the full heard list, but keeps the DP rows between calls: each
+// Update() recomputes only the rows from the first heard token that changed (normally the last
+// one), so a long recitation costs one new row per new token instead of a full re-alignment.
+class StreamingAligner {
+public:
+    StreamingAligner(std::vector<WordReading> words, const AlignParams& params = AlignParams());
+    ~StreamingAligner();
+    StreamingAligner(const StreamingAligner&) = delete;
+    StreamingAligner& operator=(const StreamingAligner&) = delete;
+
+    // `heard` is the complete decoded list so far (it only grows or changes at its end).
+    const AlignResult& Update(const std::vector<HeardToken>& heard);
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
 
 }  // namespace mutqin
 

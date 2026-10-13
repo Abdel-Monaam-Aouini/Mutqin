@@ -94,6 +94,28 @@ TEST(AlignerParity, CppEqualsPython) {
             }
         }
         const AlignResult got = AlignTokens(heard, words);
+
+        // The streaming aligner must give the batch result at every prefix, also after the last
+        // token was provisionally heard with a different confidence.
+        StreamingAligner streaming(words);
+        for (size_t end = 3; end <= heard.size(); end += 11) {
+            std::vector<HeardToken> prefix(heard.begin(), heard.begin() + static_cast<std::ptrdiff_t>(end));
+            std::vector<HeardToken> provisional = prefix;
+            provisional.back().confidence = 0.1;
+            streaming.Update(provisional);
+            const AlignResult stream = streaming.Update(prefix);
+            const AlignResult batch = AlignTokens(prefix, words);
+            ASSERT_EQ(stream.statuses, batch.statuses) << "case " << id << " prefix " << end;
+            ASSERT_EQ(stream.events.size(), batch.events.size()) << "case " << id << " prefix " << end;
+            for (size_t k = 0; k < batch.events.size(); ++k) {
+                EXPECT_EQ(stream.events[k].kind, batch.events[k].kind);
+                EXPECT_EQ(stream.events[k].index, batch.events[k].index);
+                EXPECT_DOUBLE_EQ(stream.events[k].confidence, batch.events[k].confidence);
+            }
+        }
+        const AlignResult stream_all = streaming.Update(heard);
+        EXPECT_EQ(stream_all.statuses, got.statuses) << "case " << id;
+
         ++cases;
         EXPECT_EQ(got.has_span, want_span) << "case " << id;
         if (want_span) {

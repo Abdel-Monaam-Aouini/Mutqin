@@ -26,6 +26,7 @@ struct mq_session {
     std::vector<mutqin::WordRef> words;
     std::vector<mutqin::Frame> frames;
     mutqin::AlignResult aligned;
+    std::unique_ptr<mutqin::StreamingAligner> aligner;
     mutqin::LogMel logmel;
     std::unique_ptr<mutqin::AcousticModel> model;
 };
@@ -162,10 +163,13 @@ namespace {
 void Realign(mq_session* session, const float* probs, size_t num_frames) {
     for (size_t i = 0; i < num_frames; ++i)
         session->frames.push_back(mutqin::ArgmaxFrame(probs + i * MQ_VOCAB_SIZE));
-    std::vector<mutqin::WordReading> readings;
-    for (const mutqin::WordRef& w : session->words)
-        readings.push_back(w.reading);
-    session->aligned = mutqin::AlignTokens(mutqin::GreedyDecode(session->frames), readings);
+    if (!session->aligner) {
+        std::vector<mutqin::WordReading> readings;
+        for (const mutqin::WordRef& w : session->words)
+            readings.push_back(w.reading);
+        session->aligner = std::make_unique<mutqin::StreamingAligner>(std::move(readings));
+    }
+    session->aligned = session->aligner->Update(mutqin::GreedyDecode(session->frames));
 }
 }  // namespace
 
