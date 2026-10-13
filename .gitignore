@@ -1,0 +1,40 @@
+# Build outputs
+build/
+build-*/
+out/
+cmake-build-*/
+CMakeUserPresets.json
+compile_commands.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Data: keep only manifests and checksums (text is fetched by tools/quran_text/download.py)
+data/*
+!data/quran/
+data/quran/*
+!data/quran/.gitkeep
+!data/quran/checksums.txt
+
+# Models: fetched by script or git LFS
+models/*
+!models/.gitkeep
+
+# Local audio / eval artifacts
+*.wav
+!core/tests/fixtures/*.wav
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Claude Code local-only settings
+.claude/settings.local.json
