@@ -162,3 +162,13 @@ hardcode Arabic text.
   (unverified; not to be implemented before confirmation and merge into this spec).
 - [ ] New special case: U+06E8 small high noon occurs once, at 21:88:7, and is not listed in
   section 3.9. Confirm what it marks.
+- [ ] Lam of Allah (spec 3.5, task 1.4): tafkhim after fatha / damma, tarqiq after kasra is not
+  implemented. It only changes tags (heavy / light is merged until Phase 5) and identifying the
+  name of Allah needs a teacher-approved list of word ids. Deferred to Phase 5.
+- [ ] Starting vowel of hamzat al-wasl for non-article words (task 1.4 implements only the article,
+  fatha). The usual rule depends on whether the third letter's damma is original or transient;
+  it needs the teacher. 1,488 words are reported as `wasla_start_vowel_unknown`.
+- [ ] Spec change request: `variant` gets a fourth value `start_only` (phonemes that exist only when
+  a word starts a recitation or follows a stop; used for hamzat al-wasl). Confirm.
+- [ ] Article lam before a verb: the 10 words with alef wasla + lam sukun + teh are verbs, not the
+  definite article, but are tagged `lam_qamariyyah` (the encoding cannot tell them apart).

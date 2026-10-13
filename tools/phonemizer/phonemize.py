@@ -20,6 +20,7 @@ WAW, YEH, TATWEEL = 0x0648, 0x064A, 0x0640
 SMALL_WAW, SMALL_YEH = 0x06E5, 0x06E6
 SMALL_HIGH_YEH = 0x06E7
 ROUNDED_ZERO, RECTANGULAR_ZERO = 0x06DF, 0x06E0
+LAM_CP = 0x0644
 HAMZA_SEATS = frozenset([0x0623, 0x0624, 0x0625, 0x0626])
 
 SHORT_VOWELS = {u.FATHA: "a", u.DAMMA: "u", u.KASRA: "i"}
@@ -80,6 +81,9 @@ class _Builder:
         self.diags: list[Diagnostic] = []
         self.hooks: list[tuple[str, int, int]] = []
         self.word: Word | None = None
+        self.units: tuple[u.LetterUnit, ...] = ()
+        self.pos = 0  # index of the current unit in self.units
+        self.pending_tags: list[str] = []  # applied to the next consonant (assimilated lam)
 
     # -- helpers ---------------------------------------------------------------------------
     def diag(self, kind: str, offset: int) -> None:
@@ -101,7 +105,8 @@ class _Builder:
     def lengthen(self, vowel: str, end: int) -> bool:
         """Make the previous short vowel long (dur 2). Returns False if there is none."""
         last = self.last()
-        if last and last.role == "vowel" and last.ph == vowel and last.dur == (1,):
+        if (last and last.role == "vowel" and last.ph == vowel and last.dur == (1,)
+                and last.variant is Variant.BOTH):
             last.dur = (2,)
             last.span = (last.span[0], end)
             return True
@@ -156,6 +161,8 @@ class _Builder:
     # -- letters -----------------------------------------------------------------------------
     def consonant(self, unit: u.LetterUnit, ph: str, tags: tuple[str, ...] = ()) -> None:
         times = 2 if unit.has(u.SHADDA) else 1
+        tags = tags + tuple(self.pending_tags)
+        self.pending_tags = []
         host = None
         for _ in range(times):
             host = self.add(ph, (unit.start, unit.start + 1), "cons", letter=ord(unit.char))
@@ -180,8 +187,30 @@ class _Builder:
                 self.sign_on_last_vowel(unit, ord(mark))
 
     def wasla(self, unit: u.LetterUnit) -> None:
-        # Silent when continuing. Starting pronunciation is added in task 1.4.
-        self.hooks.append(("wasla", self.word.index, len(self.items)))
+        """Hamzat al-wasl: silent when continuing; when starting, hz + a for the definite article.
+        Starting vowels of other words are not in the spec (open question): reported."""
+        nxt = self.units[self.pos + 1] if self.pos + 1 < len(self.units) else None
+        if nxt is not None and ord(nxt.char) == LAM_CP:
+            span = (unit.start, unit.end)
+            hz = self.add("hz", span, "cons", letter=ALEF_WASLA)
+            a = self.add("a", span, "vowel", (1,))
+            for item in (hz, a):
+                item.variant = Variant.START_ONLY
+                item.rules.append("hamzat_wasl")
+        else:
+            self.diag("wasla_start_vowel_unknown", unit.start)
+
+    def lam(self, unit: u.LetterUnit) -> None:
+        """Lam of the definite article: assimilated (shamsiyyah) or clear (qamariyyah).
+        The mushaf encodes assimilation as a bare lam before a letter carrying shaddah."""
+        prev = self.units[self.pos - 1] if self.pos else None
+        nxt = self.units[self.pos + 1] if self.pos + 1 < len(self.units) else None
+        article = prev is not None and ord(prev.char) == ALEF_WASLA
+        if not unit.marks and nxt is not None and nxt.has(u.SHADDA):
+            self.pending_tags = ["lam_shamsiyyah" if article else "lam_assimilated"]
+            return  # not pronounced; the next consonant is doubled by its shaddah
+        tags = ("lam_qamariyyah",) if article and unit.has(u.SUKUN) else ()
+        self.consonant(unit, "l", tags)
 
     def tatweel(self, unit: u.LetterUnit) -> None:
         self.marks(unit, None, host_is_tatweel=True)
@@ -235,8 +264,7 @@ class _Builder:
 
     def next_unit_has(self, unit: u.LetterUnit, mark_cp: int) -> bool:
         assert self.word is not None
-        units = u.parse_word(self.word.text)
-        nxt = [x for x in units if x.start == unit.end]
+        nxt = [x for x in self.units if x.start == unit.end]
         return bool(nxt) and nxt[0].has(mark_cp)
 
     def unit(self, unit: u.LetterUnit) -> None:
@@ -253,6 +281,8 @@ class _Builder:
             self.small(unit, "i")
         elif cp in (WAW, YEH, ALEF_MAKSURA):
             self.weak(unit)
+        elif cp == LAM_CP:
+            self.lam(unit)
         elif cp == TEH_MARBUTA:
             self.consonant(unit, "t", ("teh_marbuta",))
         elif cp in HAMZA_SEATS:
@@ -269,7 +299,8 @@ class _Builder:
             if is_disconnected_letters(units):
                 self.diag("disconnected_letters", 0)  # letter names: task 1.9 data, not orthography
                 continue
-            for unit in units:
+            self.units = units
+            for self.pos, unit in enumerate(units):
                 self.unit(unit)
         return AyahResult(self.items, self.diags, self.hooks)
 

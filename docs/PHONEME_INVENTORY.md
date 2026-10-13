@@ -52,4 +52,4 @@ symbols in tasks 1.2 and 1.3, following `docs/TAJWEED_SPEC.md`.
 | `char_span` | (int, int) | `[start, end)` Unicode code point offsets inside the Uthmani word text |
 | `rules` | tuple[str] | rule tags (defined with each rule, `TAJWEED_SPEC.md` section 3) |
 | `dur` | tuple[int] | allowed durations in counts, e.g. `(2,)`, `(4, 5)`, `(2, 4, 6)` |
-| `variant` | enum | `both`, `continue_only`, `waqf_only` |
+| `variant` | enum | `both`, `continue_only`, `waqf_only`, and `start_only` (hamzat al-wasl: only when the word starts a recitation or follows a stop; extension of the spec, to be confirmed) |

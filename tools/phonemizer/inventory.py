@@ -82,11 +82,14 @@ TOKEN_ID: dict[str, int] = {token: i for i, token in enumerate(VOCAB)}
 
 
 class Variant(str, Enum):
-    """Where a phoneme applies (spec section 1)."""
+    """Where a phoneme applies (spec section 1, plus START_ONLY for hamzat al-wasl)."""
 
     BOTH = "both"
-    CONTINUE_ONLY = "continue_only"
-    WAQF_ONLY = "waqf_only"
+    CONTINUE_ONLY = "continue_only"  # only when reading on past the end of this word
+    WAQF_ONLY = "waqf_only"  # only when stopping at the end of this word
+    # Only when the word starts a recitation (first word of the range) or follows a stop.
+    # Extension of the spec's three variants, needed for hamzat al-wasl (spec 3.9).
+    START_ONLY = "start_only"
 
 
 @dataclass(frozen=True)

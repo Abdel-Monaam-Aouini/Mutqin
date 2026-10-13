@@ -15,7 +15,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [x] 1.1 Phoneme inventory (`tools/phonemizer/inventory.py`) + docs
 - [x] 1.2 Uthmani text normalization → letters + diacritics per word (no text changes, only parsing)
 - [x] 1.3 Basic letters + short vowels + sukun + shaddah → phonemes
-- [ ] 1.4 Hamzat al-wasl, lam shamsiyyah/qamariyyah, lam of Allah
+- [x] 1.4 Hamzat al-wasl, lam shamsiyyah/qamariyyah, lam of Allah (lam of Allah tags deferred to Phase 5, see Open questions)
 - [ ] 1.5 Noon sakinah / tanween rules (3.1)
 - [ ] 1.6 Meem sakinah, mushaddad ghunnah, qalqalah (3.2–3.4)
 - [ ] 1.7 Madd types and durations (3.7)
