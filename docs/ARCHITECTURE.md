@@ -18,6 +18,19 @@ Audio source (16 kHz mono: WAV file or microphone, supplied by the CLI/app)
 The **rule engine** runs ahead of time per ayah range: Quran text → expected annotated
 phoneme sequence (with waqf / continue variants).
 
+## Where things stand
+
+| Stage | State |
+|---|---|
+| Quran text, rule engine (phonemizer), word readings | done in C++, checked against the Python reference for the whole Quran |
+| Ring buffer, log-mel features, energy VAD | done in C++ (`audio/`, `features/`, `vad/`) |
+| Acoustic model | **not chosen yet**; the core takes CTC posteriors over a fixed 32-token vocabulary (blank + the 31 phonemes of `PHONEME_INVENTORY.md`), so a backend only has to map its output to those tokens |
+| CTC decoding, aligner, word detector | done in C++ (`align/`), same results as the Python prototype on generated cases |
+| C API | expected phonemes, posteriors in, word statuses and events out (see below) |
+| `mutqin-cli` | prints expected phonemes, reads WAV, replays recorded posteriors (`--posteriors`) |
+
+Python is development-only (`tools/`); the apps will use only the C++ core through the C API.
+
 ## Folder layout
 
 ```
@@ -42,7 +55,7 @@ mutqin/
 │   │   └── api/           # C API implementation
 │   ├── tests/
 │   └── CMakeLists.txt
-├── cli/                   # mutqin-cli: WAV / microphone input, prints events (uses the C API)
+├── cli/                   # mutqin-cli: WAV reader, posterior replay, prints events (uses the C API)
 ├── tools/                 # Python
 │   ├── quran_text/        # download + verify text
 │   ├── phonemizer/        # REFERENCE rule engine (source of truth)
@@ -56,49 +69,24 @@ mutqin/
 
 Rules: `core/` contains no platform-specific code and builds on Linux, macOS, Windows.
 Microphone capture lives in `cli/` (and later in the apps), never in `core/`; the core only
-receives samples through `mq_push_audio`.
+receives samples (planned `mq_push_audio`) or model posteriors through the C API.
 
-## C API (sketch — `core/include/mutqin.h`)
+## C API (`core/include/mutqin.h`)
+
+Implemented now (plain C, `int` return codes `MQ_OK` / `MQ_ERR_*`, error text in a caller buffer):
 
 ```c
-typedef struct mq_session mq_session;
-
-typedef struct {
-    const char* model_dir;      /* ONNX models + tokens */
-    const char* quran_dir;      /* verified text files */
-    int   error_levels;         /* bitmask: MQ_WORD | MQ_HARAKAH | MQ_TAJWEED */
-    float min_confidence;       /* report errors only above this, e.g. 0.85 */
-    int   madd_munfasil_counts; /* 4 or 5, user preference; 0 = accept both */
-} mq_config;
-
-typedef enum {
-    MQ_EV_POSITION,       /* current word reached */
-    MQ_EV_WORD_OK,
-    MQ_EV_WORD_SKIPPED,
-    MQ_EV_WORD_WRONG,
-    MQ_EV_WORD_REPEATED,
-    MQ_EV_HARAKAH_ERROR,
-    MQ_EV_TAJWEED_ERROR,
-    MQ_EV_AYAH_DONE
-} mq_event_type;
-
-typedef struct {
-    mq_event_type type;
-    int surah, ayah, word;      /* location */
-    int char_start, char_end;   /* span inside the word, for highlighting */
-    const char* rule;           /* e.g. "ikhfa", "madd_munfasil" (static string) */
-    float confidence;
-    long long t_start_ms, t_end_ms;
-} mq_event;
-
-mq_session* mq_create(const mq_config* cfg);
-int  mq_set_range(mq_session*, int surah, int ayah_from, int ayah_to);
-int  mq_push_audio(mq_session*, const float* samples, int n); /* 16 kHz mono */
-int  mq_poll_events(mq_session*, mq_event* out, int max);     /* non-blocking */
-void mq_reset(mq_session*);
-void mq_destroy(mq_session*);
-const char* mq_version(void);
+mq_engine_create(data_dir, &engine, err, err_len);      /* loads + verifies the Quran text */
+mq_session_create(engine, surah, ayah_first, ayah_last, &session, err, err_len);
+mq_session_phoneme_count / mq_session_phoneme(...)      /* expected phonemes with rule tags */
+mq_session_push_posteriors(session, probs, num_frames); /* MQ_VOCAB_SIZE floats per frame */
+mq_session_word_count / mq_session_word_status(...)     /* MQ_WORD_OK / WRONG / SKIPPED */
+mq_session_event_count / mq_session_event(...)          /* skipped, wrong, repeated, added */
 ```
+
+Still planned (needs the inference backend): `mq_push_audio` (16 kHz mono float samples),
+a configuration struct (model directory, confidence threshold, madd preference), harakah and
+tajweed events with character spans and timestamps, `mq_reset`.
 
 ## Threading
 

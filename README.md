@@ -6,6 +6,18 @@ tools, and (later) Android and iOS apps.
 
 **Current scope:** C++17 core `MutqinCore` + `mutqin-cli`. `android/` and `ios/` are placeholders.
 
+## Try it
+
+```
+cmake -S . -B build && cmake --build build
+python3 tools/quran_text/download.py                       # verified Tanzil text (accept its terms)
+./build/cli/mutqin-cli --surah 1 --ayah 1-7                 # expected phonemes with rule tags
+python3 tools/prototype/make_posteriors.py /tmp/p.f32 --surah 1 --ayahs 1-7 --scenario skip
+./build/cli/mutqin-cli --surah 1 --ayah 1-7 --posteriors /tmp/p.f32   # replay: reports the skipped word
+```
+
+Audio analysis (`--wav`) needs a recognition model, which is not chosen yet (see `docs/EVAL_RESULTS.md`).
+
 ## Working with an AI coding assistant
 
 1. `AGENTS.md` holds the rules (Cursor, Codex, and others read it). `CLAUDE.md` is the entry
@@ -24,6 +36,7 @@ tools, and (later) Android and iOS apps.
 | `docs/TAJWEED_SPEC.md` | Rule engine specification (Hafs 'an 'Asim) |
 | `docs/DATA_AND_MODEL.md` | Datasets, model training, evaluation |
 | `docs/TASKS.md` | Task checklist, phase by phase |
+| `docs/EVAL_RESULTS.md` | Synthetic evaluation of the aligner and checks of candidate models |
 
 ## Checks before a commit
 
