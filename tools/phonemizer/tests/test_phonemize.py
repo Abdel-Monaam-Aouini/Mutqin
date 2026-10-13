@@ -142,7 +142,9 @@ def test_whole_quran_phonemizes_with_only_known_special_cases():
                 assert p.ph in BY_SYMBOL
                 assert 0 <= p.char_span[0] < p.char_span[1] <= len(words[p.word].text)
                 if p.ph in "aiu":
-                    assert p.dur in ((1,), (2,))
+                    assert p.dur in ((1,), (2,), (4, 5), (6,), (2, 4, 6))
+                elif p.rules and any(r == "madd_leen" for r in p.rules):
+                    assert p.dur in ((), (2, 4, 6))  # leen letter at a stop
                 else:  # consonants have no duration, except ghunnah (2 counts) from noon / meem rules
                     assert p.dur == () or (p.dur == (2,) and any(
                         r.startswith(("ikhfa", "iqlab", "idgham_ghunnah", "idgham_mithlayn", "ghunnah"))
@@ -352,3 +354,78 @@ def test_nothing_continues_across_a_surah_boundary():
     a2 = Ayah(2, 1, (Word(2, 1, 1, BA + FATHA),), "")
     r = phonemize_range([a1, a2])
     assert vs(r, "nm") == [("n", "both", (), ())]
+
+
+# -- madd (spec 3.7) ----------------------------------------------------------------------------
+HAMZA_LETTER = "\u0621"
+MADDAH = "\u0653"
+
+
+def madd(result, ph="a"):
+    """(variant, dur, madd rules) of the long vowels in a result."""
+    return [(p.variant.value, p.dur, tuple(r for r in p.rules if r.startswith("madd")))
+            for p in result.phonemes if p.ph == ph and p.dur not in ((), (1,))]
+
+
+def test_tabii_is_two_counts():
+    assert madd(run(BA + FATHA + ALEF + TA + FATHA + KAF + FATHA)) == [("both", (2,), ("madd_tabii",))]
+
+
+def test_muttasil_hamza_in_the_same_word():
+    r = run(BA + FATHA + ALEF + HAMZA_LETTER + FATHA)
+    assert madd(r) == [("both", (4, 5), ("madd_muttasil",))]
+
+
+def test_munfasil_hamza_in_the_next_word_only_when_continuing():
+    r = two_words(BA + FATHA + ALEF, HAMZA_LETTER + FATHA)
+    assert madd(r) == [("continue_only", (4, 5), ("madd_munfasil",)),
+                       ("waqf_only", (2,), ("madd_tabii",))]
+
+
+def test_no_munfasil_before_a_hamza_that_follows_a_silent_wasla():
+    r = two_words(BA + FATHA + ALEF, WASLA + HAMZA_LETTER + SUKUN + TA + FATHA)
+    assert madd(r) == [("both", (2,), ("madd_tabii",))]
+
+
+def test_lazim_before_a_permanent_sukun_or_shaddah():
+    assert madd(run(BA + FATHA + ALEF + TA + SUKUN + KAF + FATHA)) == [("both", (6,), ("madd_lazim",))]
+    assert madd(run(BA + FATHA + ALEF + TA + SHADDA + FATHA)) == [("both", (6,), ("madd_lazim",))]
+
+
+def test_aarid_lissukun_is_a_stop_only_reading_before_the_last_letter():
+    r = run(BA + FATHA + ALEF + TA + KASRA)
+    assert madd(r) == [("continue_only", (2,), ("madd_tabii",)),
+                       ("waqf_only", (2, 4, 6), ("madd_arid_lissukun",))]
+
+
+def test_badal_hamza_before_the_long_vowel():
+    r = run(HAMZA_LETTER + FATHA + ALEF + TA + FATHA + KAF + FATHA)
+    assert madd(r) == [("both", (2,), ("madd_badal",))]
+
+
+def test_leen_before_the_last_letter_only_at_a_stop():
+    r = run(BA + FATHA + WAW + SUKUN + TA + KASRA)
+    w = [(p.variant.value, p.dur, p.rules) for p in r.phonemes if p.ph == "w"]
+    assert w == [("continue_only", (), ()), ("waqf_only", (2, 4, 6), ("madd_leen",))]
+
+
+@needs_data
+def test_madd_rules_agree_with_the_written_maddah_sign():
+    """The text writes a maddah exactly where the spec has a madd longer than 2 counts
+    (muttasil, munfasil, lazim, silah kubra), apart from three known anomalies."""
+    quran = loader.load_quran()
+    result = phonemize_range([a for s in quran.surahs for a in s.ayahs])
+    long_rules = {"madd_muttasil", "madd_munfasil", "madd_lazim", "madd_silah_kubra"}
+    anomalies, signed_but_short = [], 0
+    for item in result.items:
+        if item.role != "vowel" or not item.long_by or item.variant.value == "waqf_only":
+            continue
+        rule = next((r for r in item.rules if r.startswith("madd")), None)
+        if rule in long_rules and not item.maddah:
+            anomalies.append((rule, f"{item.surah}:{item.ayah}:{item.word}"))
+        if rule not in long_rules and item.maddah:
+            signed_but_short += 1
+    assert signed_but_short == 0
+    # text without a maddah where the rule predicts a long madd: 2:72:4 (no sign written) and
+    # 41:44:9 (tas-hil location, spec 3.9)
+    assert sorted(anomalies) == [("madd_lazim", "41:44:9"), ("madd_muttasil", "2:72:4")]

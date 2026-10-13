@@ -51,6 +51,7 @@ class Item:
     ayah: int = 0
     host_marks: frozenset[int] = frozenset()  # code points of the marks on the host letter
     maddah: bool = False  # a maddah sign was written on/after this vowel (cross-check for 1.7)
+    long_by: int = 0  # code point of the letter / sign that made this vowel long
     signs: set[int] = field(default_factory=set)
     letter: int = 0  # code point of the host letter
 
@@ -75,6 +76,15 @@ def is_disconnected_letters(units: tuple[u.LetterUnit, ...]) -> bool:
     vowel sign, tanween, sukun or shaddah on any unit (ordinary words always have one)."""
     voweled = set(SHORT_VOWELS) | set(TANWEEN) | {u.SUKUN, u.SHADDA}
     return bool(units) and not any(ord(m) in voweled for x in units for m in x.marks)
+
+
+def _marks_of_host(unit: u.LetterUnit) -> tuple[str, ...]:
+    """Marks that belong to the base letter: those before a hamza above (what follows it, such as
+    a sukun, belongs to the hamza)."""
+    for k, m in enumerate(unit.marks):
+        if ord(m) == u.HAMZA_ABOVE:
+            return unit.marks[:k]
+    return unit.marks
 
 
 class _Builder:
@@ -109,13 +119,14 @@ class _Builder:
             return self.items[-1]
         return None
 
-    def lengthen(self, vowel: str, end: int) -> bool:
+    def lengthen(self, vowel: str, end: int, by: int = 0) -> bool:
         """Make the previous short vowel long (dur 2). Returns False if there is none."""
         last = self.last()
         if (last and last.role == "vowel" and last.ph == vowel and last.dur == (1,)
                 and last.variant is Variant.BOTH):
             last.dur = (2,)
             last.span = (last.span[0], end)
+            last.long_by = by
             return True
         return False
 
@@ -142,11 +153,12 @@ class _Builder:
                 self.add(TANWEEN[cp], span, "vowel", (1,))
                 self.add("n", span, "tanween_n").variant = Variant.CONTINUE_ONLY  # no n at waqf
             elif cp == u.SUPERSCRIPT_ALEF:
-                if not self.lengthen("a", span[1]):
-                    self.add("a", span, "vowel", (2,))
+                if not self.lengthen("a", span[1], cp):
+                    self.add("a", span, "vowel", (2,)).long_by = cp
                     self.diag("long_a_without_fatha", span[0])
             elif cp == u.HAMZA_ABOVE:
-                self.add("hz", span, "cons", letter=u.HAMZA_ABOVE)
+                hz = self.add("hz", span, "cons", letter=u.HAMZA_ABOVE)
+                hz.host_marks = frozenset(ord(m) for m in unit.marks[k + 1:])  # e.g. its sukun
             elif cp == u.MADDAH_ABOVE:
                 self.sign_on_last_vowel(unit, cp)
             elif cp in SIGN_MARKS:
@@ -160,7 +172,7 @@ class _Builder:
             elif cp == SMALL_HIGH_YEH:
                 if any(ord(m) in SHORT_VOWELS or ord(m) in TANWEEN for m in unit.marks):
                     self.add("y", span, "cons", letter=SMALL_HIGH_YEH)  # yeh with its own vowel
-                elif not self.lengthen("i", span[1]):
+                elif not self.lengthen("i", span[1], cp):
                     self.diag("small_high_yeh_without_kasra", span[0])
             else:
                 self.diag(f"unhandled_mark_{cp:04X}", span[0])
@@ -174,7 +186,9 @@ class _Builder:
         for n in range(times):
             host = self.add(ph, (unit.start, unit.start + 1), "cons", letter=ord(unit.char))
             host.rules.extend(tags)
-            host.host_marks = frozenset(ord(m) for m in unit.marks)
+            host.host_marks = frozenset(ord(m) for m in _marks_of_host(unit))
+            if ph == "hz" and self.pos and ord(self.units[self.pos - 1].char) == ALEF_WASLA:
+                host.rules.append("hamza_after_wasla")  # no madd before it (the text has no maddah)
             if times == 2 and n == 1 and ph in ("n", "m"):  # mushaddad noon / meem (spec 3.3)
                 host.rules.append("ghunnah")
                 host.dur = (2,)
@@ -188,7 +202,7 @@ class _Builder:
             return
         last = self.last()
         if last and last.role == "vowel" and last.ph == "a" and last.dur == (1,):
-            self.lengthen("a", unit.end)
+            self.lengthen("a", unit.end, ALEF)
         elif last and last.role == "tanween_n" and len(self.items) >= 2 and self.items[-2].ph == "a":
             self.hooks.append(("iwad", self.word.index, len(self.items)))  # tanween alef
         else:
@@ -230,7 +244,7 @@ class _Builder:
         if any(ord(m) in SHORT_VOWELS or ord(m) in TANWEEN for m in unit.marks):
             self.consonant(unit, "w" if vowel == "u" else "y")  # small letter with its own vowel
             return
-        if not self.lengthen(vowel, unit.end):
+        if not self.lengthen(vowel, unit.end, ord(unit.char)):
             self.diag(f"small_letter_without_{vowel}", unit.start)
         for mark in unit.marks:
             if ord(mark) == u.MADDAH_ABOVE:
@@ -263,11 +277,11 @@ class _Builder:
             # bare waw after fatha before a silent alef: consonant w, sukun implied by encoding
             self.add("w", (unit.start, unit.start + 1), "cons", letter=cp).rules.append("implicit_sukun")
         elif cp == WAW and prev_vowel == "u":
-            self.lengthen("u", unit.end)
+            self.lengthen("u", unit.end, cp)
         elif cp == YEH and prev_vowel == "i":
-            self.lengthen("i", unit.end)
+            self.lengthen("i", unit.end, cp)
         elif cp == ALEF_MAKSURA and prev_vowel in ("a", "i"):
-            self.lengthen(prev_vowel, unit.end)
+            self.lengthen(prev_vowel, unit.end, cp)
         else:
             self.diag(f"bare_{'waw' if cp == WAW else 'yeh' if cp == YEH else 'maksura'}"
                       f"_after_{prev_vowel or 'nothing'}", unit.start)
@@ -310,6 +324,8 @@ class _Builder:
         apply_noon_rules(self.items, self.diags)
         apply_meem_rules(self.items, self.diags)
         apply_qalqalah(self.items)
+        apply_madd(self.items)
+        apply_leen(self.items)
         return AyahResult(self.items, self.diags, self.hooks)
 
     def run_ayah(self, ayah: Ayah) -> None:
@@ -499,3 +515,134 @@ def apply_qalqalah(items: list[Item]) -> None:
             items.insert(i + 1, kubra)
         else:
             letter.rules.append("qalqalah_sughra")
+
+
+# -- madd (spec 3.7) --------------------------------------------------------------------------------
+
+HEH_CP = 0x0647
+MUTTASIL_MUNFASIL = (4, 5)  # allowed counts; the user's 4 or 5 preference narrows this later
+LAZIM = (6,)
+AROID_LEEN = (2, 4, 6)
+
+
+def _clone(item: Item, variant: Variant, rules: list[str], dur: tuple[int, ...]) -> Item:
+    return Item(item.ph, item.word, item.span, item.role, dur, rules, variant,
+                surah=item.surah, ayah=item.ayah, host_marks=item.host_marks, letter=item.letter,
+                maddah=item.maddah, long_by=item.long_by)
+
+
+def _next_pronounced(items: list[Item], i: int) -> int | None:
+    """Next item after i that is read when continuing (skips start-only items), same surah."""
+    j = i + 1
+    while j < len(items) and items[j].variant is Variant.START_ONLY:
+        j += 1
+    if j < len(items) and items[j].surah == items[i].surah:
+        return j
+    return None
+
+
+def _is_madd_hamza(item: Item | None) -> bool:
+    """A hamza that lengthens the preceding vowel. A hamza right after hamzat al-wasl does not:
+    the wasla is dropped, and the text writes no maddah there (open question for the teacher)."""
+    return (item is not None and item.role == "cons" and item.ph == "hz"
+            and "hamza_after_wasla" not in item.rules)
+
+
+def _is_sakin_consonant(items: list[Item], k: int) -> bool:
+    """Consonant that is silent-vowelled: explicit sukun, or the first half of a shaddah pair."""
+    c = items[k]
+    if c.role != "cons":
+        return False
+    if u.SUKUN in c.host_marks:
+        return True
+    return (u.SHADDA in c.host_marks and k + 1 < len(items) and items[k + 1].ph == c.ph
+            and word_key(items[k + 1]) == word_key(c) and items[k + 1].span == c.span)
+
+
+def _last_consonant_of_word(items: list[Item], k: int) -> bool:
+    """True if items[k] is a consonant and no other consonant of its word follows it."""
+    key = word_key(items[k])
+    for m in range(k + 1, len(items)):
+        if word_key(items[m]) != key:
+            return True
+        if items[m].role == "cons":
+            return False
+    return True
+
+
+def apply_madd(items: list[Item]) -> None:
+    for i in reversed([k for k, it in enumerate(items)
+                       if it.role == "vowel" and it.dur == (2,) and it.long_by
+                       and it.variant is Variant.BOTH]):
+        vowel = items[i]
+        prev = items[i - 1] if i else None
+        silah = (vowel.long_by in (SMALL_WAW, SMALL_YEH) and prev is not None
+                 and prev.role == "cons" and prev.letter == HEH_CP)
+        badal = (prev is not None and prev.role == "cons" and prev.ph == "hz"
+                 and prev.variant is Variant.BOTH and word_key(prev) == word_key(vowel))
+        k = _next_pronounced(items, i)
+        nxt = items[k] if k is not None else None
+        word_final = nxt is None or word_key(nxt) != word_key(vowel)
+
+        base_rule = "madd_badal" if badal else "madd_tabii"
+        if silah:
+            hamza_follows = _is_madd_hamza(nxt)
+            vowel.variant = Variant.CONTINUE_ONLY  # the pronoun's silah only exists when continuing
+            vowel.rules.append("madd_silah_kubra" if hamza_follows else "madd_silah_sughra")
+            vowel.dur = MUTTASIL_MUNFASIL if hamza_follows else (2,)
+        elif _is_madd_hamza(nxt):
+            if not word_final:
+                vowel.rules.append("madd_muttasil")
+                vowel.dur = MUTTASIL_MUNFASIL
+            else:  # the long vowel ends its word: munfasil only if the reading goes on
+                stop = _clone(vowel, Variant.WAQF_ONLY, [base_rule], (2,))
+                vowel.variant = Variant.CONTINUE_ONLY
+                vowel.rules.append("madd_munfasil")
+                vowel.dur = MUTTASIL_MUNFASIL
+                items.insert(i + 1, stop)
+        elif nxt is not None and not word_final and _is_sakin_consonant(items, k):
+            vowel.rules.append("madd_lazim")
+            vowel.dur = LAZIM
+        elif (nxt is not None and not word_final and nxt.role == "cons"
+              and _last_consonant_of_word(items, k) and not _has_fathatan(items, k)):
+            # sukun only appears at a stop ('arid lis-sukun)
+            stop = _clone(vowel, Variant.WAQF_ONLY, ["madd_arid_lissukun"], AROID_LEEN)
+            vowel.variant = Variant.CONTINUE_ONLY
+            vowel.rules.append(base_rule)
+            items.insert(i + 1, stop)
+        else:
+            vowel.rules.append(base_rule)
+
+
+def _has_fathatan(items: list[Item], k: int) -> bool:
+    """The consonant at k carries tanween fatha (it becomes a long a at a stop, not a sukun)."""
+    key = word_key(items[k])
+    for m in range(k + 1, len(items)):
+        if word_key(items[m]) != key:
+            return False
+        if items[m].role == "tanween_n":
+            return len(items) > m and items[m - 1].ph == "a"
+        if items[m].role == "cons":
+            return False
+    return False
+
+
+def apply_leen(items: list[Item]) -> None:
+    """Waw / yeh with a sukun after a fatha, before the last letter of the word: at a stop the
+    leen letter may be lengthened (2, 4 or 6 counts)."""
+    for i in reversed([k for k, it in enumerate(items)
+                       if it.role == "cons" and it.ph in ("w", "y") and u.SUKUN in it.host_marks
+                       and it.variant is Variant.BOTH]):
+        prev = items[i - 1] if i else None
+        if not (prev and prev.role == "vowel" and prev.ph == "a" and prev.dur == (1,)
+                and word_key(prev) == word_key(items[i])):
+            continue
+        k = _next_pronounced(items, i)
+        if k is None or items[k].role != "cons" or word_key(items[k]) != word_key(items[i]):
+            continue
+        if not _last_consonant_of_word(items, k):
+            continue
+        leen = items[i]
+        stop = _clone(leen, Variant.WAQF_ONLY, list(leen.rules) + ["madd_leen"], AROID_LEEN)
+        leen.variant = Variant.CONTINUE_ONLY
+        items.insert(i + 1, stop)

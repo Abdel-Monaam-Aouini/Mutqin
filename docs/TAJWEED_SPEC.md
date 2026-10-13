@@ -178,3 +178,20 @@ hardcode Arabic text.
   sakt location from 3.9 and is reported, not handled, until the special-cases data (1.9) exists.
 - [ ] Idgham with ghunnah: the doubled letter is emitted as two consonants, the second tagged
   `ghunnah` duration (2,) and marked `after_continue`. Confirm this representation.
+- [ ] Task 1.7 (madd) decisions made from the data, to confirm with the teacher:
+  - A long vowel followed by a sakin letter in the *next* word (for example the article lam when
+    reading on) is treated as tabi'i, 2 counts. The spec table does not cover it.
+  - A hamza that directly follows hamzat al-wasl in the next word does not make the previous long
+    vowel munfasil: the text writes no maddah there (5 words, e.g. 2:283:15).
+  - Silah: the small waw / small yeh after the pronoun heh is silah sughra (2) or, before a
+    hamza, silah kubra (4, 5). It exists only when reading on.
+  - Muttasil and munfasil are emitted as the allowed set (4, 5); the user's 4-or-5 setting is applied
+    later. 6 for muttasil at a stop is still the open question above.
+  - 'Arid lis-sukun and leen are stop-only readings of (2, 4, 6) on the long vowel or leen letter
+    that comes before the last letter of the word.
+  - Text anomalies: 2:72:4 has a muttasil without a written maddah; 41:44:9 (tas-hil) is a lazim
+    candidate without a maddah, left to the special-cases data (1.9).
+  - Lazim harfi (letter names at surah openings) is not produced yet; those 30 words are skipped.
+  - Checked over the whole Quran: the written maddah appears exactly on the vowels the engine gives
+    muttasil, munfasil, lazim or silah kubra (apart from the two anomalies above), and never on a
+    tabi'i, badal or silah sughra vowel.
