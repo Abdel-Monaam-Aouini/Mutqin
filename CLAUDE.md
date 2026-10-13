@@ -29,6 +29,7 @@ Read and follow `AGENTS.md` (rules) and the relevant file in `docs/` before ever
 ## Layout
 `core/` C++ library · `cli/` mutqin-cli · `tools/` Python · `data/quran/` verified text ·
 `models/` · `docs/` · `android/`, `ios/` (deferred) · `.claude/` rules and skills.
-CI (GitHub Actions) is deferred: do not create `.github/` workflows; run tests locally.
+CI: `.github/workflows/ci.yml` (build + test on Linux/macOS/Windows, ASan/UBSan, pytest, lint, format).
+Before every commit run the same checks locally (see README, "Checks before a commit").
 
 Detailed rules: `.claude/rules/`. Skills: `/next-task`, `/add-dependency`, `/verify-quran-data`.

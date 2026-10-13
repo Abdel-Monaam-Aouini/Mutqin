@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: "1"
+
+# Quran text: data/quran/*.txt is not in the repository (only checksums.txt is). The jobs below
+# download it from Tanzil only when the repository owner has accepted the Tanzil Terms of Use
+# (https://tanzil.net/docs/Text_License) by setting the Actions variable TANZIL_TERMS_ACCEPTED=true
+# (Settings > Secrets and variables > Actions > Variables). The download must match the committed
+# checksums or the job fails. Without the variable, tests that need the text are skipped.
+
+jobs:
+  format-lint:
+    name: format + lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements-dev.txt
+      - name: Install pinned dev tools
+        run: pip install -r tools/requirements-dev.txt
+      - name: Python format (ruff format)
+        run: ruff format --check tools
+      - name: Python lint (ruff check)
+        run: ruff check tools
+      - name: C++ format (clang-format)
+        run: git ls-files '*.h' '*.hpp' '*.cpp' | xargs clang-format --dry-run --Werror
+
+  python-tests:
+    name: python tests (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: tools/requirements.txt
+      - name: Install test dependencies
+        run: pip install -r tools/requirements.txt
+      - name: Restore Quran text cache
+        id: quran-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/quran/quran-uthmani.txt
+            data/quran/quran-simple-clean.txt
+          key: quran-text-${{ hashFiles('data/quran/checksums.txt') }}
+      - name: Download Quran text (only if the owner accepted the Tanzil terms)
+        if: steps.quran-cache.outputs.cache-hit != 'true' && vars.TANZIL_TERMS_ACCEPTED == 'true'
+        run: python -I tools/quran_text/download.py --agree-tanzil-terms
+      - name: Check that the committed checksums were not changed
+        run: git diff --exit-code data/quran/checksums.txt
+      - name: Note when Quran-text tests are skipped
+        if: hashFiles('data/quran/quran-uthmani.txt') == ''
+        run: echo "::warning::Quran text not available (set the TANZIL_TERMS_ACCEPTED Actions variable); tests that need it are skipped"
+      - name: pytest
+        run: python -m pytest -q
+
+  build-test:
+    name: build + test (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-gcc
+            os: ubuntu-latest
+            cc: gcc
+            cxx: g++
+            build_type: Release
+            flags: "-DMUTQIN_WERROR=ON"
+          - name: linux-clang
+            os: ubuntu-latest
+            cc: clang
+            cxx: clang++
+            build_type: Release
+            flags: "-DMUTQIN_WERROR=ON"
+          - name: linux-asan-ubsan
+            os: ubuntu-latest
+            cc: clang
+            cxx: clang++
+            build_type: Debug
+            flags: >-
+              -DMUTQIN_WERROR=ON
+              -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all"
+              -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+          - name: macos
+            os: macos-latest
+            cc: clang
+            cxx: clang++
+            build_type: Release
+            flags: "-DMUTQIN_WERROR=ON"
+          - name: windows-msvc
+            os: windows-latest
+            build_type: Release
+            flags: ""
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Restore Quran text cache
+        id: quran-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/quran/quran-uthmani.txt
+            data/quran/quran-simple-clean.txt
+          key: quran-text-${{ hashFiles('data/quran/checksums.txt') }}
+      - name: Download Quran text (only if the owner accepted the Tanzil terms)
+        if: steps.quran-cache.outputs.cache-hit != 'true' && vars.TANZIL_TERMS_ACCEPTED == 'true'
+        run: python -I tools/quran_text/download.py --agree-tanzil-terms
+      - name: Check that the committed checksums were not changed
+        run: git diff --exit-code data/quran/checksums.txt
+      - name: Note when Quran-text tests are skipped
+        if: hashFiles('data/quran/quran-uthmani.txt') == ''
+        run: echo "::warning::Quran text not available (set the TANZIL_TERMS_ACCEPTED Actions variable); parity and loader tests are skipped"
+      - name: Configure
+        run: |
+          if [ -n "${{ matrix.cc }}" ]; then export CC=${{ matrix.cc }} CXX=${{ matrix.cxx }}; fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ${{ matrix.flags }}
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel
+      - name: Test
+        run: ctest --test-dir build -C ${{ matrix.build_type }} --output-on-failure --parallel 4

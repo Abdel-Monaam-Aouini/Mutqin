@@ -15,7 +15,8 @@ gtest_discover_tests(mutqin_tests)
 
 # C++ loader vs Python reference loader (needs data/quran/ and a Python interpreter).
 find_program(MUTQIN_PYTHON NAMES python3 python HINTS "${PROJECT_SOURCE_DIR}/.venv/bin")
-if(MUTQIN_PYTHON AND EXISTS "${MUTQIN_DATA_DIR}/checksums.txt")
+if(MUTQIN_PYTHON AND EXISTS "${MUTQIN_DATA_DIR}/checksums.txt"
+   AND EXISTS "${MUTQIN_DATA_DIR}/quran-uthmani.txt" AND EXISTS "${MUTQIN_DATA_DIR}/quran-simple-clean.txt")
     add_executable(mutqin_parity_tests test_parity.cpp)
     target_include_directories(mutqin_parity_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
     target_compile_definitions(mutqin_parity_tests PRIVATE MUTQIN_DATA_DIR="${MUTQIN_DATA_DIR}")

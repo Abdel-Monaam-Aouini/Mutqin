@@ -8,11 +8,8 @@ import pytest
 
 from tools.phonemizer import uthmani as u
 from tools.quran_text import loader
-from tools.quran_text.download import CHECKSUMS_NAME
 
-needs_data = pytest.mark.skipif(
-    not (loader.DEFAULT_DATA_DIR / CHECKSUMS_NAME).exists(), reason="data/quran/ missing"
-)
+needs_data = pytest.mark.skipif(not loader.data_available(), reason="data/quran/ missing")
 
 
 @pytest.fixture(scope="module")
@@ -62,7 +59,7 @@ def test_every_word_parses_and_round_trips_exactly(quran):
                 units = u.parse_word(word.text)
                 assert "".join(x.text for x in units) == word.text, word.id
                 assert units and units[0].start == 0 and units[-1].end == len(word.text), word.id
-                for a, b in zip(units, units[1:]):
+                for a, b in zip(units, units[1:], strict=False):
                     assert a.end == b.start, word.id
                 seen.update(ord(c) for c in word.text)
     # constants are not stale: every allowed character really occurs in the data

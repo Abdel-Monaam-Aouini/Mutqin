@@ -102,26 +102,36 @@ class _Builder:
         assert self.word is not None
         self.diags.append(Diagnostic(self.word.id, kind, offset))
 
-    def add(self, ph: str, span: tuple[int, int], role: str, dur: tuple[int, ...] = (),
-            letter: int = 0) -> Item:
+    def add(
+        self, ph: str, span: tuple[int, int], role: str, dur: tuple[int, ...] = (), letter: int = 0
+    ) -> Item:
         assert self.word is not None
-        item = Item(ph, self.word.index, span, role, dur, letter=letter,
-                    surah=self.word.surah, ayah=self.word.ayah)
+        item = Item(
+            ph, self.word.index, span, role, dur, letter=letter, surah=self.word.surah, ayah=self.word.ayah
+        )
         self.items.append(item)
         return item
 
     def last(self) -> Item | None:
         """Previous item if it belongs to the word being processed."""
-        if self.items and self.word is not None and word_key(self.items[-1]) == (
-                self.word.surah, self.word.ayah, self.word.index):
+        if (
+            self.items
+            and self.word is not None
+            and word_key(self.items[-1]) == (self.word.surah, self.word.ayah, self.word.index)
+        ):
             return self.items[-1]
         return None
 
     def lengthen(self, vowel: str, end: int, by: int = 0) -> bool:
         """Make the previous short vowel long (dur 2). Returns False if there is none."""
         last = self.last()
-        if (last and last.role == "vowel" and last.ph == vowel and last.dur == (1,)
-                and last.variant is Variant.BOTH):
+        if (
+            last
+            and last.role == "vowel"
+            and last.ph == vowel
+            and last.dur == (1,)
+            and last.variant is Variant.BOTH
+        ):
             last.dur = (2,)
             last.span = (last.span[0], end)
             last.long_by = by
@@ -156,7 +166,7 @@ class _Builder:
                     self.diag("long_a_without_fatha", span[0])
             elif cp == u.HAMZA_ABOVE:
                 hz = self.add("hz", span, "cons", letter=u.HAMZA_ABOVE)
-                hz.host_marks = frozenset(ord(m) for m in unit.marks[k + 1:])  # e.g. its sukun
+                hz.host_marks = frozenset(ord(m) for m in unit.marks[k + 1 :])  # e.g. its sukun
             elif cp == u.MADDAH_ABOVE:
                 self.sign_on_last_vowel(unit, cp)
             elif cp in SIGN_MARKS:
@@ -209,7 +219,7 @@ class _Builder:
             self.items[-2].flags.add("iwad")  # tanween alef
         else:
             self.diag("alef_without_fatha", unit.start)
-        for k, mark in enumerate(unit.marks):
+        for mark in unit.marks:
             if ord(mark) in (u.MADDAH_ABOVE, *SIGN_MARKS):
                 self.sign_on_last_vowel(unit, ord(mark))
 
@@ -261,8 +271,7 @@ class _Builder:
         if unit.has(ROUNDED_ZERO):
             return
         own = any(
-            ord(m) in SHORT_VOWELS or ord(m) in TANWEEN or ord(m) in (u.SHADDA, u.SUKUN)
-            for m in unit.marks
+            ord(m) in SHORT_VOWELS or ord(m) in TANWEEN or ord(m) in (u.SHADDA, u.SUKUN) for m in unit.marks
         )
         if own:
             self.consonant(unit, "y" if cp in (YEH, ALEF_MAKSURA) else "w")  # yeh-shaped: y
@@ -272,8 +281,13 @@ class _Builder:
             return
         last = self.last()
         prev_vowel = last.ph if last and last.role == "vowel" else None
-        if (cp == ALEF_MAKSURA and last and last.role == "tanween_n"
-                and len(self.items) >= 2 and self.items[-2].ph == "a"):
+        if (
+            cp == ALEF_MAKSURA
+            and last
+            and last.role == "tanween_n"
+            and len(self.items) >= 2
+            and self.items[-2].ph == "a"
+        ):
             self.items[-2].flags.add("iwad")  # tanween alef
         elif cp == WAW and prev_vowel == "a" and self.next_unit_has(unit, ROUNDED_ZERO):
             # bare waw after fatha before a silent alef: consonant w, sukun implied by encoding
@@ -285,8 +299,11 @@ class _Builder:
         elif cp == ALEF_MAKSURA and prev_vowel in ("a", "i"):
             self.lengthen(prev_vowel, unit.end, cp)
         else:
-            self.diag(f"bare_{'waw' if cp == WAW else 'yeh' if cp == YEH else 'maksura'}"
-                      f"_after_{prev_vowel or 'nothing'}", unit.start)
+            self.diag(
+                f"bare_{'waw' if cp == WAW else 'yeh' if cp == YEH else 'maksura'}"
+                f"_after_{prev_vowel or 'nothing'}",
+                unit.start,
+            )
         self.marks(unit, None)
 
     def next_unit_has(self, unit: u.LetterUnit, mark_cp: int) -> bool:
@@ -371,8 +388,12 @@ def _is_noon_sakin(item: Item) -> bool:
     """Noon with no vowel and no shaddah (sukun or bare), or the n of a tanween."""
     if item.role == "tanween_n":
         return True
-    return (item.role == "cons" and item.ph == "n" and item.letter == NOON_CP
-            and not item.host_marks & (set(SHORT_VOWELS) | {u.SHADDA}))
+    return (
+        item.role == "cons"
+        and item.ph == "n"
+        and item.letter == NOON_CP
+        and not item.host_marks & (set(SHORT_VOWELS) | {u.SHADDA})
+    )
 
 
 def _next_consonant(items: list[Item], i: int) -> int | None:
@@ -402,8 +423,13 @@ def apply_noon_rules(items: list[Item], diags: list[Diagnostic]) -> None:
         if noon.role == "cons" and u.SUKUN in noon.host_marks and not izhar_like:
             # The text writes a sukun where the next-letter rule would hide / merge the noon:
             # a location-specific reading (sakt, spec 3.9), left to the special-cases data (1.9).
-            diags.append(Diagnostic(f"{noon.surah}:{noon.ayah}:{noon.word}",
-                                    "noon_sukun_before_non_izhar_letter", noon.span[0]))
+            diags.append(
+                Diagnostic(
+                    f"{noon.surah}:{noon.ayah}:{noon.word}",
+                    "noon_sukun_before_non_izhar_letter",
+                    noon.span[0],
+                )
+            )
             continue
 
         if letter in IZHAR_HALQI:
@@ -412,18 +438,29 @@ def apply_noon_rules(items: list[Item], diags: list[Diagnostic]) -> None:
             noon.rules.append("izhar_mutlaq")
         elif letter in IDGHAM_GHUNNAH | IDGHAM_NO_GHUNNAH:
             if same_word:
-                diags.append(Diagnostic(f"{noon.surah}:{noon.ayah}:{noon.word}",
-                                        "noon_idgham_inside_word", noon.span[0]))
+                diags.append(
+                    Diagnostic(
+                        f"{noon.surah}:{noon.ayah}:{noon.word}", "noon_idgham_inside_word", noon.span[0]
+                    )
+                )
                 continue
-            _idgham(items, i, j, "idgham_ghunnah" if letter in IDGHAM_GHUNNAH
-                    else "idgham_no_ghunnah", ghunnah=letter in IDGHAM_GHUNNAH)
+            _idgham(
+                items,
+                i,
+                j,
+                "idgham_ghunnah" if letter in IDGHAM_GHUNNAH else "idgham_no_ghunnah",
+                ghunnah=letter in IDGHAM_GHUNNAH,
+            )
         elif letter in IQLAB:
             _hide(items, i, "iqlab", ph="m")
         elif letter in IKHFA:
             _hide(items, i, "ikhfa")
         else:
-            diags.append(Diagnostic(f"{noon.surah}:{noon.ayah}:{noon.word}",
-                                    f"noon_before_unmapped_{letter}", noon.span[0]))
+            diags.append(
+                Diagnostic(
+                    f"{noon.surah}:{noon.ayah}:{noon.word}", f"noon_before_unmapped_{letter}", noon.span[0]
+                )
+            )
 
 
 def _hide(items: list[Item], i: int, rule: str, ph: str | None = None) -> None:
@@ -432,9 +469,19 @@ def _hide(items: list[Item], i: int, rule: str, ph: str | None = None) -> None:
     noon = items[i]
     boundary = noon.role == "tanween_n" or _word_ends_after(items, i)
     if boundary and noon.role != "tanween_n":
-        plain = Item(noon.ph, noon.word, noon.span, noon.role, noon.dur, list(noon.rules),
-                     Variant.WAQF_ONLY, surah=noon.surah, ayah=noon.ayah,
-                     host_marks=noon.host_marks, letter=noon.letter)
+        plain = Item(
+            noon.ph,
+            noon.word,
+            noon.span,
+            noon.role,
+            noon.dur,
+            list(noon.rules),
+            Variant.WAQF_ONLY,
+            surah=noon.surah,
+            ayah=noon.ayah,
+            host_marks=noon.host_marks,
+            letter=noon.letter,
+        )
         noon.variant = Variant.CONTINUE_ONLY
         items.insert(i + 1, plain)
     if ph:
@@ -458,14 +505,15 @@ def _idgham(items: list[Item], i: int, j: int, tag: str, ghunnah: bool) -> None:
         j -= 1
     else:
         noon.variant = Variant.WAQF_ONLY  # only a stop keeps the plain noon
-    group = [k for k in range(j, min(j + 2, len(items)))
-             if items[k].role == "cons" and items[k].ph == items[j].ph
-             and word_key(items[k]) == word_key(items[j])]
+    group = [
+        k
+        for k in range(j, min(j + 2, len(items)))
+        if items[k].role == "cons" and items[k].ph == items[j].ph and word_key(items[k]) == word_key(items[j])
+    ]
     # The merged (doubled, ghunnah) form exists only when the reading goes on from the previous
     # word; after a stop the next word starts plainly. The tag therefore goes on the extra copy.
     last = items[group[-1]]
-    fused = _clone(last, Variant.AFTER_CONTINUE, list(last.rules) + [tag],
-                   (2,) if ghunnah else last.dur)
+    fused = _clone(last, Variant.AFTER_CONTINUE, list(last.rules) + [tag], (2,) if ghunnah else last.dur)
     if len(group) == 2:  # the text already doubles the letter (shaddah): keep a plain restart form
         last.variant = Variant.START_ONLY
     items.insert(group[-1] + 1, fused)
@@ -479,9 +527,13 @@ QALQALAH_LETTERS = frozenset(["q", "T", "b", "j", "d"])
 
 def apply_meem_rules(items: list[Item], diags: list[Diagnostic]) -> None:
     sakin_block = set(SHORT_VOWELS) | {u.SHADDA}
-    for i in reversed([k for k, it in enumerate(items)
-                       if it.role == "cons" and it.ph == "m" and it.letter == MEEM_CP
-                       and not it.host_marks & sakin_block]):
+    for i in reversed(
+        [
+            k
+            for k, it in enumerate(items)
+            if it.role == "cons" and it.ph == "m" and it.letter == MEEM_CP and not it.host_marks & sakin_block
+        ]
+    ):
         meem = items[i]
         j = _next_consonant(items, i)
         if j is None:
@@ -491,8 +543,11 @@ def apply_meem_rules(items: list[Item], diags: list[Diagnostic]) -> None:
             _hide(items, i, "ikhfa_shafawi")
         elif nxt.ph == "m":
             if word_key(meem) == word_key(nxt):
-                diags.append(Diagnostic(f"{meem.surah}:{meem.ayah}:{meem.word}",
-                                        "meem_idgham_inside_word", meem.span[0]))
+                diags.append(
+                    Diagnostic(
+                        f"{meem.surah}:{meem.ayah}:{meem.word}", "meem_idgham_inside_word", meem.span[0]
+                    )
+                )
                 continue
             _idgham(items, i, j, "idgham_mithlayn_saghir", ghunnah=True)
         else:
@@ -501,15 +556,31 @@ def apply_meem_rules(items: list[Item], diags: list[Diagnostic]) -> None:
 
 def apply_qalqalah(items: list[Item]) -> None:
     """Qalqalah letters with a sukun. At a word end the stop variant is kubra (stronger)."""
-    for i in reversed([k for k, it in enumerate(items)
-                       if it.role == "cons" and it.ph in QALQALAH_LETTERS
-                       and u.SUKUN in it.host_marks and u.SHADDA not in it.host_marks]):
+    for i in reversed(
+        [
+            k
+            for k, it in enumerate(items)
+            if it.role == "cons"
+            and it.ph in QALQALAH_LETTERS
+            and u.SUKUN in it.host_marks
+            and u.SHADDA not in it.host_marks
+        ]
+    ):
         letter = items[i]
         if _word_ends_after(items, i):
-            kubra = Item(letter.ph, letter.word, letter.span, letter.role, letter.dur,
-                         list(letter.rules) + ["qalqalah_kubra"], Variant.WAQF_ONLY,
-                         surah=letter.surah, ayah=letter.ayah, host_marks=letter.host_marks,
-                         letter=letter.letter)
+            kubra = Item(
+                letter.ph,
+                letter.word,
+                letter.span,
+                letter.role,
+                letter.dur,
+                list(letter.rules) + ["qalqalah_kubra"],
+                Variant.WAQF_ONLY,
+                surah=letter.surah,
+                ayah=letter.ayah,
+                host_marks=letter.host_marks,
+                letter=letter.letter,
+            )
             letter.variant = Variant.CONTINUE_ONLY
             letter.rules.append("qalqalah_sughra")
             items.insert(i + 1, kubra)
@@ -526,9 +597,21 @@ AROID_LEEN = (2, 4, 6)
 
 
 def _clone(item: Item, variant: Variant, rules: list[str], dur: tuple[int, ...]) -> Item:
-    return Item(item.ph, item.word, item.span, item.role, dur, rules, variant,
-                surah=item.surah, ayah=item.ayah, host_marks=item.host_marks, letter=item.letter,
-                maddah=item.maddah, long_by=item.long_by)
+    return Item(
+        item.ph,
+        item.word,
+        item.span,
+        item.role,
+        dur,
+        rules,
+        variant,
+        surah=item.surah,
+        ayah=item.ayah,
+        host_marks=item.host_marks,
+        letter=item.letter,
+        maddah=item.maddah,
+        long_by=item.long_by,
+    )
 
 
 def _next_pronounced(items: list[Item], i: int) -> int | None:
@@ -544,8 +627,9 @@ def _next_pronounced(items: list[Item], i: int) -> int | None:
 def _is_madd_hamza(item: Item | None) -> bool:
     """A hamza that lengthens the preceding vowel. A hamza right after hamzat al-wasl does not:
     the wasla is dropped, and the text writes no maddah there (open question for the teacher)."""
-    return (item is not None and item.role == "cons" and item.ph == "hz"
-            and "hamza_after_wasla" not in item.rules)
+    return (
+        item is not None and item.role == "cons" and item.ph == "hz" and "hamza_after_wasla" not in item.rules
+    )
 
 
 def _is_sakin_consonant(items: list[Item], k: int) -> bool:
@@ -555,8 +639,13 @@ def _is_sakin_consonant(items: list[Item], k: int) -> bool:
         return False
     if u.SUKUN in c.host_marks:
         return True
-    return (u.SHADDA in c.host_marks and k + 1 < len(items) and items[k + 1].ph == c.ph
-            and word_key(items[k + 1]) == word_key(c) and items[k + 1].span == c.span)
+    return (
+        u.SHADDA in c.host_marks
+        and k + 1 < len(items)
+        and items[k + 1].ph == c.ph
+        and word_key(items[k + 1]) == word_key(c)
+        and items[k + 1].span == c.span
+    )
 
 
 def _last_consonant_of_word(items: list[Item], k: int) -> bool:
@@ -571,15 +660,28 @@ def _last_consonant_of_word(items: list[Item], k: int) -> bool:
 
 
 def apply_madd(items: list[Item]) -> None:
-    for i in reversed([k for k, it in enumerate(items)
-                       if it.role == "vowel" and it.dur == (2,) and it.long_by
-                       and it.variant is Variant.BOTH]):
+    for i in reversed(
+        [
+            k
+            for k, it in enumerate(items)
+            if it.role == "vowel" and it.dur == (2,) and it.long_by and it.variant is Variant.BOTH
+        ]
+    ):
         vowel = items[i]
         prev = items[i - 1] if i else None
-        silah = (vowel.long_by in (SMALL_WAW, SMALL_YEH) and prev is not None
-                 and prev.role == "cons" and prev.letter == HEH_CP)
-        badal = (prev is not None and prev.role == "cons" and prev.ph == "hz"
-                 and prev.variant is Variant.BOTH and word_key(prev) == word_key(vowel))
+        silah = (
+            vowel.long_by in (SMALL_WAW, SMALL_YEH)
+            and prev is not None
+            and prev.role == "cons"
+            and prev.letter == HEH_CP
+        )
+        badal = (
+            prev is not None
+            and prev.role == "cons"
+            and prev.ph == "hz"
+            and prev.variant is Variant.BOTH
+            and word_key(prev) == word_key(vowel)
+        )
         k = _next_pronounced(items, i)
         nxt = items[k] if k is not None else None
         word_final = nxt is None or word_key(nxt) != word_key(vowel)
@@ -603,8 +705,13 @@ def apply_madd(items: list[Item]) -> None:
         elif nxt is not None and not word_final and _is_sakin_consonant(items, k):
             vowel.rules.append("madd_lazim")
             vowel.dur = LAZIM
-        elif (nxt is not None and not word_final and nxt.role == "cons"
-              and _last_consonant_of_word(items, k) and not _has_fathatan(items, k)):
+        elif (
+            nxt is not None
+            and not word_final
+            and nxt.role == "cons"
+            and _last_consonant_of_word(items, k)
+            and not _has_fathatan(items, k)
+        ):
             # sukun only appears at a stop ('arid lis-sukun)
             stop = _clone(vowel, Variant.WAQF_ONLY, ["madd_arid_lissukun"], AROID_LEEN)
             vowel.variant = Variant.CONTINUE_ONLY
@@ -630,12 +737,24 @@ def _has_fathatan(items: list[Item], k: int) -> bool:
 def apply_leen(items: list[Item]) -> None:
     """Waw / yeh with a sukun after a fatha, before the last letter of the word: at a stop the
     leen letter may be lengthened (2, 4 or 6 counts)."""
-    for i in reversed([k for k, it in enumerate(items)
-                       if it.role == "cons" and it.ph in ("w", "y") and u.SUKUN in it.host_marks
-                       and it.variant is Variant.BOTH]):
+    for i in reversed(
+        [
+            k
+            for k, it in enumerate(items)
+            if it.role == "cons"
+            and it.ph in ("w", "y")
+            and u.SUKUN in it.host_marks
+            and it.variant is Variant.BOTH
+        ]
+    ):
         prev = items[i - 1] if i else None
-        if not (prev and prev.role == "vowel" and prev.ph == "a" and prev.dur == (1,)
-                and word_key(prev) == word_key(items[i])):
+        if not (
+            prev
+            and prev.role == "vowel"
+            and prev.ph == "a"
+            and prev.dur == (1,)
+            and word_key(prev) == word_key(items[i])
+        ):
             continue
         k = _next_pronounced(items, i)
         if k is None or items[k].role != "cons" or word_key(items[k]) != word_key(items[i]):
@@ -674,7 +793,7 @@ def apply_waqf(items: list[Item]) -> None:
             continue
         if any(items[k].role == "cons" for k in idxs if k > v_idx):
             continue  # a stop-only consonant (the noon of an idgham) follows: the vowel is not final
-        cons = [k for k in cont[:end - 1] if items[k].role == "cons"]
+        cons = [k for k in cont[: end - 1] if items[k].role == "cons"]
         c_idx = cons[-1] if cons else None
 
         extra = None
@@ -701,8 +820,9 @@ def apply_waqf(items: list[Item]) -> None:
         items.insert(c_idx + 1, stop)
 
 
-def select_reading(items: list[Item], stops: set[tuple[int, int, int]] | None = None,
-                   all_stops: bool = False) -> list[Item]:
+def select_reading(
+    items: list[Item], stops: set[tuple[int, int, int]] | None = None, all_stops: bool = False
+) -> list[Item]:
     """The phonemes of one concrete reading. `stops` holds (surah, ayah, word) keys of words the
     reciter stops at; a surah end is always a stop and the first word starts a recitation."""
     stops = stops or set()
@@ -718,11 +838,13 @@ def select_reading(items: list[Item], stops: set[tuple[int, int, int]] | None = 
             stopped_here = all_stops or key in stops
             prev_key = key
         v = it.variant
-        keep = (v is Variant.BOTH
-                or (v is Variant.CONTINUE_ONLY and not stopped_here)
-                or (v is Variant.WAQF_ONLY and stopped_here)
-                or (v is Variant.START_ONLY and prev_stopped)
-                or (v is Variant.AFTER_CONTINUE and not prev_stopped))
+        keep = (
+            v is Variant.BOTH
+            or (v is Variant.CONTINUE_ONLY and not stopped_here)
+            or (v is Variant.WAQF_ONLY and stopped_here)
+            or (v is Variant.START_ONLY and prev_stopped)
+            or (v is Variant.AFTER_CONTINUE and not prev_stopped)
+        )
         if keep:
             out.append(it)
     return out

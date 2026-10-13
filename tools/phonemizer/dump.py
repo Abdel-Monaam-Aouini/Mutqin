@@ -17,19 +17,27 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from tools.phonemizer.phonemize import (  # noqa: E402
-    AyahResult, Item, phonemize_ayah, phonemize_range, select_reading)
+    AyahResult,
+    Item,
+    phonemize_ayah,
+    phonemize_range,
+    select_reading,
+)
 from tools.quran_text.loader import DEFAULT_DATA_DIR, load_quran  # noqa: E402
 
 
 def item_line(i: Item) -> str:
     dur = "/".join(str(d) for d in i.dur)
-    return (f"I\t{i.surah}:{i.ayah}:{i.word}\t{i.ph}\t{i.span[0]},{i.span[1]}\t{i.role}\t{dur}\t"
-            f"{i.variant.value}\t{','.join(i.rules)}\n")
+    return (
+        f"I\t{i.surah}:{i.ayah}:{i.word}\t{i.ph}\t{i.span[0]},{i.span[1]}\t{i.role}\t{dur}\t"
+        f"{i.variant.value}\t{','.join(i.rules)}\n"
+    )
 
 
 def dump_result(result: AyahResult) -> str:
-    return ("".join(item_line(i) for i in result.items)
-            + "".join(f"D\t{d.word_id}\t{d.kind}\t{d.offset}\n" for d in result.diagnostics))
+    return "".join(item_line(i) for i in result.items) + "".join(
+        f"D\t{d.word_id}\t{d.kind}\t{d.offset}\n" for d in result.diagnostics
+    )
 
 
 def dump_parity(quran) -> str:

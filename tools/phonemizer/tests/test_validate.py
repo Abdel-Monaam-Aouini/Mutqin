@@ -5,11 +5,9 @@ import pytest
 
 from tools.phonemizer import validate as v
 from tools.quran_text import loader
-from tools.quran_text.download import CHECKSUMS_NAME
 
 REF = Path(os.environ.get("MUTQIN_TAJWEED_REF", v.DEFAULT_REF))
-needs_data = pytest.mark.skipif(
-    not (loader.DEFAULT_DATA_DIR / CHECKSUMS_NAME).exists(), reason="data/quran/ missing")
+needs_data = pytest.mark.skipif(not loader.data_available(), reason="data/quran/ missing")
 needs_ref = pytest.mark.skipif(not REF.exists(), reason="reference dataset not found (see validate.py)")
 
 
@@ -42,11 +40,22 @@ def test_word_offsets_drop_waqf_signs_but_keep_the_basmala_prefix():
 def test_engine_finds_the_reference_rules():
     quran = loader.load_quran()
     from tools.phonemizer.phonemize import phonemize_range
+
     result = phonemize_range([a for s in quran.surahs for a in s.ayahs])
     stats = v.compare(v.load_reference(REF), v.our_annotations(quran, result))["stats"]
-    floor = {"ikhfa": 0.98, "ikhfa_shafawi": 0.99, "iqlab": 0.99, "idghaam_ghunnah": 0.99,
-             "idghaam_no_ghunnah": 0.98, "idghaam_shafawi": 0.99, "ghunnah": 0.99,
-             "madd_2": 0.99, "madd_246": 0.99, "madd_muttasil": 0.99, "qalqalah": 0.99}
+    floor = {
+        "ikhfa": 0.98,
+        "ikhfa_shafawi": 0.99,
+        "iqlab": 0.99,
+        "idghaam_ghunnah": 0.99,
+        "idghaam_no_ghunnah": 0.98,
+        "idghaam_shafawi": 0.99,
+        "ghunnah": 0.99,
+        "madd_2": 0.99,
+        "madd_246": 0.99,
+        "madd_muttasil": 0.99,
+        "qalqalah": 0.99,
+    }
     for rule, minimum in floor.items():
         c = stats[rule]
         assert (c["ref_matched"] + c["ref_near"]) / c["ref"] >= minimum, rule

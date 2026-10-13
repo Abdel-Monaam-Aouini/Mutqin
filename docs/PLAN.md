@@ -8,7 +8,8 @@ previous one meets its acceptance criteria.
 Goal: repository, build system, verified Quran text.
 
 - Monorepo skeleton per `ARCHITECTURE.md` (incl. placeholder `android/` and `ios/`); CMake
-  builds an empty `core` with GoogleTest. CI (GitHub Actions) is deferred; tests run locally.
+  builds an empty `core` with GoogleTest. CI (GitHub Actions) builds, tests, lints and format-checks on
+  Linux, macOS and Windows (`.github/workflows/ci.yml`).
 - Download Tanzil Uthmani text (+ simple clean text), store in `data/quran/`, record
   SHA-256 checksums, write a loader (Python + C++) with checksum verification.
 - Data model: surah → ayah → word, with stable IDs (`surah:ayah:word`).

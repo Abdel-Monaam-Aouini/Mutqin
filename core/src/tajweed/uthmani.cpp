@@ -10,17 +10,16 @@ bool LetterUnit::Has(uint32_t codepoint) const {
 }
 
 bool IsBaseCharacter(uint32_t cp) {
-    return cp == 0x0621 || cp == 0x0671                // hamza, alef wasla
-           || (cp >= 0x0623 && cp <= 0x063A)           // alef/waw/yeh with hamza ... ghain
-           || (cp >= 0x0641 && cp <= 0x064A)           // feh ... yeh
-           || cp == 0x0640                             // tatweel
-           || cp == 0x06E5 || cp == 0x06E6;            // small waw, small yeh
+    return cp == 0x0621 || cp == 0x0671       // hamza, alef wasla
+           || (cp >= 0x0623 && cp <= 0x063A)  // alef/waw/yeh with hamza ... ghain
+           || (cp >= 0x0641 && cp <= 0x064A)  // feh ... yeh
+           || cp == 0x0640                    // tatweel
+           || cp == 0x06E5 || cp == 0x06E6;   // small waw, small yeh
 }
 
 bool IsCombiningMark(uint32_t cp) {
-    return (cp >= 0x064B && cp <= 0x0654) || cp == 0x0670 || cp == 0x06DC || cp == 0x06DF ||
-           cp == 0x06E0 || cp == 0x06E2 || cp == 0x06E3 || cp == 0x06E7 || cp == 0x06E8 ||
-           (cp >= 0x06EA && cp <= 0x06ED);
+    return (cp >= 0x064B && cp <= 0x0654) || cp == 0x0670 || cp == 0x06DC || cp == 0x06DF || cp == 0x06E0 ||
+           cp == 0x06E2 || cp == 0x06E3 || cp == 0x06E7 || cp == 0x06E8 || (cp >= 0x06EA && cp <= 0x06ED);
 }
 
 std::vector<LetterUnit> ParseWord(const std::vector<uint32_t>& cps) {

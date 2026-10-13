@@ -15,18 +15,18 @@ namespace mutqin {
 struct Word {
     int surah = 0;
     int ayah = 0;
-    int index = 0;                    // 1-based, basmala prefix not counted
-    std::string text;                 // exactly the source token (UTF-8)
-    std::vector<std::string> marks;   // standalone waqf / sajdah signs following this word
+    int index = 0;                   // 1-based, basmala prefix not counted
+    std::string text;                // exactly the source token (UTF-8)
+    std::vector<std::string> marks;  // standalone waqf / sajdah signs following this word
 
-    std::string Id() const;           // "surah:ayah:word"
+    std::string Id() const;  // "surah:ayah:word"
 };
 
 struct Ayah {
     int surah = 0;
     int ayah = 0;
     std::vector<Word> words;
-    std::string simple_text;          // Tanzil simple-clean text, for matching only
+    std::string simple_text;  // Tanzil simple-clean text, for matching only
 };
 
 struct Surah {

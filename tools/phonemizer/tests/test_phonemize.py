@@ -7,18 +7,13 @@ from tools.phonemizer import uthmani as u
 from tools.phonemizer.inventory import BY_SYMBOL, Variant
 from tools.phonemizer.phonemize import phonemize_ayah, phonemize_range, select_reading, word_key
 from tools.quran_text import loader
-from tools.quran_text.download import CHECKSUMS_NAME
 from tools.quran_text.model import Ayah, Word
 
-needs_data = pytest.mark.skipif(
-    not (loader.DEFAULT_DATA_DIR / CHECKSUMS_NAME).exists(), reason="data/quran/ missing"
-)
+needs_data = pytest.mark.skipif(not loader.data_available(), reason="data/quran/ missing")
 
-BA, TA, NOON, LAM, WAW, YEH, ALEF, MAKSURA = (
-    "ب", "ت", "ن", "ل", "و", "ي", "ا", "ى")
+BA, TA, NOON, LAM, WAW, YEH, ALEF, MAKSURA = ("ب", "ت", "ن", "ل", "و", "ي", "ا", "ى")
 FATHA, DAMMA, KASRA, SHADDA, SUKUN = "َ", "ُ", "ِ", "ّ", "ْ"
 FATHATAN, SUPERSCRIPT_ALEF, ROUNDED_ZERO = "ً", "ٰ", "۟"
-
 
 
 @pytest.fixture(scope="module")
@@ -26,6 +21,7 @@ def full():
     """The whole Quran phonemized once as a single range."""
     quran = loader.load_quran()
     return phonemize_range([a for s in quran.surahs for a in s.ayahs])
+
 
 WASLA = "\u0671"
 
@@ -41,7 +37,13 @@ def syms(result):
 
 def test_consonant_with_short_vowels():
     assert syms(run(BA + FATHA + TA + KASRA + LAM + DAMMA)) == [
-        ("b", ()), ("a", (1,)), ("t", ()), ("i", (1,)), ("l", ()), ("u", (1,))]
+        ("b", ()),
+        ("a", (1,)),
+        ("t", ()),
+        ("i", (1,)),
+        ("l", ()),
+        ("u", (1,)),
+    ]
 
 
 def test_sukun_emits_no_vowel():
@@ -153,9 +155,13 @@ def test_whole_quran_phonemizes_with_only_known_special_cases():
                 elif p.rules and any(r == "madd_leen" for r in p.rules):
                     assert p.dur in ((), (2, 4, 6))  # leen letter at a stop
                 else:  # consonants have no duration, except ghunnah (2 counts) from noon / meem rules
-                    assert p.dur == () or (p.dur == (2,) and any(
-                        r.startswith(("ikhfa", "iqlab", "idgham_ghunnah", "idgham_mithlayn", "ghunnah"))
-                        for r in p.rules))
+                    assert p.dur == () or (
+                        p.dur == (2,)
+                        and any(
+                            r.startswith(("ikhfa", "iqlab", "idgham_ghunnah", "idgham_mithlayn", "ghunnah"))
+                            for r in p.rules
+                        )
+                    )
             for d in result.diagnostics:
                 if d.kind == "disconnected_letters":
                     disconnected.add(d.word_id)
@@ -180,18 +186,22 @@ def test_article_lam_sun_and_moon_letters_come_out_consistent():
             for word in ayah.words:
                 units = u.parse_word(word.text)
                 for i, unit in enumerate(units):
-                    if (ord(unit.char) == 0x0644 and i and ord(units[i - 1].char) == 0x0671
-                            and i + 1 < len(units)):
+                    if (
+                        ord(unit.char) == 0x0644
+                        and i
+                        and ord(units[i - 1].char) == 0x0671
+                        and i + 1 < len(units)
+                    ):
                         if not unit.marks:
                             assimilated.add(units[i + 1].char)
                         elif unit.has(u.SUKUN):
                             clear.add(units[i + 1].char)
     assert len(assimilated) == 14
-    assert assimilated & clear == {"\u062A"}
+    assert assimilated & clear == {"\u062a"}
 
 
 # -- noon sakinah and tanween (spec 3.1) --------------------------------------------------------
-HEH, KAF, YEH_, REH, MEEM = "\u0647", "\u0643", "\u064A", "\u0631", "\u0645"
+HEH, KAF, YEH_, REH, MEEM = "\u0647", "\u0643", "\u064a", "\u0631", "\u0645"
 
 
 def two_words(first: str, second: str):
@@ -200,8 +210,11 @@ def two_words(first: str, second: str):
 
 def vs(result, kinds=None):
     """(ph, variant value, dur, rules) of consonant items, optionally restricted by symbol."""
-    return [(p.ph, p.variant.value, p.dur, p.rules) for p in result.phonemes
-            if p.ph not in "aiu" and (kinds is None or p.ph in kinds)]
+    return [
+        (p.ph, p.variant.value, p.dur, p.rules)
+        for p in result.phonemes
+        if p.ph not in "aiu" and (kinds is None or p.ph in kinds)
+    ]
 
 
 def test_izhar_halqi_keeps_the_noon():
@@ -224,7 +237,8 @@ def test_idgham_without_ghunnah_doubles_the_next_letter():
     assert vs(r, "nl") == [
         ("n", "waqf_only", (), ()),
         ("l", "both", (), ()),
-        ("l", "after_continue", (), ("idgham_no_ghunnah",))]
+        ("l", "after_continue", (), ("idgham_no_ghunnah",)),
+    ]
 
 
 def test_idgham_with_ghunnah_gives_the_doubled_letter_two_counts():
@@ -232,7 +246,8 @@ def test_idgham_with_ghunnah_gives_the_doubled_letter_two_counts():
     assert vs(r, "ny") == [
         ("n", "waqf_only", (), ()),
         ("y", "both", (), ()),
-        ("y", "after_continue", (2,), ("idgham_ghunnah",))]
+        ("y", "after_continue", (2,), ("idgham_ghunnah",)),
+    ]
 
 
 def test_idgham_inside_a_word_is_izhar_mutlaq():
@@ -241,12 +256,10 @@ def test_idgham_inside_a_word_is_izhar_mutlaq():
 
 
 def test_tanween_before_iqlab_and_idgham():
-    iq = two_words(BA + DAMMA + TA + "\u064C", BA + FATHA)  # dammatan then beh
+    iq = two_words(BA + DAMMA + TA + "\u064c", BA + FATHA)  # dammatan then beh
     assert vs(iq, "nm") == [("m", "continue_only", (2,), ("iqlab",))]
     idg = two_words(BA + FATHA + TA + FATHATAN, MEEM + FATHA)  # fathatan then meem
-    assert vs(idg, "nm") == [
-        ("m", "both", (), ()),
-        ("m", "after_continue", (2,), ("idgham_ghunnah",))]
+    assert vs(idg, "nm") == [("m", "both", (), ()), ("m", "after_continue", (2,), ("idgham_ghunnah",))]
 
 
 def test_tanween_before_izhar_keeps_a_continue_only_noon():
@@ -296,7 +309,7 @@ def test_noon_rules_agree_with_the_encoding_of_the_text(full):
 
 
 # -- meem sakinah, mushaddad ghunnah, qalqalah (spec 3.2 - 3.4) ----------------------------------
-DAL, QAF = "\u062F", "\u0642"
+DAL, QAF = "\u062f", "\u0642"
 
 
 def test_meem_before_beh_is_ikhfa_shafawi():
@@ -309,7 +322,8 @@ def test_meem_before_meem_is_idgham_mithlayn_saghir():
     assert vs(r, "m") == [
         ("m", "waqf_only", (), ()),
         ("m", "both", (), ()),
-        ("m", "after_continue", (2,), ("idgham_mithlayn_saghir",))]
+        ("m", "after_continue", (2,), ("idgham_mithlayn_saghir",)),
+    ]
 
 
 def test_meem_before_other_letters_is_izhar_shafawi():
@@ -330,8 +344,10 @@ def test_qalqalah_inside_a_word_is_sughra():
 
 def test_qalqalah_at_a_word_end_is_sughra_when_continuing_and_kubra_at_waqf():
     r = two_words(BA + FATHA + DAL + SUKUN, KAF + FATHA)
-    assert vs(r, "d") == [("d", "continue_only", (), ("qalqalah_sughra",)),
-                          ("d", "waqf_only", (), ("qalqalah_kubra",))]
+    assert vs(r, "d") == [
+        ("d", "continue_only", (), ("qalqalah_sughra",)),
+        ("d", "waqf_only", (), ("qalqalah_kubra",)),
+    ]
 
 
 def test_qalqalah_needs_a_sukun_and_a_qalqalah_letter():
@@ -366,8 +382,11 @@ MADDAH = "\u0653"
 
 def madd(result, ph="a"):
     """(variant, dur, madd rules) of the long vowels in a result."""
-    return [(p.variant.value, p.dur, tuple(r for r in p.rules if r.startswith("madd")))
-            for p in result.phonemes if p.ph == ph and p.dur not in ((), (1,))]
+    return [
+        (p.variant.value, p.dur, tuple(r for r in p.rules if r.startswith("madd")))
+        for p in result.phonemes
+        if p.ph == ph and p.dur not in ((), (1,))
+    ]
 
 
 def test_tabii_is_two_counts():
@@ -381,8 +400,7 @@ def test_muttasil_hamza_in_the_same_word():
 
 def test_munfasil_hamza_in_the_next_word_only_when_continuing():
     r = two_words(BA + FATHA + ALEF, HAMZA_LETTER + FATHA)
-    assert madd(r) == [("continue_only", (4, 5), ("madd_munfasil",)),
-                       ("waqf_only", (2,), ("madd_tabii",))]
+    assert madd(r) == [("continue_only", (4, 5), ("madd_munfasil",)), ("waqf_only", (2,), ("madd_tabii",))]
 
 
 def test_no_munfasil_before_a_hamza_that_follows_a_silent_wasla():
@@ -397,8 +415,10 @@ def test_lazim_before_a_permanent_sukun_or_shaddah():
 
 def test_aarid_lissukun_is_a_stop_only_reading_before_the_last_letter():
     r = run(BA + FATHA + ALEF + TA + KASRA)
-    assert madd(r) == [("continue_only", (2,), ("madd_tabii",)),
-                       ("waqf_only", (2, 4, 6), ("madd_arid_lissukun",))]
+    assert madd(r) == [
+        ("continue_only", (2,), ("madd_tabii",)),
+        ("waqf_only", (2, 4, 6), ("madd_arid_lissukun",)),
+    ]
 
 
 def test_badal_hamza_before_the_long_vowel():
@@ -434,7 +454,7 @@ def test_madd_rules_agree_with_the_written_maddah_sign(full):
 
 # -- waqf (spec section 5) ------------------------------------------------------------------------
 TEH_MARBUTA, ALEF_MAKSURA_ = "\u0629", "\u0649"
-DAMMATAN = "\u064C"
+DAMMATAN = "\u064c"
 
 
 def reading(result, stop=False):
@@ -476,7 +496,9 @@ def test_teh_marbuta_is_heh_at_a_stop():
 def test_final_qalqalah_letter_is_kubra_at_a_stop_only():
     r = run(KAF + FATHA + DAL + DAMMA)
     assert [(p.ph, p.variant.value, p.rules) for p in r.phonemes if p.ph == "d"] == [
-        ("d", "continue_only", ()), ("d", "waqf_only", ("qalqalah_kubra",))]
+        ("d", "continue_only", ()),
+        ("d", "waqf_only", ("qalqalah_kubra",)),
+    ]
 
 
 def test_a_long_vowel_at_the_end_of_a_word_is_kept_at_a_stop():
@@ -499,8 +521,10 @@ def test_stopping_after_every_word_never_leaves_a_short_vowel_at_a_word_end(full
         ends[word_key(item)] = item
     assert len(ends) > 77000
     assert not [k for k, i in ends.items() if i.role == "vowel" and i.dur == (1,)]
-    assert not any(i.variant.value in ("continue_only", "after_continue")
-                   for i in select_reading(full.items, all_stops=True))
+    assert not any(
+        i.variant.value in ("continue_only", "after_continue")
+        for i in select_reading(full.items, all_stops=True)
+    )
 
 
 @needs_data
@@ -515,7 +539,8 @@ def test_idgham_into_a_letter_the_text_already_doubles_keeps_a_plain_form_after_
         ("n", "waqf_only", (), ()),
         ("l", "both", (), ()),
         ("l", "start_only", (), ()),
-        ("l", "after_continue", (), ("idgham_no_ghunnah",))]
+        ("l", "after_continue", (), ("idgham_no_ghunnah",)),
+    ]
     cont = [(i.ph, i.rules) for i in select_reading(r.items) if i.ph in "nl"]
     assert cont == [("l", []), ("l", ["idgham_no_ghunnah"])]
     stopped = [(i.ph, i.rules) for i in select_reading(r.items, stops={(1, 1, 1)}) if i.ph in "nl"]

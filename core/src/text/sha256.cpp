@@ -17,7 +17,9 @@ constexpr std::array<uint32_t, 64> kK = {
     0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2};
 
-inline uint32_t Rotr(uint32_t x, int n) { return (x >> n) | (x << (32 - n)); }
+inline uint32_t Rotr(uint32_t x, int n) {
+    return (x >> n) | (x << (32 - n));
+}
 
 void Compress(std::array<uint32_t, 8>& h, const uint8_t* block) {
     uint32_t w[64];
@@ -38,9 +40,23 @@ void Compress(std::array<uint32_t, 8>& h, const uint8_t* block) {
         uint32_t s0 = Rotr(a, 2) ^ Rotr(a, 13) ^ Rotr(a, 22);
         uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
         uint32_t t2 = s0 + maj;
-        hh = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+        hh = g;
+        g = f;
+        f = e;
+        e = d + t1;
+        d = c;
+        c = b;
+        b = a;
+        a = t1 + t2;
     }
-    h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e; h[5] += f; h[6] += g; h[7] += hh;
+    h[0] += a;
+    h[1] += b;
+    h[2] += c;
+    h[3] += d;
+    h[4] += e;
+    h[5] += f;
+    h[6] += g;
+    h[7] += hh;
 }
 
 }  // namespace
@@ -52,22 +68,27 @@ std::string Sha256Hex(const std::string& data) {
     const size_t len = data.size();
 
     size_t full = len / 64;
-    for (size_t i = 0; i < full; ++i) Compress(h, bytes + i * 64);
+    for (size_t i = 0; i < full; ++i)
+        Compress(h, bytes + i * 64);
 
     uint8_t tail[128] = {0};
     size_t rem = len - full * 64;
-    if (rem > 0) std::memcpy(tail, bytes + full * 64, rem);
+    if (rem > 0)
+        std::memcpy(tail, bytes + full * 64, rem);
     tail[rem] = 0x80;
     size_t tail_len = (rem < 56) ? 64 : 128;
     uint64_t bits = static_cast<uint64_t>(len) * 8;
-    for (int i = 0; i < 8; ++i) tail[tail_len - 1 - i] = static_cast<uint8_t>(bits >> (8 * i));
-    for (size_t off = 0; off < tail_len; off += 64) Compress(h, tail + off);
+    for (int i = 0; i < 8; ++i)
+        tail[tail_len - 1 - i] = static_cast<uint8_t>(bits >> (8 * i));
+    for (size_t off = 0; off < tail_len; off += 64)
+        Compress(h, tail + off);
 
     static const char kHex[] = "0123456789abcdef";
     std::string out;
     out.reserve(64);
     for (uint32_t word : h) {
-        for (int shift = 28; shift >= 0; shift -= 4) out.push_back(kHex[(word >> shift) & 0xF]);
+        for (int shift = 28; shift >= 0; shift -= 4)
+            out.push_back(kHex[(word >> shift) & 0xF]);
     }
     return out;
 }

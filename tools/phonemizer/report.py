@@ -39,7 +39,8 @@ table{border-collapse:collapse;width:100%;margin-bottom:8px}
 th,td{border:1px solid #bbb;padding:5px 7px;vertical-align:top;text-align:left}
 th{background:#f3f4f6}
 td.ar{font-family:'Amiri','Scheherazade New',serif;font-size:1.7em;direction:rtl;text-align:right}
-.ph{display:inline-block;margin:1px 2px;padding:1px 5px;border-radius:4px;background:#e5e7eb;font-family:monospace}
+.ph{display:inline-block;margin:1px 2px;padding:1px 5px;border-radius:4px;background:#e5e7eb;
+font-family:monospace}
 .ph sub{font-size:.7em}
 .ph.rule{background:#dbeafe}
 .ph.alt{background:#fde68a}
@@ -52,8 +53,11 @@ footer{margin-top:30px;font-size:.8em;color:#444;border-top:1px solid #999;paddi
 LEGEND = [
     ("n:2/ikhfa", "a phoneme symbol, `:` its allowed durations in counts, tags are its rules"),
     ("blue", "the phoneme carries at least one tajweed rule tag (hover to read the tags)"),
-    ("yellow", "the phoneme exists only in this reading (a variant: e.g. only when continuing, "
-               "or only at a stop, or only when starting)"),
+    (
+        "yellow",
+        "the phoneme exists only in this reading (a variant: e.g. only when continuing, "
+        "or only at a stop, or only when starting)",
+    ),
     ("Continue", "reading on into the next word"),
     ("Stop", "stopping at the end of this word (waqf)"),
 ]
@@ -68,8 +72,11 @@ def fmt_item(item: Item, in_other: set[int] | None = None) -> str:
         classes.append("rule")
     if item.variant is not Variant.BOTH:
         classes.append("alt")
-    title = html.escape(", ".join(item.rules + [f"variant: {item.variant.value}"]) if
-                        (item.rules or item.variant is not Variant.BOTH) else "")
+    title = html.escape(
+        ", ".join(item.rules + [f"variant: {item.variant.value}"])
+        if (item.rules or item.variant is not Variant.BOTH)
+        else ""
+    )
     return f'<span class="{" ".join(classes)}" title="{title}">{label}</span>'
 
 
@@ -103,7 +110,8 @@ def build_report(quran: Quran, ayahs: list[Ayah]) -> str:
     out = [
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
         "<meta name='viewport' content='width=device-width,initial-scale=1'>",
-        "<title>Mutqin phonemizer report</title>", f"<style>{CSS}</style></head><body>",
+        "<title>Mutqin phonemizer report</title>",
+        f"<style>{CSS}</style></head><body>",
         "<div class='banner'><b>PROVISIONAL, NOT TEACHER-VERIFIED.</b> The rules follow "
         "docs/TAJWEED_SPEC.md and docs/DRAFT_ORTHOGRAPHY_TABLES.md. Please mark every word that is "
         "wrong in the notes column. Phoneme symbols: docs/PHONEME_INVENTORY.md.</div>",
@@ -115,8 +123,10 @@ def build_report(quran: Quran, ayahs: list[Ayah]) -> str:
 
     for ayah in ayahs:
         out.append(f"<h2>Surah {ayah.surah}, ayah {ayah.ayah}</h2>")
-        out.append("<table><tr><th>Word</th><th>Text</th><th>Continue</th><th>Stop</th>"
-                   "<th class='notes'>Teacher notes</th></tr>")
+        out.append(
+            "<table><tr><th>Word</th><th>Text</th><th>Continue</th><th>Stop</th>"
+            "<th class='notes'>Teacher notes</th></tr>"
+        )
         for word in ayah.words:
             key = (ayah.surah, ayah.ayah, word.index)
             c, s = by_word.get(key, ([], []))
@@ -127,7 +137,8 @@ def build_report(quran: Quran, ayahs: list[Ayah]) -> str:
             out.append(
                 f"<tr><td>{word.id}</td><td class='ar'>{html.escape(text)}</td>"
                 f"<td>{''.join(fmt_item(i) for i in c) or '&mdash;'}{flags}</td>"
-                f"<td>{''.join(fmt_item(i) for i in s) or '&mdash;'}</td><td></td></tr>")
+                f"<td>{''.join(fmt_item(i) for i in s) or '&mdash;'}</td><td></td></tr>"
+            )
         out.append("</table>")
     out.append(f"<footer>{html.escape(TANZIL_NOTICE)}</footer></body></html>")
     return "\n".join(out)
@@ -136,8 +147,9 @@ def build_report(quran: Quran, ayahs: list[Ayah]) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("ranges", nargs="*")
-    parser.add_argument("--validation-set", action="store_true",
-                        help="Al-Fatiha, Juz' 'Amma (surahs 78-114), Al-Baqarah 1-50")
+    parser.add_argument(
+        "--validation-set", action="store_true", help="Al-Fatiha, Juz' 'Amma (surahs 78-114), Al-Baqarah 1-50"
+    )
     parser.add_argument("-o", "--out", type=Path, default=DEFAULT_OUT)
     args = parser.parse_args(argv)
     specs = list(args.ranges)

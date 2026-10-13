@@ -14,10 +14,15 @@ namespace {
 
 const std::string kDataDir = MUTQIN_DATA_DIR;
 
-bool HaveData() { return fs::exists(fs::path(kDataDir) / "checksums.txt"); }
+bool HaveData() {
+    return fs::exists(fs::path(kDataDir) / "checksums.txt") &&
+           fs::exists(fs::path(kDataDir) / "quran-uthmani.txt") &&
+           fs::exists(fs::path(kDataDir) / "quran-simple-clean.txt");
+}
 
-#define REQUIRE_DATA()                                                                   \
-    if (!HaveData()) GTEST_SKIP() << "data/quran missing: run tools/quran_text/download.py"
+#define REQUIRE_DATA() \
+    if (!HaveData())   \
+    GTEST_SKIP() << "data/quran missing: run tools/quran_text/download.py"
 
 const mutqin::Quran& Loaded() {
     static mutqin::Quran quran;
@@ -44,9 +49,8 @@ TEST(QuranLoader, WordIdsAreStableAndOneBased) {
         for (const auto& ayah : surah.ayahs) {
             ASSERT_FALSE(ayah.words.empty());
             for (size_t i = 0; i < ayah.words.size(); ++i) {
-                EXPECT_EQ(ayah.words[i].Id(), std::to_string(surah.number) + ":" +
-                                                  std::to_string(ayah.ayah) + ":" +
-                                                  std::to_string(i + 1));
+                EXPECT_EQ(ayah.words[i].Id(), std::to_string(surah.number) + ":" + std::to_string(ayah.ayah) +
+                                                  ":" + std::to_string(i + 1));
             }
         }
     }
@@ -74,7 +78,8 @@ TEST(QuranLoader, NoWordIsMarkOnly) {
     REQUIRE_DATA();
     for (const auto& surah : Loaded().surahs())
         for (const auto& ayah : surah.ayahs)
-            for (const auto& w : ayah.words) EXPECT_FALSE(mutqin::IsMarkOnly(w.text)) << w.Id();
+            for (const auto& w : ayah.words)
+                EXPECT_FALSE(mutqin::IsMarkOnly(w.text)) << w.Id();
 }
 
 TEST(QuranLoader, ModifiedSourceFileIsRejected) {
@@ -107,7 +112,7 @@ TEST(IsMarkOnly, ClassifiesByCodePointRange) {
     EXPECT_TRUE(mutqin::IsMarkOnly("\xDB\x96\xDB\x97"));  // two marks
     EXPECT_FALSE(mutqin::IsMarkOnly(""));
     EXPECT_FALSE(mutqin::IsMarkOnly("a"));
-    EXPECT_FALSE(mutqin::IsMarkOnly("\xD8\xA8"));         // U+0628, a letter
-    EXPECT_FALSE(mutqin::IsMarkOnly("\xDB\x96\xD8\xA8")); // mark followed by a letter
-    EXPECT_FALSE(mutqin::IsMarkOnly("\xDB"));             // invalid UTF-8
+    EXPECT_FALSE(mutqin::IsMarkOnly("\xD8\xA8"));          // U+0628, a letter
+    EXPECT_FALSE(mutqin::IsMarkOnly("\xDB\x96\xD8\xA8"));  // mark followed by a letter
+    EXPECT_FALSE(mutqin::IsMarkOnly("\xDB"));              // invalid UTF-8
 }

@@ -11,7 +11,7 @@ from tools.quran_text.download import CHECKSUMS_NAME
 
 DATA = loader.DEFAULT_DATA_DIR
 needs_data = pytest.mark.skipif(
-    not (DATA / CHECKSUMS_NAME).exists(),
+    not loader.data_available(),
     reason="data/quran/ missing: run tools/quran_text/download.py --agree-tanzil-terms",
 )
 
@@ -92,8 +92,9 @@ def test_mark_ranges_agree_with_unicode_letters():
     source = loader.parse_lines(DATA / loader.UTHMANI_FILE)
     for text in source.values():
         for token in text.split(" "):
-            has_letter = any(unicodedata.category(c).startswith("L") and not 0x06D6 <= ord(c) <= 0x06ED
-                             for c in token)
+            has_letter = any(
+                unicodedata.category(c).startswith("L") and not 0x06D6 <= ord(c) <= 0x06ED for c in token
+            )
             assert loader.is_mark_only(token) != has_letter
 
 

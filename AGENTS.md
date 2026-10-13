@@ -67,7 +67,9 @@ C++ namespace **`mutqin`**.
   Tell the user before adding it.
 - Keep functions small, documented, and real-time safe in the audio path (no allocations
   or locks in the audio callback).
-- CI (GitHub Actions) is deferred; run tests locally.
+- CI (GitHub Actions) runs build, tests, lint and format checks; run the same checks locally before a
+  commit (README, "Checks before a commit"). Tool versions are pinned in `tools/requirements-dev.txt`;
+  formatting is `ruff format` (Python) and `clang-format` (C++), so never hand-format.
 
 ## How to work
 

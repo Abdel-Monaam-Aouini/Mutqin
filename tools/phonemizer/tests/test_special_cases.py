@@ -5,11 +5,8 @@ import pytest
 from tools.phonemizer import special_cases as sc
 from tools.phonemizer.phonemize import phonemize_range
 from tools.quran_text import loader
-from tools.quran_text.download import CHECKSUMS_NAME
 
-needs_data = pytest.mark.skipif(
-    not (loader.DEFAULT_DATA_DIR / CHECKSUMS_NAME).exists(), reason="data/quran/ missing"
-)
+needs_data = pytest.mark.skipif(not loader.data_available(), reason="data/quran/ missing")
 
 
 @pytest.fixture(scope="module")
@@ -25,8 +22,14 @@ def test_shipped_data_file_is_valid_and_still_empty(quran):
 @needs_data
 def test_valid_entry_loads(quran, tmp_path):
     path = tmp_path / "s.json"
-    path.write_text(json.dumps({"kinds": list(sc.KINDS), "cases": {
-        "75:27:2": {"kind": "sakt", "note": "n", "source": "teacher", "verified_by": None}}}))
+    path.write_text(
+        json.dumps(
+            {
+                "kinds": list(sc.KINDS),
+                "cases": {"75:27:2": {"kind": "sakt", "note": "n", "source": "teacher", "verified_by": None}},
+            }
+        )
+    )
     cases = sc.load_special_cases(quran, path)
     assert cases["75:27:2"].kind == "sakt" and cases["75:27:2"].verified_by is None
 
@@ -34,8 +37,10 @@ def test_valid_entry_loads(quran, tmp_path):
 @needs_data
 def test_unknown_word_or_kind_is_rejected(quran, tmp_path):
     path = tmp_path / "s.json"
-    for cases, message in (({"1:1:99": {"kind": "sakt"}}, "no such word"),
-                           ({"1:1:1": {"kind": "magic"}}, "unknown kind")):
+    for cases, message in (
+        ({"1:1:99": {"kind": "sakt"}}, "no such word"),
+        ({"1:1:1": {"kind": "magic"}}, "unknown kind"),
+    ):
         path.write_text(json.dumps({"kinds": list(sc.KINDS), "cases": cases}))
         with pytest.raises(sc.SpecialCasesError, match=message):
             sc.load_special_cases(quran, path)

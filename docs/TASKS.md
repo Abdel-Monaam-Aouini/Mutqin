@@ -5,7 +5,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 ## Phase 0 — Foundation
 - [x] 0.1 Create folder layout from ARCHITECTURE.md (incl. `cli/`, placeholder `android/` and `ios/`), `.gitignore`, `.editorconfig`
 - [x] 0.2 CMake project for `core/` with GoogleTest; one passing dummy test
-- [ ] 0.3 (DEFERRED) CI (GitHub Actions): build core + run C++ and Python tests
+- [x] 0.3 CI (GitHub Actions): build + test (Linux gcc/clang, ASan+UBSan, macOS, Windows), Python tests, lint and format checks
 - [x] 0.4 `tools/quran_text/download.py`: fetch Tanzil Uthmani + simple text, write SHA-256 checksums
 - [x] 0.5 Python loader + data model (surah/ayah/word IDs) with checksum check; tests: 114 surahs, 6236 ayahs
 - [x] 0.6 C++ loader with the same behavior; test compares with Python output

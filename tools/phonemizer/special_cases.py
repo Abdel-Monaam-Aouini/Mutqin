@@ -17,8 +17,16 @@ from tools.phonemizer.phonemize import AyahResult, Item
 from tools.quran_text.model import Quran
 
 DATA_FILE = Path(__file__).resolve().parent / "data" / "special_cases.json"
-KINDS = ("sakt", "imalah", "ishmam", "tashil", "dual_reading", "disconnected_letters",
-         "izhar_mutlaq", "other")
+KINDS = (
+    "sakt",
+    "imalah",
+    "ishmam",
+    "tashil",
+    "dual_reading",
+    "disconnected_letters",
+    "izhar_mutlaq",
+    "other",
+)
 
 # Signs that occur only at special-case locations (draft tables C), by code point.
 LOCATION_SIGNS = {
@@ -58,8 +66,9 @@ def load_special_cases(quran: Quran, path: Path = DATA_FILE) -> dict[str, Specia
             raise SpecialCasesError(f"{word_id}: no such word") from exc
         if entry.get("kind") not in KINDS:
             raise SpecialCasesError(f"{word_id}: unknown kind {entry.get('kind')!r}")
-        result[word_id] = SpecialCase(word_id, entry["kind"], entry.get("note", ""),
-                                      entry.get("source", ""), entry.get("verified_by"))
+        result[word_id] = SpecialCase(
+            word_id, entry["kind"], entry.get("note", ""), entry.get("source", ""), entry.get("verified_by")
+        )
     return result
 
 
@@ -79,7 +88,8 @@ def candidates(result: AyahResult) -> dict[str, list[str]]:
         for cp in item.signs:
             if cp in LOCATION_SIGNS:
                 found.setdefault(f"sign U+{cp:04X} ({LOCATION_SIGNS[cp]})", set()).add(
-                    f"{item.surah}:{item.ayah}:{item.word}")
+                    f"{item.surah}:{item.ayah}:{item.word}"
+                )
     for d in result.diagnostics:
         if d.kind not in ("wasla_start_vowel_unknown",):
             found.setdefault(f"diagnostic {d.kind}", set()).add(d.word_id)

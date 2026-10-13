@@ -22,7 +22,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from tools.phonemizer.phonemize import phonemize_range, select_reading  # noqa: E402
 from tools.quran_text.loader import load_quran  # noqa: E402
-from tools.quran_text.model import Ayah  # noqa: E402
 
 DEFAULT_REF = Path("/tmp/tajweed-ref/output/tajweed.hafs.uthmani-pause-sajdah.json")
 DEFAULT_OUT = Path(__file__).resolve().parents[2] / "docs" / "VALIDATION_REPORT.md"
@@ -60,8 +59,9 @@ Span = tuple[int, int]
 
 def load_reference(path: Path) -> dict[tuple[int, int], list[tuple[str, int, int]]]:
     data = json.loads(path.read_text(encoding="utf-8"))
-    return {(e["surah"], e["ayah"]): [(a["rule"], a["start"], a["end"]) for a in e["annotations"]]
-            for e in data}
+    return {
+        (e["surah"], e["ayah"]): [(a["rule"], a["start"], a["end"]) for a in e["annotations"]] for e in data
+    }
 
 
 # The reference text is the Tanzil Uthmani text without the waqf signs (U+06D6..U+06DB) and the
@@ -101,8 +101,7 @@ def our_annotations(quran, result) -> dict[tuple[int, int], list[tuple[str, int,
             cache[key] = ayah_word_offsets(quran, *key)
         base = cache[key][item.word]
         for tag in item.rules:
-            entry = (tag, base + item.span[0], base + item.span[1],
-                     f"{item.surah}:{item.ayah}:{item.word}")
+            entry = (tag, base + item.span[0], base + item.span[1], f"{item.surah}:{item.ayah}:{item.word}")
             if entry not in out[key]:  # stop / continue copies describe the same location
                 out[key].append(entry)
     return out
@@ -198,17 +197,28 @@ def render(result: dict, ref_counts: Counter) -> str:
         "trees, so differences can be our bug, its bug, or an open question. A rule matches when the spans",
         "overlap in the same ayah. Word ids and counts only.",
         "",
-        "| Reference rule | In reference | Matched | Near | Reference only | Found | Ours | Matched | Near | Ours only |",
+        "| Reference rule | In reference | Matched | Near | Reference only | Found "
+        "| Ours | Matched | Near | Ours only |",
         "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for rule, c in result["stats"].items():
         found = (c["ref_matched"] + c["ref_near"]) / c["ref"] if c["ref"] else 0
-        lines.append(f"| {rule} | {c['ref']} | {c['ref_matched']} | {c['ref_near']} | {c['ref_only']} | "
-                     f"{found:.1%} | {c['ours']} | {c['ours_matched']} | {c['ours_near']} | {c['ours_only']} |")
-    lines += ["", "Reference rules the engine does not model: " + ", ".join(
-        f"{r} ({ref_counts[r]})" for r in NOT_MODELED), "", FINDINGS, ""]
-    for title, key in (("Reference only (examples: ayah@start-end)", "ref_only"),
-                       ("Ours only (examples: word[tag])", "ours_only")):
+        lines.append(
+            f"| {rule} | {c['ref']} | {c['ref_matched']} | {c['ref_near']} | {c['ref_only']} | "
+            f"{found:.1%} | {c['ours']} | {c['ours_matched']} | {c['ours_near']} | {c['ours_only']} |"
+        )
+    lines += [
+        "",
+        "Reference rules the engine does not model: "
+        + ", ".join(f"{r} ({ref_counts[r]})" for r in NOT_MODELED),
+        "",
+        FINDINGS,
+        "",
+    ]
+    for title, key in (
+        ("Reference only (examples: ayah@start-end)", "ref_only"),
+        ("Ours only (examples: word[tag])", "ours_only"),
+    ):
         lines += [f"## {title}", ""]
         for rule, items in sorted(result[key].items()):
             lines += [f"- **{rule}** ({len(items)}): " + ", ".join(items[:15])]

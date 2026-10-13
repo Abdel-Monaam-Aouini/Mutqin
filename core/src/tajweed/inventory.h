@@ -12,9 +12,9 @@ namespace mutqin {
 enum class PhonemeKind { kConsonant, kHamza, kVowel };
 
 struct PhonemeDef {
-    const char* symbol;   // stable ASCII symbol = acoustic model token
+    const char* symbol;  // stable ASCII symbol = acoustic model token
     PhonemeKind kind;
-    uint32_t codepoint;   // base Arabic letter, 0 for vowels
+    uint32_t codepoint;  // base Arabic letter, 0 for vowels
 };
 
 constexpr size_t kPhonemeCount = 31;  // 27 consonants + hamza + 3 short vowels

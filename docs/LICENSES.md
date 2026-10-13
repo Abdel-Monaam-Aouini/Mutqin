@@ -42,6 +42,14 @@ How the project complies:
   "changing it is not allowed". Confirm with Tanzil / a lawyer that using the text for matching
   and display (no edits) is covered, and whether the derived phoneme data may be distributed.
 
+## Developer and CI tools (not shipped)
+
+| Item | Used for | License | Verified from |
+|------|----------|---------|---------------|
+| ruff 0.17.0 | Python lint and format (`tools/requirements-dev.txt`, CI) | MIT | PyPI metadata 2026-10-13 |
+| clang-format 23.1.3 | C++ format (`tools/requirements-dev.txt`, CI) | Apache-2.0 with LLVM exception | PyPI metadata 2026-10-13 |
+| actions/checkout, actions/setup-python, actions/cache (v4 / v5) | GitHub Actions steps in `.github/workflows/ci.yml` | MIT | GitHub Marketplace listings, not re-verified here |
+
 ## To verify before use (not yet used)
 
 Names come from `docs/DATA_AND_MODEL.md` and are starting points only.

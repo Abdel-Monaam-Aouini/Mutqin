@@ -19,22 +19,30 @@ constexpr uint32_t kRoundedZero = 0x06DF, kRectangularZero = 0x06E0;
 constexpr uint32_t kLam = 0x0644, kNoon = 0x0646, kMeem = 0x0645, kHeh = 0x0647;
 
 const char* ShortVowel(uint32_t cp) {
-    if (cp == kFatha) return "a";
-    if (cp == kDamma) return "u";
-    if (cp == kKasra) return "i";
+    if (cp == kFatha)
+        return "a";
+    if (cp == kDamma)
+        return "u";
+    if (cp == kKasra)
+        return "i";
     return nullptr;
 }
 const char* TanweenVowel(uint32_t cp) {
-    if (cp == kFathatan) return "a";
-    if (cp == kDammatan) return "u";
-    if (cp == kKasratan) return "i";
+    if (cp == kFathatan)
+        return "a";
+    if (cp == kDammatan)
+        return "u";
+    if (cp == kKasratan)
+        return "i";
     return nullptr;
 }
 bool IsSignMark(uint32_t cp) {
-    return cp == 0x06E2 || cp == 0x06ED || cp == 0x06DC || cp == 0x06E3 || cp == 0x06E8 ||
-           cp == 0x06EA || cp == 0x06EB || cp == 0x06EC;
+    return cp == 0x06E2 || cp == 0x06ED || cp == 0x06DC || cp == 0x06E3 || cp == 0x06E8 || cp == 0x06EA ||
+           cp == 0x06EB || cp == 0x06EC;
 }
-bool IsHamzaSeat(uint32_t cp) { return cp >= 0x0623 && cp <= 0x0626; }
+bool IsHamzaSeat(uint32_t cp) {
+    return cp >= 0x0623 && cp <= 0x0626;
+}
 
 std::string Hex4(uint32_t cp) {
     char buf[16];
@@ -51,10 +59,12 @@ bool HasRule(const PhonemeItem& it, const char* rule) {
 }
 
 bool IsDisconnectedLetters(const std::vector<LetterUnit>& units) {
-    if (units.empty()) return false;
+    if (units.empty())
+        return false;
     for (const LetterUnit& u : units) {
         for (uint32_t m : u.marks) {
-            if (ShortVowel(m) || TanweenVowel(m) || m == kSukun || m == kShadda) return false;
+            if (ShortVowel(m) || TanweenVowel(m) || m == kSukun || m == kShadda)
+                return false;
         }
     }
     return true;
@@ -64,7 +74,8 @@ bool IsDisconnectedLetters(const std::vector<LetterUnit>& units) {
 std::set<uint32_t> MarksOfHost(const LetterUnit& unit) {
     std::set<uint32_t> out;
     for (uint32_t m : unit.marks) {
-        if (m == kHamzaAbove) break;
+        if (m == kHamzaAbove)
+            break;
         out.insert(m);
     }
     return out;
@@ -124,7 +135,8 @@ public:
     void push_back(PhonemeItem item) { insert_at(size(), std::move(item)); }
     void insert_at(size_t pos, PhonemeItem item) {
         MoveGap(pos);
-        if (gap_start_ == gap_end_) Grow();
+        if (gap_start_ == gap_end_)
+            Grow();
         buf_[gap_start_++] = std::move(item);
     }
     void erase_at(size_t pos) {
@@ -144,15 +156,19 @@ private:
             gap_start_ = gap_end_ = pos;
             return;
         }
-        while (gap_start_ > pos) buf_[--gap_end_] = std::move(buf_[--gap_start_]);
-        while (gap_start_ < pos) buf_[gap_start_++] = std::move(buf_[gap_end_++]);
+        while (gap_start_ > pos)
+            buf_[--gap_end_] = std::move(buf_[--gap_start_]);
+        while (gap_start_ < pos)
+            buf_[gap_start_++] = std::move(buf_[gap_end_++]);
     }
     void Grow() {
         const size_t cap = std::max<size_t>(64, buf_.size() * 2);
         std::vector<PhonemeItem> next(cap);
-        for (size_t i = 0; i < gap_start_; ++i) next[i] = std::move(buf_[i]);
+        for (size_t i = 0; i < gap_start_; ++i)
+            next[i] = std::move(buf_[i]);
         const size_t after = buf_.size() - gap_end_;
-        for (size_t i = 0; i < after; ++i) next[cap - after + i] = std::move(buf_[gap_end_ + i]);
+        for (size_t i = 0; i < after; ++i)
+            next[cap - after + i] = std::move(buf_[gap_end_ + i]);
         buf_ = std::move(next);
         gap_end_ = cap - after;
     }
@@ -170,9 +186,7 @@ public:
     void Run(PhonemizeResult* out);
 
 private:
-    void Diag(const std::string& kind, int offset) {
-        diags_.push_back({word_->Id(), kind, offset});
-    }
+    void Diag(const std::string& kind, int offset) { diags_.push_back({word_->Id(), kind, offset}); }
     PhonemeItem& Add(const std::string& ph, int s, int e, Role role, std::vector<int> dur = {},
                      uint32_t letter = 0) {
         PhonemeItem it;
@@ -190,7 +204,8 @@ private:
     }
     // Index of the previous item if it belongs to the word being processed, else -1.
     int Last() const {
-        if (items_.empty()) return -1;
+        if (items_.empty())
+            return -1;
         const PhonemeItem& l = items_.back();
         if (l.surah == word_->surah && l.ayah == word_->ayah && l.word == word_->index) {
             return static_cast<int>(items_.size()) - 1;
@@ -243,7 +258,8 @@ private:
 
 void Builder::Marks(const LetterUnit& unit, int host, bool host_is_tatweel) {
     std::vector<std::pair<size_t, uint32_t>> order;
-    for (size_t k = 0; k < unit.marks.size(); ++k) order.emplace_back(k, unit.marks[k]);
+    for (size_t k = 0; k < unit.marks.size(); ++k)
+        order.emplace_back(k, unit.marks[k]);
     if (host_is_tatweel) {  // hamza first, then its vowel
         std::stable_sort(order.begin(), order.end(), [](const auto& a, const auto& b) {
             return (a.second != kHamzaAbove) < (b.second != kHamzaAbove);
@@ -266,7 +282,8 @@ void Builder::Marks(const LetterUnit& unit, int host, bool host_is_tatweel) {
             }
         } else if (cp == kHamzaAbove) {
             Add("hz", s0, s1, Role::kCons, {}, kHamzaAbove);
-            for (size_t m = k + 1; m < unit.marks.size(); ++m) items_.back().host_marks.insert(unit.marks[m]);
+            for (size_t m = k + 1; m < unit.marks.size(); ++m)
+                items_.back().host_marks.insert(unit.marks[m]);
         } else if (cp == kMaddahAbove) {
             SignOnLastVowel(unit, cp);
         } else if (IsSignMark(cp)) {
@@ -280,7 +297,8 @@ void Builder::Marks(const LetterUnit& unit, int host, bool host_is_tatweel) {
             // shaddah handled at emission; sukun = nothing; zeros handled per letter
         } else if (cp == kSmallHighYeh) {
             bool own = false;
-            for (uint32_t m : unit.marks) own = own || ShortVowel(m) || TanweenVowel(m);
+            for (uint32_t m : unit.marks)
+                own = own || ShortVowel(m) || TanweenVowel(m);
             if (own) {
                 Add("y", s0, s1, Role::kCons, {}, kSmallHighYeh);  // yeh with its own vowel
             } else if (!Lengthen("i", s1, cp)) {
@@ -315,8 +333,9 @@ void Builder::Consonant(const LetterUnit& unit, const std::string& ph, std::vect
 }
 
 void Builder::Alef(const LetterUnit& unit) {
-    if (unit.Has(kRoundedZero)) return;  // written, not pronounced
-    if (unit.Has(kRectangularZero)) {    // DRAFT: silent when continuing, pronounced at waqf
+    if (unit.Has(kRoundedZero))
+        return;                        // written, not pronounced
+    if (unit.Has(kRectangularZero)) {  // DRAFT: silent when continuing, pronounced at waqf
         const int l = Last();
         if (l >= 0 && items_[l].role == Role::kVowel && items_[l].ph == "a") {
             items_[l].flags.insert("alef_waqf");
@@ -335,7 +354,8 @@ void Builder::Alef(const LetterUnit& unit) {
         Diag("alef_without_fatha", unit.start);
     }
     for (uint32_t m : unit.marks) {
-        if (m == kMaddahAbove || IsSignMark(m)) SignOnLastVowel(unit, m);
+        if (m == kMaddahAbove || IsSignMark(m))
+            SignOnLastVowel(unit, m);
     }
 }
 
@@ -364,18 +384,21 @@ void Builder::LamUnit(const LetterUnit& unit) {
         return;  // not pronounced; the next consonant is doubled by its shaddah
     }
     std::vector<std::string> tags;
-    if (article && unit.Has(kSukun)) tags.push_back("lam_qamariyyah");
+    if (article && unit.Has(kSukun))
+        tags.push_back("lam_qamariyyah");
     Consonant(unit, "l", tags);
 }
 
 void Builder::Small(const LetterUnit& unit, const char* vowel) {
     bool own = false;
-    for (uint32_t m : unit.marks) own = own || ShortVowel(m) || TanweenVowel(m);
+    for (uint32_t m : unit.marks)
+        own = own || ShortVowel(m) || TanweenVowel(m);
     if (own) {
         Consonant(unit, std::string(vowel) == "u" ? "w" : "y", {});  // small letter with own vowel
         return;
     }
-    if (!Lengthen(vowel, unit.end, unit.ch)) Diag(std::string("small_letter_without_") + vowel, unit.start);
+    if (!Lengthen(vowel, unit.end, unit.ch))
+        Diag(std::string("small_letter_without_") + vowel, unit.start);
     for (uint32_t m : unit.marks) {
         if (m == kMaddahAbove) {
             SignOnLastVowel(unit, kMaddahAbove);
@@ -387,16 +410,19 @@ void Builder::Small(const LetterUnit& unit, const char* vowel) {
 
 bool Builder::NextUnitHas(const LetterUnit& unit, uint32_t mark) const {
     for (const LetterUnit& x : units_) {
-        if (x.start == unit.end) return x.Has(mark);
+        if (x.start == unit.end)
+            return x.Has(mark);
     }
     return false;
 }
 
 void Builder::Weak(const LetterUnit& unit) {
     const uint32_t cp = unit.ch;
-    if (unit.Has(kRoundedZero)) return;
+    if (unit.Has(kRoundedZero))
+        return;
     bool own = false;
-    for (uint32_t m : unit.marks) own = own || ShortVowel(m) || TanweenVowel(m) || m == kShadda || m == kSukun;
+    for (uint32_t m : unit.marks)
+        own = own || ShortVowel(m) || TanweenVowel(m) || m == kShadda || m == kSukun;
     if (own) {
         Consonant(unit, (cp == kYeh || cp == kAlefMaksura) ? "y" : "w", {});  // yeh-shaped: y
         return;
@@ -458,14 +484,16 @@ void Builder::RunAyah(const Ayah& ayah) {
     for (const Word& word : ayah.words) {
         word_ = &word;
         std::vector<uint32_t> cps;
-        if (!DecodeUtf8(word.text, &cps)) throw UthmaniParseError("invalid UTF-8 in " + word.Id());
+        if (!DecodeUtf8(word.text, &cps))
+            throw UthmaniParseError("invalid UTF-8 in " + word.Id());
         std::vector<LetterUnit> units = ParseWord(cps);
         if (IsDisconnectedLetters(units)) {
             Diag("disconnected_letters", 0);  // letter names: task 1.9 data, not orthography
             continue;
         }
         units_ = std::move(units);
-        for (pos_ = 0; pos_ < units_.size(); ++pos_) Unit(units_[pos_]);
+        for (pos_ = 0; pos_ < units_.size(); ++pos_)
+            Unit(units_[pos_]);
     }
 }
 
@@ -474,18 +502,21 @@ void Builder::RunAyah(const Ayah& ayah) {
 const std::set<std::string> kIzharHalqi = {"hz", "h", "E", "H", "gh", "kh"};
 const std::set<std::string> kIdghamGhunnah = {"y", "n", "m", "w"};
 const std::set<std::string> kIdghamNoGhunnah = {"l", "r"};
-const std::set<std::string> kIkhfa = {"t", "th", "j", "d", "dh", "z", "s", "sh", "S", "D", "T", "Z", "f", "q", "k"};
+const std::set<std::string> kIkhfa = {"t", "th", "j", "d", "dh", "z", "s", "sh",
+                                      "S", "D",  "T", "Z", "f",  "q", "k"};
 const std::set<std::string> kQalqalah = {"q", "T", "b", "j", "d"};
 
 bool HasAnyOf(const std::set<uint32_t>& marks, std::initializer_list<uint32_t> any) {
     for (uint32_t m : any) {
-        if (marks.count(m)) return true;
+        if (marks.count(m))
+            return true;
     }
     return false;
 }
 
 bool IsNoonSakin(const PhonemeItem& it) {
-    if (it.role == Role::kTanweenN) return true;
+    if (it.role == Role::kTanweenN)
+        return true;
     return it.role == Role::kCons && it.ph == "n" && it.letter == kNoon &&
            !HasAnyOf(it.host_marks, {kFatha, kDamma, kKasra, kShadda});
 }
@@ -494,7 +525,8 @@ bool IsNoonSakin(const PhonemeItem& it) {
 // same surah (a surah end is always a stop). -1 otherwise.
 long NextConsonant(const ItemList& items, size_t i) {
     size_t j = i + 1;
-    while (j < items.size() && items[j].variant == Variant::kStartOnly) ++j;
+    while (j < items.size() && items[j].variant == Variant::kStartOnly)
+        ++j;
     if (j < items.size() && items[j].role == Role::kCons && items[j].surah == items[i].surah) {
         return static_cast<long>(j);
     }
@@ -503,7 +535,8 @@ long NextConsonant(const ItemList& items, size_t i) {
 
 bool WordEndsAfter(const ItemList& items, size_t i) {
     size_t k = i + 1;
-    while (k < items.size() && items[k].variant == Variant::kStartOnly) ++k;
+    while (k < items.size() && items[k].variant == Variant::kStartOnly)
+        ++k;
     return k >= items.size() || KeyOf(items[k]) != KeyOf(items[i]);
 }
 
@@ -518,7 +551,8 @@ void Hide(ItemList& items, size_t i, const char* rule, const char* ph) {
         items[i].variant = Variant::kContinueOnly;
         items.insert_at(i + 1, plain);
     }
-    if (ph != nullptr) items[i].ph = ph;
+    if (ph != nullptr)
+        items[i].ph = ph;
     items[i].rules.push_back(rule);
     items[i].dur = {2};
 }
@@ -532,27 +566,32 @@ void Idgham(ItemList& items, size_t i, size_t j, const char* tag, bool ghunnah) 
     }
     std::vector<size_t> group;
     for (size_t k = j; k < std::min(j + 2, items.size()); ++k) {
-        if (items[k].role == Role::kCons && items[k].ph == items[j].ph && KeyOf(items[k]) == KeyOf(items[j])) {
+        if (items[k].role == Role::kCons && items[k].ph == items[j].ph &&
+            KeyOf(items[k]) == KeyOf(items[j])) {
             group.push_back(k);
         }
     }
     const size_t last = group.back();
     std::vector<std::string> rules = items[last].rules;
     rules.push_back(tag);
-    PhonemeItem fused = Clone(items[last], Variant::kAfterContinue, rules, ghunnah ? std::vector<int>{2} : items[last].dur);
-    if (group.size() == 2) items[last].variant = Variant::kStartOnly;  // keep a plain restart form
+    PhonemeItem fused =
+        Clone(items[last], Variant::kAfterContinue, rules, ghunnah ? std::vector<int>{2} : items[last].dur);
+    if (group.size() == 2)
+        items[last].variant = Variant::kStartOnly;  // keep a plain restart form
     items.insert_at(last + 1, fused);
 }
 
 void ApplyNoonRules(ItemList& items, std::vector<Diagnostic>& diags) {
     std::vector<size_t> idx;
     for (size_t k = 0; k < items.size(); ++k) {
-        if (IsNoonSakin(items[k])) idx.push_back(k);
+        if (IsNoonSakin(items[k]))
+            idx.push_back(k);
     }
     for (auto it = idx.rbegin(); it != idx.rend(); ++it) {
         const size_t i = *it;
         const long jl = NextConsonant(items, i);
-        if (jl < 0) continue;  // end of the range, or not followed by a consonant
+        if (jl < 0)
+            continue;  // end of the range, or not followed by a consonant
         const size_t j = static_cast<size_t>(jl);
         const bool same_word = KeyOf(items[i]) == KeyOf(items[j]);
         const std::string letter = items[j].ph;
@@ -594,7 +633,8 @@ void ApplyMeemRules(ItemList& items, std::vector<Diagnostic>& diags) {
     for (auto it = idx.rbegin(); it != idx.rend(); ++it) {
         const size_t i = *it;
         const long jl = NextConsonant(items, i);
-        if (jl < 0) continue;
+        if (jl < 0)
+            continue;
         const size_t j = static_cast<size_t>(jl);
         if (items[j].ph == "b") {
             Hide(items, i, "ikhfa_shafawi", nullptr);
@@ -638,19 +678,24 @@ void ApplyQalqalah(ItemList& items) {
 
 long NextPronounced(const ItemList& items, size_t i) {
     size_t j = i + 1;
-    while (j < items.size() && items[j].variant == Variant::kStartOnly) ++j;
-    if (j < items.size() && items[j].surah == items[i].surah) return static_cast<long>(j);
+    while (j < items.size() && items[j].variant == Variant::kStartOnly)
+        ++j;
+    if (j < items.size() && items[j].surah == items[i].surah)
+        return static_cast<long>(j);
     return -1;
 }
 
 bool IsMaddHamza(const PhonemeItem* item) {
-    return item != nullptr && item->role == Role::kCons && item->ph == "hz" && !HasRule(*item, "hamza_after_wasla");
+    return item != nullptr && item->role == Role::kCons && item->ph == "hz" &&
+           !HasRule(*item, "hamza_after_wasla");
 }
 
 bool IsSakinConsonant(const ItemList& items, size_t k) {
     const PhonemeItem& c = items[k];
-    if (c.role != Role::kCons) return false;
-    if (c.host_marks.count(kSukun)) return true;
+    if (c.role != Role::kCons)
+        return false;
+    if (c.host_marks.count(kSukun))
+        return true;
     return c.host_marks.count(kShadda) && k + 1 < items.size() && items[k + 1].ph == c.ph &&
            KeyOf(items[k + 1]) == KeyOf(c) && items[k + 1].span_start == c.span_start &&
            items[k + 1].span_end == c.span_end;
@@ -659,8 +704,10 @@ bool IsSakinConsonant(const ItemList& items, size_t k) {
 bool LastConsonantOfWord(const ItemList& items, size_t k) {
     const WordKey key = KeyOf(items[k]);
     for (size_t m = k + 1; m < items.size(); ++m) {
-        if (KeyOf(items[m]) != key) return true;
-        if (items[m].role == Role::kCons) return false;
+        if (KeyOf(items[m]) != key)
+            return true;
+        if (items[m].role == Role::kCons)
+            return false;
     }
     return true;
 }
@@ -668,9 +715,12 @@ bool LastConsonantOfWord(const ItemList& items, size_t k) {
 bool HasFathatan(const ItemList& items, size_t k) {
     const WordKey key = KeyOf(items[k]);
     for (size_t m = k + 1; m < items.size(); ++m) {
-        if (KeyOf(items[m]) != key) return false;
-        if (items[m].role == Role::kTanweenN) return items[m - 1].ph == "a";
-        if (items[m].role == Role::kCons) return false;
+        if (KeyOf(items[m]) != key)
+            return false;
+        if (items[m].role == Role::kTanweenN)
+            return items[m - 1].ph == "a";
+        if (items[m].role == Role::kCons)
+            return false;
     }
     return false;
 }
@@ -679,15 +729,16 @@ void ApplyMadd(ItemList& items) {
     std::vector<size_t> idx;
     for (size_t k = 0; k < items.size(); ++k) {
         const PhonemeItem& it = items[k];
-        if (it.role == Role::kVowel && IsDur(it.dur, {2}) && it.long_by != 0 && it.variant == Variant::kBoth) {
+        if (it.role == Role::kVowel && IsDur(it.dur, {2}) && it.long_by != 0 &&
+            it.variant == Variant::kBoth) {
             idx.push_back(k);
         }
     }
     for (auto rit = idx.rbegin(); rit != idx.rend(); ++rit) {
         const size_t i = *rit;
         const PhonemeItem* prev = i > 0 ? &items[i - 1] : nullptr;
-        const bool silah = (items[i].long_by == kSmallWaw || items[i].long_by == kSmallYeh) && prev != nullptr &&
-                           prev->role == Role::kCons && prev->letter == kHeh;
+        const bool silah = (items[i].long_by == kSmallWaw || items[i].long_by == kSmallYeh) &&
+                           prev != nullptr && prev->role == Role::kCons && prev->letter == kHeh;
         const bool badal = prev != nullptr && prev->role == Role::kCons && prev->ph == "hz" &&
                            prev->variant == Variant::kBoth && KeyOf(*prev) == KeyOf(items[i]);
         const long kl = NextPronounced(items, i);
@@ -746,10 +797,13 @@ void ApplyLeen(ItemList& items) {
             continue;
         }
         const long kl = NextPronounced(items, i);
-        if (kl < 0) continue;
+        if (kl < 0)
+            continue;
         const size_t k = static_cast<size_t>(kl);
-        if (items[k].role != Role::kCons || KeyOf(items[k]) != KeyOf(items[i])) continue;
-        if (!LastConsonantOfWord(items, k)) continue;
+        if (items[k].role != Role::kCons || KeyOf(items[k]) != KeyOf(items[i]))
+            continue;
+        if (!LastConsonantOfWord(items, k))
+            continue;
         std::vector<std::string> rules = items[i].rules;
         rules.push_back("madd_leen");
         PhonemeItem stop = Clone(items[i], Variant::kWaqfOnly, rules, {2, 4, 6});
@@ -773,11 +827,14 @@ void ApplyWaqf(ItemList& items) {
         const std::vector<size_t>& idxs = *git;
         std::vector<size_t> cont;
         for (size_t k : idxs) {
-            if (items[k].variant == Variant::kBoth || items[k].variant == Variant::kContinueOnly) cont.push_back(k);
+            if (items[k].variant == Variant::kBoth || items[k].variant == Variant::kContinueOnly)
+                cont.push_back(k);
         }
         size_t end = cont.size();
-        while (end > 0 && items[cont[end - 1]].role == Role::kTanweenN) --end;
-        if (end == 0) continue;
+        while (end > 0 && items[cont[end - 1]].role == Role::kTanweenN)
+            --end;
+        if (end == 0)
+            continue;
         const size_t v_idx = cont[end - 1];
         if (!(items[v_idx].role == Role::kVowel && IsDur(items[v_idx].dur, {1}) &&
               items[v_idx].variant == Variant::kBoth)) {
@@ -785,12 +842,15 @@ void ApplyWaqf(ItemList& items) {
         }
         bool stop_only_consonant_follows = false;  // e.g. the noon of an idgham: the vowel is not final
         for (size_t k : idxs) {
-            if (k > v_idx && items[k].role == Role::kCons) stop_only_consonant_follows = true;
+            if (k > v_idx && items[k].role == Role::kCons)
+                stop_only_consonant_follows = true;
         }
-        if (stop_only_consonant_follows) continue;
+        if (stop_only_consonant_follows)
+            continue;
         long c_idx = -1;
         for (size_t m = 0; m + 1 < end; ++m) {
-            if (items[cont[m]].role == Role::kCons) c_idx = static_cast<long>(cont[m]);
+            if (items[cont[m]].role == Role::kCons)
+                c_idx = static_cast<long>(cont[m]);
         }
 
         bool has_extra = false;
@@ -803,10 +863,13 @@ void ApplyWaqf(ItemList& items) {
             has_extra = true;
         }
         items[v_idx].variant = Variant::kContinueOnly;  // a stop drops the final vowel
-        if (has_extra) items.insert_at(v_idx + 1, extra);
-        if (c_idx < 0) continue;
+        if (has_extra)
+            items.insert_at(v_idx + 1, extra);
+        if (c_idx < 0)
+            continue;
         const size_t c = static_cast<size_t>(c_idx);
-        if (items[c].variant != Variant::kBoth) continue;
+        if (items[c].variant != Variant::kBoth)
+            continue;
         PhonemeItem stop;
         if (HasRule(items[c], "teh_marbuta")) {
             stop = Clone(items[c], Variant::kWaqfOnly, {"teh_marbuta_waqf"}, {});
@@ -824,7 +887,8 @@ void ApplyWaqf(ItemList& items) {
 }
 
 void Builder::Run(PhonemizeResult* out) {
-    for (const Ayah* ayah : ayahs_) RunAyah(*ayah);
+    for (const Ayah* ayah : ayahs_)
+        RunAyah(*ayah);
     ApplyNoonRules(items_, diags_);
     ApplyMeemRules(items_, diags_);
     ApplyQalqalah(items_);
@@ -838,7 +902,8 @@ void Builder::Run(PhonemizeResult* out) {
 std::string Join(const std::vector<std::string>& parts, char sep) {
     std::string out;
     for (size_t i = 0; i < parts.size(); ++i) {
-        if (i) out.push_back(sep);
+        if (i)
+            out.push_back(sep);
         out += parts[i];
     }
     return out;
@@ -848,21 +913,27 @@ std::string Join(const std::vector<std::string>& parts, char sep) {
 
 const char* RoleName(Role r) {
     switch (r) {
-        case Role::kCons: return "cons";
-        case Role::kVowel: return "vowel";
-        case Role::kTanweenN: return "tanween_n";
+        case Role::kCons:
+            return "cons";
+        case Role::kVowel:
+            return "vowel";
+        case Role::kTanweenN:
+            return "tanween_n";
     }
     return "";
 }
 
-WordKey KeyOf(const PhonemeItem& item) { return WordKey(item.surah, item.ayah, item.word); }
+WordKey KeyOf(const PhonemeItem& item) {
+    return WordKey(item.surah, item.ayah, item.word);
+}
 
 bool PhonemizeRange(const std::vector<const Ayah*>& ayahs, PhonemizeResult* out, std::string* error) {
     try {
         Builder(ayahs).Run(out);
         return true;
     } catch (const UthmaniParseError& e) {
-        if (error) *error = e.what();
+        if (error)
+            *error = e.what();
         return false;
     }
 }
@@ -878,7 +949,8 @@ std::vector<size_t> SelectReading(const std::vector<PhonemeItem>& items, const s
         const WordKey key = KeyOf(items[i]);
         if (!have_prev || key != prev_key) {
             if (have_prev) {
-                prev_stopped = all_stops || stops.count(prev_key) || std::get<0>(prev_key) != std::get<0>(key);
+                prev_stopped =
+                    all_stops || stops.count(prev_key) || std::get<0>(prev_key) != std::get<0>(key);
             }
             stopped_here = all_stops || stops.count(key);
             prev_key = key;
@@ -886,9 +958,11 @@ std::vector<size_t> SelectReading(const std::vector<PhonemeItem>& items, const s
         }
         const Variant v = items[i].variant;
         const bool keep = v == Variant::kBoth || (v == Variant::kContinueOnly && !stopped_here) ||
-                          (v == Variant::kWaqfOnly && stopped_here) || (v == Variant::kStartOnly && prev_stopped) ||
+                          (v == Variant::kWaqfOnly && stopped_here) ||
+                          (v == Variant::kStartOnly && prev_stopped) ||
                           (v == Variant::kAfterContinue && !prev_stopped);
-        if (keep) out.push_back(i);
+        if (keep)
+            out.push_back(i);
     }
     return out;
 }
@@ -899,7 +973,8 @@ std::string DumpResult(const PhonemizeResult& result) {
         out += "I\t" + WordIdOf(it) + "\t" + it.ph + "\t" + std::to_string(it.span_start) + "," +
                std::to_string(it.span_end) + "\t" + RoleName(it.role) + "\t";
         for (size_t i = 0; i < it.dur.size(); ++i) {
-            if (i) out.push_back('/');
+            if (i)
+                out.push_back('/');
             out += std::to_string(it.dur[i]);
         }
         out += std::string("\t") + VariantName(it.variant) + "\t" + Join(it.rules, ',') + "\n";
@@ -921,7 +996,8 @@ std::string DumpParity(const Quran& quran) {
     }
     PhonemizeResult range;
     std::string error;
-    if (!PhonemizeRange(all, &range, &error)) return "ERROR\t" + error + "\n";
+    if (!PhonemizeRange(all, &range, &error))
+        return "ERROR\t" + error + "\n";
     std::string out = DumpResult(range);
     const auto readings = {std::make_pair("continue", SelectReading(range.items, {}, false)),
                            std::make_pair("stops", SelectReading(range.items, {}, true)),
@@ -929,15 +1005,18 @@ std::string DumpParity(const Quran& quran) {
     for (const auto& r : readings) {
         out += std::string("R\t") + r.first + "\t";
         for (size_t i = 0; i < r.second.size(); ++i) {
-            if (i) out.push_back(',');
+            if (i)
+                out.push_back(',');
             out += std::to_string(r.second[i]);
         }
         out += "\n";
     }
     for (const Ayah* a : all) {
         PhonemizeResult one;
-        if (!PhonemizeRange({a}, &one, &error)) return "ERROR\t" + error + "\n";
-        out += "H\t" + std::to_string(a->surah) + ":" + std::to_string(a->ayah) + "\t" + Sha256Hex(DumpResult(one)) + "\n";
+        if (!PhonemizeRange({a}, &one, &error))
+            return "ERROR\t" + error + "\n";
+        out += "H\t" + std::to_string(a->surah) + ":" + std::to_string(a->ayah) + "\t" +
+               Sha256Hex(DumpResult(one)) + "\n";
     }
     return out;
 }

@@ -21,9 +21,9 @@ struct UthmaniParseError : std::runtime_error {
 };
 
 struct LetterUnit {
-    uint32_t ch = 0;                 // base code point
-    std::vector<uint32_t> marks;     // combining marks in source order
-    int start = 0;                   // [start, end) code point offsets inside the word text
+    uint32_t ch = 0;              // base code point
+    std::vector<uint32_t> marks;  // combining marks in source order
+    int start = 0;                // [start, end) code point offsets inside the word text
     int end = 0;
 
     bool Has(uint32_t codepoint) const;

@@ -10,11 +10,20 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(MUTQIN_BUILD_TESTS "Build MutqinCore tests (fetches GoogleTest)" ON)
+option(MUTQIN_WERROR "Treat compiler warnings as errors (used by CI)" OFF)
 
 if(MSVC)
     add_compile_options(/W4 /utf-8)
 else()
     add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+if(MUTQIN_WERROR)
+    if(MSVC)
+        add_compile_options(/WX)
+    else()
+        add_compile_options(-Werror)
+    endif()
 endif()
 
 add_subdirectory(core)

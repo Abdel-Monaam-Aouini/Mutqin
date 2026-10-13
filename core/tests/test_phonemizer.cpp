@@ -15,11 +15,10 @@ using namespace mutqin;
 
 namespace {
 
-const std::string BA = "ب", TA = "ت", NOON = "ن", LAM = "ل", WAW = "و", YEH = "ي",
-                  ALEF = "ا", MAKSURA = "ى", KAF = "ك", MEEM = "م", DAL = "د",
-                  HEH = "ه", HAMZA = "ء", WASLA = "ٱ", TEH_MARBUTA = "ة";
-const std::string FATHA = "َ", DAMMA = "ُ", KASRA = "ِ", SHADDA = "ّ", SUKUN = "ْ",
-                  FATHATAN = "ً", DAMMATAN = "ٌ", SUPERSCRIPT_ALEF = "ٰ", ROUNDED_ZERO = "۟";
+const std::string BA = "ب", TA = "ت", NOON = "ن", LAM = "ل", WAW = "و", YEH = "ي", ALEF = "ا", MAKSURA = "ى",
+                  KAF = "ك", MEEM = "م", DAL = "د", HEH = "ه", HAMZA = "ء", WASLA = "ٱ", TEH_MARBUTA = "ة";
+const std::string FATHA = "َ", DAMMA = "ُ", KASRA = "ِ", SHADDA = "ّ", SUKUN = "ْ", FATHATAN = "ً", DAMMATAN = "ٌ",
+                  SUPERSCRIPT_ALEF = "ٰ", ROUNDED_ZERO = "۟";
 
 Ayah MakeAyah(int surah, int ayah, std::initializer_list<std::string> words) {
     Ayah a;
@@ -46,11 +45,13 @@ PhonemizeResult Phon(std::initializer_list<std::string> words) {
 }
 
 // "ph" or "ph:dur" of the items of one reading.
-std::vector<std::string> Reading(const PhonemizeResult& r, bool all_stops, const std::set<WordKey>& stops = {}) {
+std::vector<std::string> Reading(const PhonemizeResult& r, bool all_stops,
+                                 const std::set<WordKey>& stops = {}) {
     std::vector<std::string> out;
     for (size_t i : SelectReading(r.items, stops, all_stops)) {
         std::string s = r.items[i].ph;
-        for (size_t k = 0; k < r.items[i].dur.size(); ++k) s += (k ? "/" : ":") + std::to_string(r.items[i].dur[k]);
+        for (size_t k = 0; k < r.items[i].dur.size(); ++k)
+            s += (k ? "/" : ":") + std::to_string(r.items[i].dur[k]);
         out.push_back(s);
     }
     return out;
@@ -59,7 +60,8 @@ using V = std::vector<std::string>;
 
 bool HasTag(const PhonemeItem& it, const char* tag) {
     for (const auto& r : it.rules) {
-        if (r == tag) return true;
+        if (r == tag)
+            return true;
     }
     return false;
 }
@@ -110,7 +112,8 @@ TEST(Phonemizer, LongVowels) {
               (V{"b", "a:2", "t", "a:1", "k", "a:1"}));
     EXPECT_EQ(Reading(Phon({BA + DAMMA + WAW + TA + FATHA}), false), (V{"b", "u:2", "t", "a:1"}));
     EXPECT_EQ(Reading(Phon({BA + KASRA + YEH + TA + FATHA}), false), (V{"b", "i:2", "t", "a:1"}));
-    EXPECT_EQ(Reading(Phon({BA + FATHA + SUPERSCRIPT_ALEF + TA + FATHA}), false), (V{"b", "a:2", "t", "a:1"}));
+    EXPECT_EQ(Reading(Phon({BA + FATHA + SUPERSCRIPT_ALEF + TA + FATHA}), false),
+              (V{"b", "a:2", "t", "a:1"}));
     EXPECT_EQ(Reading(Phon({BA + FATHA + MAKSURA + TA + FATHA}), false), (V{"b", "a:2", "t", "a:1"}));
 }
 

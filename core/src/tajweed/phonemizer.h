@@ -21,21 +21,21 @@ const char* RoleName(Role r);
 
 struct PhonemeItem {
     std::string ph;
-    int word = 0;                      // 1-based word index inside the ayah
-    int span_start = 0;                // [start, end) code point offsets inside the word
+    int word = 0;        // 1-based word index inside the ayah
+    int span_start = 0;  // [start, end) code point offsets inside the word
     int span_end = 0;
     Role role = Role::kCons;
-    std::vector<int> dur;              // allowed durations in counts, empty = none
-    std::vector<std::string> rules;    // rule tags in the order they were added
+    std::vector<int> dur;            // allowed durations in counts, empty = none
+    std::vector<std::string> rules;  // rule tags in the order they were added
     Variant variant = Variant::kBoth;
     int surah = 0;
     int ayah = 0;
-    std::set<uint32_t> host_marks;     // marks on the host letter
-    bool maddah = false;               // a maddah sign was written on / after this vowel
-    uint32_t long_by = 0;              // letter / sign that made this vowel long
-    std::set<std::string> flags;       // "iwad", "alef_waqf": stop-only lengthening
-    std::set<uint32_t> signs;          // special signs on the host (iqlab meem, location marks)
-    uint32_t letter = 0;               // code point of the host letter
+    std::set<uint32_t> host_marks;  // marks on the host letter
+    bool maddah = false;            // a maddah sign was written on / after this vowel
+    uint32_t long_by = 0;           // letter / sign that made this vowel long
+    std::set<std::string> flags;    // "iwad", "alef_waqf": stop-only lengthening
+    std::set<uint32_t> signs;       // special signs on the host (iqlab meem, location marks)
+    uint32_t letter = 0;            // code point of the host letter
 };
 
 struct Diagnostic {

@@ -4,11 +4,8 @@ import pytest
 
 from tools.phonemizer import report
 from tools.quran_text import loader
-from tools.quran_text.download import CHECKSUMS_NAME
 
-needs_data = pytest.mark.skipif(
-    not (loader.DEFAULT_DATA_DIR / CHECKSUMS_NAME).exists(), reason="data/quran/ missing"
-)
+needs_data = pytest.mark.skipif(not loader.data_available(), reason="data/quran/ missing")
 
 
 class Counter(HTMLParser):
@@ -37,7 +34,10 @@ def test_parse_ranges(quran):
     assert len(report.parse_ranges(["1"], quran)) == 7
     assert len(report.parse_ranges(["2:1-50"], quran)) == 50
     assert [(a.surah, a.ayah) for a in report.parse_ranges(["112:2", "113:1-2"], quran)] == [
-        (112, 2), (113, 1), (113, 2)]
+        (112, 2),
+        (113, 1),
+        (113, 2),
+    ]
     assert len(report.parse_ranges(["112-114"], quran)) == 15
 
 

@@ -34,15 +34,40 @@ def top(counter: Counter, n: int = 6) -> str:
 def main() -> None:
     quran = load_quran()
     # Signs hosted as combining marks: report host letter, host's other marks, position, next letter
-    targets_marks = [0x06DF, 0x06E0, 0x06E2, 0x06ED, 0x06E7, 0x06E8, 0x06E3, 0x06DC, 0x06EA, 0x06EB,
-                     0x06EC, 0x0653, 0x0654, 0x0670]
+    targets_marks = [
+        0x06DF,
+        0x06E0,
+        0x06E2,
+        0x06ED,
+        0x06E7,
+        0x06E8,
+        0x06E3,
+        0x06DC,
+        0x06EA,
+        0x06EB,
+        0x06EC,
+        0x0653,
+        0x0654,
+        0x0670,
+    ]
     # Signs that are base units themselves
     targets_bases = [0x06E5, 0x06E6, 0x0640, 0x0671, 0x0627, 0x0649, 0x0629]
 
-    ctx_marks = {t: {"host": Counter(), "other": Counter(), "final": Counter(), "next": Counter(),
-                     "ids": []} for t in targets_marks}
-    ctx_bases = {t: {"prev": Counter(), "final": Counter(), "own": Counter(), "next": Counter(),
-                     "first": Counter(), "ids": []} for t in targets_bases}
+    ctx_marks = {
+        t: {"host": Counter(), "other": Counter(), "final": Counter(), "next": Counter(), "ids": []}
+        for t in targets_marks
+    }
+    ctx_bases = {
+        t: {
+            "prev": Counter(),
+            "final": Counter(),
+            "own": Counter(),
+            "next": Counter(),
+            "first": Counter(),
+            "ids": [],
+        }
+        for t in targets_bases
+    }
 
     for surah in quran.surahs:
         for ayah in surah.ayahs:
@@ -58,7 +83,11 @@ def main() -> None:
                         if cp in ctx_marks:
                             c = ctx_marks[cp]
                             c["host"][nm(unit.char)] += 1
-                            c["other"][marks_desc(u.LetterUnit(unit.char, tuple(x for x in unit.marks if x != m), 0, 0))] += 1
+                            c["other"][
+                                marks_desc(
+                                    u.LetterUnit(unit.char, tuple(x for x in unit.marks if x != m), 0, 0)
+                                )
+                            ] += 1
                             c["final"]["word-final" if is_final else "inside"] += 1
                             c["next"][nm(nxt.char) if nxt else "end-of-ayah"] += 1
                             if len(c["ids"]) < 6:

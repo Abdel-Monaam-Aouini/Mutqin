@@ -44,6 +44,11 @@ class QuranDataError(RuntimeError):
     """Source files are missing, modified, or not in the expected shape."""
 
 
+def data_available(data_dir: Path = DEFAULT_DATA_DIR) -> bool:
+    """True if checksums.txt and every source file are present (tests skip otherwise)."""
+    return all((data_dir / name).exists() for name in (CHECKSUMS_NAME, *SOURCES))
+
+
 def is_mark_only(token: str) -> bool:
     return bool(token) and all(any(lo <= ord(c) <= hi for lo, hi in MARK_RANGES) for c in token)
 
@@ -99,9 +104,7 @@ def _check_numbering(keys: list[tuple[int, int]], name: str) -> dict[int, int]:
     return counts
 
 
-def _split_basmala(
-    surah: int, tokens: list[str], reference: list[str]
-) -> tuple[tuple[str, ...], list[str]]:
+def _split_basmala(surah: int, tokens: list[str], reference: list[str]) -> tuple[tuple[str, ...], list[str]]:
     """Split the basmala prefix off ayah 1, checking it against the 1:1 tokens."""
     if surah in SURAHS_WITHOUT_BASMALA_PREFIX:
         return (), tokens
@@ -146,8 +149,9 @@ def load_quran(data_dir: Path = DEFAULT_DATA_DIR) -> Quran:
         raise QuranDataError("Uthmani and simple-clean files list different ayahs")
     counts = _check_numbering(list(uthmani), UTHMANI_FILE)
     if len(counts) != EXPECTED_SURAHS or len(uthmani) != EXPECTED_AYAHS:
-        raise QuranDataError(f"expected {EXPECTED_SURAHS} surahs / {EXPECTED_AYAHS} ayahs, "
-                             f"got {len(counts)} / {len(uthmani)}")
+        raise QuranDataError(
+            f"expected {EXPECTED_SURAHS} surahs / {EXPECTED_AYAHS} ayahs, got {len(counts)} / {len(uthmani)}"
+        )
 
     reference = uthmani[(1, 1)].split(" ")[:BASMALA_TOKENS]
     surahs: list[Surah] = []

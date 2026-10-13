@@ -25,7 +25,9 @@ const char kShaddah[] = "\xD9\x91";  // U+0651
 // Surahs whose first basmala token has one extra shaddah vs 1:1 in the Tanzil Uthmani text.
 constexpr int kShaddahSurahs[] = {95, 97};
 
-struct MarkRange { uint32_t lo, hi; };
+struct MarkRange {
+    uint32_t lo, hi;
+};
 constexpr MarkRange kMarkRanges[] = {{0x0610, 0x061A}, {0x064B, 0x065F}, {0x06D6, 0x06ED}};
 
 struct DataError : std::runtime_error {
@@ -34,7 +36,8 @@ struct DataError : std::runtime_error {
 
 bool ReadFile(const std::string& path, std::string* out) {
     std::ifstream in(path, std::ios::binary);
-    if (!in) return false;
+    if (!in)
+        return false;
     out->assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
     return true;
 }
@@ -42,7 +45,8 @@ bool ReadFile(const std::string& path, std::string* out) {
 // Byte length of the first UTF-8 character of a non-empty string.
 size_t FirstCharBytes(const std::string& s) {
     size_t n = 1;
-    while (n < s.size() && (static_cast<uint8_t>(s[n]) & 0xC0) == 0x80) ++n;
+    while (n < s.size() && (static_cast<uint8_t>(s[n]) & 0xC0) == 0x80)
+        ++n;
     return n;
 }
 
@@ -52,7 +56,10 @@ std::vector<std::string> Split(const std::string& s, char sep) {
     size_t start = 0;
     while (true) {
         size_t pos = s.find(sep, start);
-        if (pos == std::string::npos) { parts.push_back(s.substr(start)); break; }
+        if (pos == std::string::npos) {
+            parts.push_back(s.substr(start));
+            break;
+        }
         parts.push_back(s.substr(start, pos - start));
         start = pos + 1;
     }
@@ -67,10 +74,12 @@ bool ParseDigits(const std::string& line, size_t* pos, int* value) {
     long v = 0;
     while (*pos < line.size() && line[*pos] >= '0' && line[*pos] <= '9') {
         v = v * 10 + (line[*pos] - '0');
-        if (*pos - start > 6) return false;
+        if (*pos - start > 6)
+            return false;
         ++(*pos);
     }
-    if (*pos == start) return false;
+    if (*pos == start)
+        return false;
     *value = static_cast<int>(v);
     return true;
 }
@@ -79,11 +88,14 @@ bool ParseDigits(const std::string& line, size_t* pos, int* value) {
 bool MatchDataLine(const std::string& line, AyahKey* key, std::string* text) {
     size_t pos = 0;
     int surah, ayah;
-    if (!ParseDigits(line, &pos, &surah) || pos >= line.size() || line[pos] != '|') return false;
+    if (!ParseDigits(line, &pos, &surah) || pos >= line.size() || line[pos] != '|')
+        return false;
     ++pos;
-    if (!ParseDigits(line, &pos, &ayah) || pos >= line.size() || line[pos] != '|') return false;
+    if (!ParseDigits(line, &pos, &ayah) || pos >= line.size() || line[pos] != '|')
+        return false;
     ++pos;
-    if (pos >= line.size()) return false;
+    if (pos >= line.size())
+        return false;
     *key = {surah, ayah};
     *text = line.substr(pos);
     return true;
@@ -91,10 +103,13 @@ bool MatchDataLine(const std::string& line, AyahKey* key, std::string* text) {
 
 Lines ParseLines(const std::string& dir, const std::string& name) {
     std::string raw;
-    if (!ReadFile(dir + "/" + name, &raw)) throw DataError(name + ": cannot read file");
-    if (raw.compare(0, 3, "\xEF\xBB\xBF") == 0) throw DataError(name + ": unexpected BOM");
+    if (!ReadFile(dir + "/" + name, &raw))
+        throw DataError(name + ": cannot read file");
+    if (raw.compare(0, 3, "\xEF\xBB\xBF") == 0)
+        throw DataError(name + ": unexpected BOM");
     std::vector<uint32_t> scratch;
-    if (!DecodeUtf8(raw, &scratch)) throw DataError(name + ": invalid UTF-8");
+    if (!DecodeUtf8(raw, &scratch))
+        throw DataError(name + ": invalid UTF-8");
 
     Lines result;
     std::set<AyahKey> seen;
@@ -121,9 +136,11 @@ Lines ParseLines(const std::string& dir, const std::string& name) {
 std::map<std::string, std::string> ReadChecksums(const std::string& path) {
     std::string raw;
     std::map<std::string, std::string> result;
-    if (!ReadFile(path, &raw)) return result;
+    if (!ReadFile(path, &raw))
+        return result;
     for (const std::string& line : Split(raw, '\n')) {
-        if (line.find_first_not_of(" \t\r") == std::string::npos) continue;
+        if (line.find_first_not_of(" \t\r") == std::string::npos)
+            continue;
         size_t sep = line.find("  ");
         std::string digest = line.substr(0, sep);
         std::string name = sep == std::string::npos ? "" : line.substr(sep + 2);
@@ -138,12 +155,15 @@ std::map<std::string, std::string> ReadChecksums(const std::string& path) {
 
 void VerifyChecksums(const std::string& dir) {
     auto recorded = ReadChecksums(dir + "/" + kChecksumsFile);
-    if (recorded.empty()) throw DataError(std::string(kChecksumsFile) + " missing or empty");
+    if (recorded.empty())
+        throw DataError(std::string(kChecksumsFile) + " missing or empty");
     for (const char* name : {kUthmaniFile, kSimpleFile}) {
         auto it = recorded.find(name);
-        if (it == recorded.end()) throw DataError(std::string(name) + ": no checksum recorded");
+        if (it == recorded.end())
+            throw DataError(std::string(name) + ": no checksum recorded");
         std::string data;
-        if (!ReadFile(dir + "/" + name, &data)) throw DataError(std::string(name) + ": file missing");
+        if (!ReadFile(dir + "/" + name, &data))
+            throw DataError(std::string(name) + ": file missing");
         if (Sha256Hex(data) != it->second) {
             throw DataError(std::string(name) + ": checksum mismatch (file modified)");
         }
@@ -172,14 +192,17 @@ std::map<int, int> CheckNumbering(const Lines& lines, const std::string& name) {
 }
 
 bool InShaddahList(int surah) {
-    for (int s : kShaddahSurahs) if (s == surah) return true;
+    for (int s : kShaddahSurahs)
+        if (s == surah)
+            return true;
     return false;
 }
 
 // Splits the basmala prefix off ayah 1, checking it against the 1:1 tokens.
 std::vector<std::string> SplitBasmala(int surah, std::vector<std::string>* tokens,
                                       const std::vector<std::string>& reference) {
-    if (surah == 1 || surah == 9) return {};
+    if (surah == 1 || surah == 9)
+        return {};
     if (tokens->size() <= kBasmalaTokens) {
         throw DataError(std::to_string(surah) + ":1: basmala prefix does not match 1:1");
     }
@@ -220,7 +243,8 @@ std::vector<Word> BuildWords(int surah, int ayah, const std::vector<std::string>
 std::string Join(const std::vector<std::string>& parts, char sep) {
     std::string out;
     for (size_t i = 0; i < parts.size(); ++i) {
-        if (i) out.push_back(sep);
+        if (i)
+            out.push_back(sep);
         out += parts[i];
     }
     return out;
@@ -233,13 +257,17 @@ std::string Word::Id() const {
 }
 
 bool IsMarkOnly(const std::string& token) {
-    if (token.empty()) return false;
+    if (token.empty())
+        return false;
     std::vector<uint32_t> cps;
-    if (!DecodeUtf8(token, &cps)) return false;
+    if (!DecodeUtf8(token, &cps))
+        return false;
     for (uint32_t cp : cps) {
         bool in_range = false;
-        for (const MarkRange& r : kMarkRanges) in_range = in_range || (cp >= r.lo && cp <= r.hi);
-        if (!in_range) return false;
+        for (const MarkRange& r : kMarkRanges)
+            in_range = in_range || (cp >= r.lo && cp <= r.hi);
+        if (!in_range)
+            return false;
     }
     return true;
 }
@@ -250,19 +278,22 @@ bool Quran::Load(const std::string& data_dir, Quran* out, std::string* error) {
         Lines uthmani = ParseLines(data_dir, kUthmaniFile);
         Lines simple = ParseLines(data_dir, kSimpleFile);
 
-        if (uthmani.size() != simple.size()) throw DataError("files list different ayahs");
+        if (uthmani.size() != simple.size())
+            throw DataError("files list different ayahs");
         for (size_t i = 0; i < uthmani.size(); ++i) {
-            if (uthmani[i].first != simple[i].first) throw DataError("files list different ayahs");
+            if (uthmani[i].first != simple[i].first)
+                throw DataError("files list different ayahs");
         }
         std::map<int, int> counts = CheckNumbering(uthmani, kUthmaniFile);
         if (static_cast<int>(counts.size()) != kExpectedSurahs ||
             static_cast<int>(uthmani.size()) != kExpectedAyahs) {
-            throw DataError("expected 114 surahs / 6236 ayahs, got " + std::to_string(counts.size()) +
-                            " / " + std::to_string(uthmani.size()));
+            throw DataError("expected 114 surahs / 6236 ayahs, got " + std::to_string(counts.size()) + " / " +
+                            std::to_string(uthmani.size()));
         }
 
         std::vector<std::string> reference = Split(uthmani[0].second, ' ');
-        if (reference.size() > kBasmalaTokens) reference.resize(kBasmalaTokens);
+        if (reference.size() > kBasmalaTokens)
+            reference.resize(kBasmalaTokens);
 
         Quran quran;
         size_t pos = 0;
@@ -271,7 +302,8 @@ bool Quran::Load(const std::string& data_dir, Quran* out, std::string* error) {
             surah.number = number;
             for (int a = 1; a <= counts[number]; ++a, ++pos) {
                 std::vector<std::string> tokens = Split(uthmani[pos].second, ' ');
-                if (a == 1) surah.basmala = SplitBasmala(number, &tokens, reference);
+                if (a == 1)
+                    surah.basmala = SplitBasmala(number, &tokens, reference);
                 Ayah ayah;
                 ayah.surah = number;
                 ayah.ayah = a;
@@ -284,21 +316,25 @@ bool Quran::Load(const std::string& data_dir, Quran* out, std::string* error) {
         *out = std::move(quran);
         return true;
     } catch (const DataError& e) {
-        if (error) *error = e.what();
+        if (error)
+            *error = e.what();
         return false;
     }
 }
 
 size_t Quran::ayah_count() const {
     size_t n = 0;
-    for (const Surah& s : surahs_) n += s.ayahs.size();
+    for (const Surah& s : surahs_)
+        n += s.ayahs.size();
     return n;
 }
 
 const Ayah* Quran::FindAyah(int surah, int ayah) const {
-    if (surah < 1 || surah > static_cast<int>(surahs_.size())) return nullptr;
+    if (surah < 1 || surah > static_cast<int>(surahs_.size()))
+        return nullptr;
     const Surah& s = surahs_[surah - 1];
-    if (ayah < 1 || ayah > static_cast<int>(s.ayahs.size())) return nullptr;
+    if (ayah < 1 || ayah > static_cast<int>(s.ayahs.size()))
+        return nullptr;
     return &s.ayahs[ayah - 1];
 }
 
@@ -307,8 +343,8 @@ std::string Quran::DumpTsv() const {
     for (const Surah& s : surahs_) {
         out += "S\t" + std::to_string(s.number) + "\t" + Join(s.basmala, ' ') + "\n";
         for (const Ayah& a : s.ayahs) {
-            out += "A\t" + std::to_string(a.surah) + ":" + std::to_string(a.ayah) + "\t" +
-                   a.simple_text + "\n";
+            out +=
+                "A\t" + std::to_string(a.surah) + ":" + std::to_string(a.ayah) + "\t" + a.simple_text + "\n";
             for (const Word& w : a.words) {
                 out += "W\t" + w.Id() + "\t" + w.text + "\t" + Join(w.marks, ' ') + "\n";
             }
