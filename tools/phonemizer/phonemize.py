@@ -171,10 +171,13 @@ class _Builder:
         tags = tags + tuple(self.pending_tags)
         self.pending_tags = []
         host = None
-        for _ in range(times):
+        for n in range(times):
             host = self.add(ph, (unit.start, unit.start + 1), "cons", letter=ord(unit.char))
             host.rules.extend(tags)
             host.host_marks = frozenset(ord(m) for m in unit.marks)
+            if times == 2 and n == 1 and ph in ("n", "m"):  # mushaddad noon / meem (spec 3.3)
+                host.rules.append("ghunnah")
+                host.dur = (2,)
         self.marks(unit, host)
 
     def alef(self, unit: u.LetterUnit) -> None:
@@ -305,6 +308,8 @@ class _Builder:
             self.cur = ayah
             self.run_ayah(ayah)
         apply_noon_rules(self.items, self.diags)
+        apply_meem_rules(self.items, self.diags)
+        apply_qalqalah(self.items)
         return AyahResult(self.items, self.diags, self.hooks)
 
     def run_ayah(self, ayah: Ayah) -> None:
@@ -352,11 +357,12 @@ def _is_noon_sakin(item: Item) -> bool:
 
 
 def _next_consonant(items: list[Item], i: int) -> int | None:
-    """Index of the first item after i that is pronounced when continuing, if it is a consonant."""
+    """Index of the first item after i that is pronounced when continuing, if it is a consonant.
+    A surah end is always a stop (the basmala intervenes), so nothing continues across it."""
     j = i + 1
     while j < len(items) and items[j].variant is Variant.START_ONLY:
         j += 1
-    if j < len(items) and items[j].role == "cons":
+    if j < len(items) and items[j].role == "cons" and items[j].surah == items[i].surah:
         return j
     return None
 
@@ -390,7 +396,8 @@ def apply_noon_rules(items: list[Item], diags: list[Diagnostic]) -> None:
                 diags.append(Diagnostic(f"{noon.surah}:{noon.ayah}:{noon.word}",
                                         "noon_idgham_inside_word", noon.span[0]))
                 continue
-            _idgham(items, i, j, ghunnah=letter in IDGHAM_GHUNNAH)
+            _idgham(items, i, j, "idgham_ghunnah" if letter in IDGHAM_GHUNNAH
+                    else "idgham_no_ghunnah", ghunnah=letter in IDGHAM_GHUNNAH)
         elif letter in IQLAB:
             _hide(items, i, "iqlab", ph="m")
         elif letter in IKHFA:
@@ -424,10 +431,9 @@ def _word_ends_after(items: list[Item], i: int) -> bool:
     return k >= len(items) or word_key(items[k]) != word_key(items[i])
 
 
-def _idgham(items: list[Item], i: int, j: int, ghunnah: bool) -> None:
-    """The noon is not pronounced when continuing; the next consonant is doubled."""
+def _idgham(items: list[Item], i: int, j: int, tag: str, ghunnah: bool) -> None:
+    """The noon / meem is not pronounced when continuing; the next consonant is doubled."""
     noon = items[i]
-    tag = "idgham_ghunnah" if ghunnah else "idgham_no_ghunnah"
     if noon.role == "tanween_n":
         del items[i]  # tanween never has an n at a stop either
         j -= 1
@@ -447,3 +453,49 @@ def _idgham(items: list[Item], i: int, j: int, ghunnah: bool) -> None:
         group = [j, j + 1]
     if ghunnah:
         items[group[-1]].dur = (2,)
+
+
+# -- meem sakinah (spec 3.2) and qalqalah (spec 3.4) -----------------------------------------------
+
+MEEM_CP = 0x0645
+QALQALAH_LETTERS = frozenset(["q", "T", "b", "j", "d"])
+
+
+def apply_meem_rules(items: list[Item], diags: list[Diagnostic]) -> None:
+    sakin_block = set(SHORT_VOWELS) | {u.SHADDA}
+    for i in reversed([k for k, it in enumerate(items)
+                       if it.role == "cons" and it.ph == "m" and it.letter == MEEM_CP
+                       and not it.host_marks & sakin_block]):
+        meem = items[i]
+        j = _next_consonant(items, i)
+        if j is None:
+            continue
+        nxt = items[j]
+        if nxt.ph == "b":
+            _hide(items, i, "ikhfa_shafawi")
+        elif nxt.ph == "m":
+            if word_key(meem) == word_key(nxt):
+                diags.append(Diagnostic(f"{meem.surah}:{meem.ayah}:{meem.word}",
+                                        "meem_idgham_inside_word", meem.span[0]))
+                continue
+            _idgham(items, i, j, "idgham_mithlayn_saghir", ghunnah=True)
+        else:
+            meem.rules.append("izhar_shafawi")
+
+
+def apply_qalqalah(items: list[Item]) -> None:
+    """Qalqalah letters with a sukun. At a word end the stop variant is kubra (stronger)."""
+    for i in reversed([k for k, it in enumerate(items)
+                       if it.role == "cons" and it.ph in QALQALAH_LETTERS
+                       and u.SUKUN in it.host_marks and u.SHADDA not in it.host_marks]):
+        letter = items[i]
+        if _word_ends_after(items, i):
+            kubra = Item(letter.ph, letter.word, letter.span, letter.role, letter.dur,
+                         list(letter.rules) + ["qalqalah_kubra"], Variant.WAQF_ONLY,
+                         surah=letter.surah, ayah=letter.ayah, host_marks=letter.host_marks,
+                         letter=letter.letter)
+            letter.variant = Variant.CONTINUE_ONLY
+            letter.rules.append("qalqalah_sughra")
+            items.insert(i + 1, kubra)
+        else:
+            letter.rules.append("qalqalah_sughra")

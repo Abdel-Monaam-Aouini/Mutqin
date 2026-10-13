@@ -38,7 +38,7 @@ def test_consonant_with_short_vowels():
 
 
 def test_sukun_emits_no_vowel():
-    assert [p for p, _ in syms(run(BA + SUKUN))] == ["b"]
+    assert [p for p, _ in syms(run(TA + SUKUN))] == ["t"]
 
 
 def test_shaddah_doubles_the_consonant():
@@ -145,7 +145,8 @@ def test_whole_quran_phonemizes_with_only_known_special_cases():
                     assert p.dur in ((1,), (2,))
                 else:  # consonants have no duration, except ghunnah (2 counts) from noon / meem rules
                     assert p.dur == () or (p.dur == (2,) and any(
-                        r.startswith(("ikhfa", "iqlab", "idgham_ghunnah")) for r in p.rules))
+                        r.startswith(("ikhfa", "iqlab", "idgham_ghunnah", "idgham_mithlayn", "ghunnah"))
+                        for r in p.rules))
             for d in result.diagnostics:
                 if d.kind == "disconnected_letters":
                     disconnected.add(d.word_id)
@@ -263,7 +264,7 @@ def test_noon_with_a_vowel_or_shaddah_is_not_sakin():
     r = two_words(BA + FATHA + NOON + FATHA, KAF + FATHA)
     assert vs(r, "n") == [("n", "both", (), ())]
     r = two_words(BA + FATHA + NOON + SHADDA + FATHA, KAF + FATHA)
-    assert [x[0] for x in vs(r, "n")] == ["n", "n"] and all(not x[3] for x in vs(r, "n"))
+    assert vs(r, "n") == [("n", "both", (), ()), ("n", "both", (2,), ("ghunnah",))]  # mushaddad
 
 
 @needs_data
@@ -285,3 +286,69 @@ def test_noon_rules_agree_with_the_encoding_of_the_text():
     assert seen_sukun_rules == {"izhar_halqi", "izhar_mutlaq"}
     assert seen_bare_rules == {"ikhfa", "iqlab"}
     assert iqlab_without_sign == 0
+
+
+# -- meem sakinah, mushaddad ghunnah, qalqalah (spec 3.2 - 3.4) ----------------------------------
+DAL, QAF = "\u062F", "\u0642"
+
+
+def test_meem_before_beh_is_ikhfa_shafawi():
+    r = two_words(BA + FATHA + MEEM, BA + FATHA)
+    assert vs(r, "m") == [("m", "continue_only", (2,), ("ikhfa_shafawi",)), ("m", "waqf_only", (), ())]
+
+
+def test_meem_before_meem_is_idgham_mithlayn_saghir():
+    r = two_words(BA + FATHA + MEEM, MEEM + FATHA)
+    assert vs(r, "m") == [
+        ("m", "waqf_only", (), ()),
+        ("m", "both", (), ("idgham_mithlayn_saghir",)),
+        ("m", "after_continue", (2,), ("idgham_mithlayn_saghir",))]
+
+
+def test_meem_before_other_letters_is_izhar_shafawi():
+    r = two_words(BA + FATHA + MEEM + SUKUN, KAF + FATHA)
+    assert vs(r, "m") == [("m", "both", (), ("izhar_shafawi",))]
+
+
+def test_mushaddad_noon_and_meem_get_two_counts_of_ghunnah():
+    for letter, sym in ((NOON, "n"), (MEEM, "m")):
+        r = run(BA + FATHA + letter + SHADDA + FATHA)
+        assert vs(r, sym) == [(sym, "both", (), ()), (sym, "both", (2,), ("ghunnah",))]
+
+
+def test_qalqalah_inside_a_word_is_sughra():
+    r = run(BA + FATHA + QAF + SUKUN + TA + FATHA)
+    assert vs(r, "q") == [("q", "both", (), ("qalqalah_sughra",))]
+
+
+def test_qalqalah_at_a_word_end_is_sughra_when_continuing_and_kubra_at_waqf():
+    r = two_words(BA + FATHA + DAL + SUKUN, KAF + FATHA)
+    assert vs(r, "d") == [("d", "continue_only", (), ("qalqalah_sughra",)),
+                          ("d", "waqf_only", (), ("qalqalah_kubra",))]
+
+
+def test_qalqalah_needs_a_sukun_and_a_qalqalah_letter():
+    assert vs(run(BA + FATHA + DAL + FATHA), "d") == [("d", "both", (), ())]
+    assert vs(run(BA + FATHA + KAF + SUKUN + TA + FATHA), "k") == [("k", "both", (), ())]
+
+
+@needs_data
+def test_meem_rules_agree_with_the_encoding_of_the_text():
+    quran = loader.load_quran()
+    result = phonemize_range([a for s in quran.surahs for a in s.ayahs])
+    by_rule: dict[str, set[str]] = {}
+    for item in result.items:
+        if item.role != "cons" or item.letter != 0x0645:
+            continue
+        rule = next((r for r in item.rules if r in ("izhar_shafawi", "ikhfa_shafawi")), None)
+        if rule:
+            by_rule.setdefault(rule, set()).add("sukun" if u.SUKUN in item.host_marks else "bare")
+    assert by_rule["izhar_shafawi"] == {"sukun"}
+    assert by_rule["ikhfa_shafawi"] <= {"sukun", "bare"}
+
+
+def test_nothing_continues_across_a_surah_boundary():
+    a1 = Ayah(1, 1, (Word(1, 1, 1, BA + FATHA + NOON),), "")
+    a2 = Ayah(2, 1, (Word(2, 1, 1, BA + FATHA),), "")
+    r = phonemize_range([a1, a2])
+    assert vs(r, "nm") == [("n", "both", (), ())]
