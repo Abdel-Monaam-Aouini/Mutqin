@@ -12,6 +12,12 @@
 
 #include "mutqin.h"
 #include "wav.h"
+#ifdef MUTQIN_HAVE_MIC
+#include <csignal>
+#include <thread>
+
+#include "mic.h"
+#endif
 
 namespace {
 
@@ -23,6 +29,7 @@ void Usage() {
         "  --posteriors FILE  replay model output: raw little-endian float32, 32 values per frame\n"
         "                     (blank + 31 phonemes); prints word statuses and events\n"
         "  --chunk N          with --posteriors: push N frames at a time (streaming), prints the time\n"
+        "  --mic [--seconds N]  live microphone (stop with Ctrl-C or after N seconds); needs a model\n"
         "  --wav FILE         16 kHz WAV (mono or stereo, 16-bit or float)\n"
         "  --version    print the library version\n",
         stderr);
@@ -68,6 +75,50 @@ void PrintEvents(const mq_session* session) {
         std::printf("no mistakes found\n");
 }
 
+#ifdef MUTQIN_HAVE_MIC
+volatile std::sig_atomic_t g_stop = 0;
+
+// Captures from the microphone, feeds the core in 100 ms chunks and prints the events when they change.
+int RunMic(mq_session* session, int seconds) {
+    mutqin_cli::Microphone mic;
+    std::string error;
+    if (!mic.Start(&error)) {
+        std::fprintf(stderr, "error: %s\n", error.c_str());
+        return 1;
+    }
+    std::signal(SIGINT, [](int) { g_stop = 1; });
+    std::fprintf(stderr, "listening%s... (Ctrl-C to stop)\n", seconds > 0 ? " for a limited time" : "");
+    const auto started = std::chrono::steady_clock::now();
+    std::vector<float> samples;
+    size_t shown = static_cast<size_t>(-1);
+    while (!g_stop) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        samples.clear();
+        mic.Drain(&samples);
+        if (!samples.empty()) {
+            const int rc = mq_session_push_audio(session, samples.data(), samples.size());
+            if (rc == MQ_ERR_NO_MODEL) {
+                std::fprintf(stderr,
+                             "no recognition model is bundled yet, so the audio cannot be analysed\n");
+                return 3;
+            }
+            if (rc != MQ_OK) {
+                std::fprintf(stderr, "error: could not process the audio\n");
+                return 1;
+            }
+            const size_t count = mq_session_event_count(session);
+            if (count != shown) {
+                shown = count;
+                PrintEvents(session);
+            }
+        }
+        if (seconds > 0 && std::chrono::steady_clock::now() - started >= std::chrono::seconds(seconds))
+            break;
+    }
+    return 0;
+}
+#endif
+
 // Feeds recorded posteriors to the session and prints what the core found.
 int Replay(mq_session* session, const std::string& path, size_t chunk_frames) {
     std::ifstream in(path, std::ios::binary);
@@ -105,6 +156,8 @@ int Replay(mq_session* session, const std::string& path, size_t chunk_frames) {
 int main(int argc, char** argv) {
     std::string data_dir = "data/quran";
     std::string posteriors_path, wav_path;
+    bool use_mic = false;
+    int mic_seconds = 0;
     size_t chunk_frames = 0;
     int surah = 0, first = 0, last = 0;
     for (int i = 1; i < argc; ++i) {
@@ -117,6 +170,10 @@ int main(int argc, char** argv) {
             data_dir = argv[++i];
         } else if (arg == "--posteriors" && has_value) {
             posteriors_path = argv[++i];
+        } else if (arg == "--mic") {
+            use_mic = true;
+        } else if (arg == "--seconds" && has_value) {
+            mic_seconds = std::atoi(argv[++i]);
         } else if (arg == "--chunk" && has_value) {
             chunk_frames = static_cast<size_t>(std::atoi(argv[++i]));
         } else if (arg == "--wav" && has_value) {
@@ -154,6 +211,17 @@ int main(int argc, char** argv) {
     int status = 0;
     if (!posteriors_path.empty()) {
         status = Replay(session, posteriors_path, chunk_frames);
+        mq_session_destroy(session);
+        mq_engine_destroy(engine);
+        return status;
+    }
+    if (use_mic) {
+#ifdef MUTQIN_HAVE_MIC
+        status = RunMic(session, mic_seconds);
+#else
+        std::fprintf(stderr, "this build of mutqin-cli has no microphone support (see MUTQIN_CLI_MIC)\n");
+        status = 1;
+#endif
         mq_session_destroy(session);
         mq_engine_destroy(engine);
         return status;

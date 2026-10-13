@@ -41,7 +41,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [ ] 3.5 (DEFERRED to Phase 3b) Android demo app (Oboe + JNI)
 - [ ] 3.6 (DEFERRED to Phase 3b) iOS demo app (AVAudioEngine + Swift bridge)
 - [ ] 3.7 Desktop benchmarks (RTF, latency); phone benchmarks deferred to Phase 3b
-- [ ] 3.8 `mutqin-cli`: WAV (16 kHz mono) and live microphone input, surah + ayah range, prints events and mistakes — expected phonemes, WAV reader and posterior replay done; recognition from WAV and microphone need the model
+- [ ] 3.8 `mutqin-cli`: WAV (16 kHz mono) and live microphone input, surah + ayah range, prints events and mistakes — expected phonemes, WAV reader, live microphone (--mic) and posterior replay done; analysing audio needs a model
 
 ## Phase 4–6
 Tasks will be broken down when Phase 3 is done.

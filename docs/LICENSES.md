@@ -10,6 +10,7 @@ the license text was read from the upstream source, not from memory.
 |------|----------|---------|---------------|-------|
 | Tanzil Quran text, v1.1 (Uthmani + Simple Clean) | Verified Quran text in `data/quran/` | Creative Commons Attribution 3.0, plus Tanzil Terms of Use | https://tanzil.net/docs/Text_License (read 2026-10-13) | See below |
 | GoogleTest v1.14.0 | C++ tests only (fetched by CMake, never linked into MutqinCore or the CLI) | BSD-3-Clause | `LICENSE` in the fetched source | |
+| miniaudio 0.11.25 (single header, mackron/miniaudio) | Live microphone capture in `mutqin-cli` only (never in `core/`); downloaded at CMake configure time with a pinned SHA-256, not committed | Public domain (Unlicense) or MIT No Attribution, at the user's choice | `LICENSE` in the 0.11.25 tag, read 2026-10-13; approved by the owner 2026-10-13 |
 | pytest 8.x | Python tests only (`tools/requirements.txt`) | MIT | package metadata of the installed pytest 8.4.2 | |
 
 ### Tanzil Quran text: required notice and terms

@@ -16,7 +16,7 @@ python3 tools/prototype/make_posteriors.py /tmp/p.f32 --surah 1 --ayahs 1-7 --sc
 ./build/cli/mutqin-cli --surah 1 --ayah 1-7 --posteriors /tmp/p.f32   # replay: reports the skipped word
 ```
 
-Audio analysis (`--wav`) needs a recognition model, which is not chosen yet (see `docs/EVAL_RESULTS.md`).
+Live microphone (`--mic [--seconds N]`) and `--wav` need a recognition model, which is not chosen yet (see `docs/EVAL_RESULTS.md`).
 
 ## Working with an AI coding assistant
 
