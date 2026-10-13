@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(data/quran/**)",
+      "Write(data/quran/**)",
+      "Edit(android/**)",
+      "Write(android/**)",
+      "Edit(ios/**)",
+      "Write(ios/**)"
+    ]
+  }
+}
