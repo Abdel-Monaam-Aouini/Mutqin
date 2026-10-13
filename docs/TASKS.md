@@ -12,7 +12,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [x] 0.7 `docs/LICENSES.md` with every source and its license
 
 ## Phase 1 — Rule engine
-- [ ] 1.1 Phoneme inventory (`tools/phonemizer/inventory.py`) + docs
+- [x] 1.1 Phoneme inventory (`tools/phonemizer/inventory.py`) + docs
 - [ ] 1.2 Uthmani text normalization → letters + diacritics per word (no text changes, only parsing)
 - [ ] 1.3 Basic letters + short vowels + sukun + shaddah → phonemes
 - [ ] 1.4 Hamzat al-wasl, lam shamsiyyah/qamariyyah, lam of Allah

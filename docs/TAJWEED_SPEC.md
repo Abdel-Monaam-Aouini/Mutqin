@@ -146,7 +146,7 @@ hardcode Arabic text.
 
 ## Open questions (add here, do not guess)
 
-- [ ] Final phoneme symbol set and heavy/light handling in early phases.
+- [x] Final phoneme symbol set and heavy/light handling in early phases. Resolved 2026-10-13: see `docs/PHONEME_INVENTORY.md` (31 symbols, heavy/light merged until Phase 5).
 - [ ] Full list for idgham mutajanisayn/mutaqaribayn cases.
 - [ ] Complete ra rules.
 - [ ] Muttasil at waqf: allow 6?
