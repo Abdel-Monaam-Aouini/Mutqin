@@ -54,5 +54,7 @@ Names come from `docs/DATA_AND_MODEL.md` and are starting points only.
 | Quranic Arabic Corpus | Word segmentation / morphology | unknown | not checked |
 | EveryAyah.com reciter audio | Evaluation audio (Phase 2) | unknown | not checked |
 | Tarteel AI datasets (Hugging Face) | Training / evaluation audio | unknown | not checked |
-| Quran-fine-tuned CTC model (to be chosen) | Acoustic model (Phase 2) | unknown | not chosen |
+| Muno459/zipformer_p-quran (streaming Zipformer2 CTC, 250 phoneme units, 65.5M params, int8 ONNX 73 MB, runs with sherpa-onnx) | Acoustic model candidate (Phase 2-3) | NPL-1.1 (Quran-Lab No-Profit License): gated; use, fine-tuning and redistribution only in apps that are free to end users; no selling, paywall, subscription or ads | read from its model card 2026-10-13; not downloaded. Hafs; reported PER 11.63%, board WER 5.83 |
+| tarteel-ai/whisper-base-ar-quran (Whisper fine-tune, text output) | Acoustic model candidate (word level only) | Apache-2.0 | read from its model card 2026-10-13; not downloaded; training data not named; Whisper's language model tends to output the expected text even for mistakes |
+| TBOGamer22/wav2vec2-quran-phonetics (wav2vec2-base CTC, 94.4M params, phonetic text output) | Acoustic model candidate | Apache-2.0 (model); training data Buraaq/quran-md-words, license not stated | read from its model card 2026-10-13; not downloaded; trained on single-word clips, card says not for tajweed grading |
 | sherpa-onnx / ONNX Runtime / Silero VAD | Inference and VAD in the core (Phase 3) | unknown | not checked |
