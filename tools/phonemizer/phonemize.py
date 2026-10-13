@@ -461,17 +461,14 @@ def _idgham(items: list[Item], i: int, j: int, tag: str, ghunnah: bool) -> None:
     group = [k for k in range(j, min(j + 2, len(items)))
              if items[k].role == "cons" and items[k].ph == items[j].ph
              and word_key(items[k]) == word_key(items[j])]
-    for k in group:
-        items[k].rules.append(tag)
-    if len(group) == 1:  # not doubled by a shaddah in the text: add the doubled copy
-        first = items[j]
-        copy = Item(first.ph, first.word, first.span, first.role, (), list(first.rules),
-                    Variant.AFTER_CONTINUE, surah=first.surah, ayah=first.ayah,
-                    host_marks=first.host_marks, letter=first.letter)
-        items.insert(j + 1, copy)
-        group = [j, j + 1]
-    if ghunnah:
-        items[group[-1]].dur = (2,)
+    # The merged (doubled, ghunnah) form exists only when the reading goes on from the previous
+    # word; after a stop the next word starts plainly. The tag therefore goes on the extra copy.
+    last = items[group[-1]]
+    fused = _clone(last, Variant.AFTER_CONTINUE, list(last.rules) + [tag],
+                   (2,) if ghunnah else last.dur)
+    if len(group) == 2:  # the text already doubles the letter (shaddah): keep a plain restart form
+        last.variant = Variant.START_ONLY
+    items.insert(group[-1] + 1, fused)
 
 
 # -- meem sakinah (spec 3.2) and qalqalah (spec 3.4) -----------------------------------------------

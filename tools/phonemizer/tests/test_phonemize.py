@@ -223,7 +223,7 @@ def test_idgham_without_ghunnah_doubles_the_next_letter():
     r = two_words(BA + FATHA + NOON, LAM + FATHA)
     assert vs(r, "nl") == [
         ("n", "waqf_only", (), ()),
-        ("l", "both", (), ("idgham_no_ghunnah",)),
+        ("l", "both", (), ()),
         ("l", "after_continue", (), ("idgham_no_ghunnah",))]
 
 
@@ -231,7 +231,7 @@ def test_idgham_with_ghunnah_gives_the_doubled_letter_two_counts():
     r = two_words(BA + FATHA + NOON, YEH_ + FATHA)
     assert vs(r, "ny") == [
         ("n", "waqf_only", (), ()),
-        ("y", "both", (), ("idgham_ghunnah",)),
+        ("y", "both", (), ()),
         ("y", "after_continue", (2,), ("idgham_ghunnah",))]
 
 
@@ -245,7 +245,7 @@ def test_tanween_before_iqlab_and_idgham():
     assert vs(iq, "nm") == [("m", "continue_only", (2,), ("iqlab",))]
     idg = two_words(BA + FATHA + TA + FATHATAN, MEEM + FATHA)  # fathatan then meem
     assert vs(idg, "nm") == [
-        ("m", "both", (), ("idgham_ghunnah",)),
+        ("m", "both", (), ()),
         ("m", "after_continue", (2,), ("idgham_ghunnah",))]
 
 
@@ -308,7 +308,7 @@ def test_meem_before_meem_is_idgham_mithlayn_saghir():
     r = two_words(BA + FATHA + MEEM, MEEM + FATHA)
     assert vs(r, "m") == [
         ("m", "waqf_only", (), ()),
-        ("m", "both", (), ("idgham_mithlayn_saghir",)),
+        ("m", "both", (), ()),
         ("m", "after_continue", (2,), ("idgham_mithlayn_saghir",))]
 
 
@@ -507,3 +507,16 @@ def test_stopping_after_every_word_never_leaves_a_short_vowel_at_a_word_end(full
 def test_a_continuing_reading_has_no_stop_only_items(full):
     kinds = {i.variant.value for i in select_reading(full.items)}
     assert "waqf_only" not in kinds
+
+
+def test_idgham_into_a_letter_the_text_already_doubles_keeps_a_plain_form_after_a_stop():
+    r = two_words(BA + FATHA + NOON, LAM + SHADDA + FATHA)
+    assert vs(r, "nl") == [
+        ("n", "waqf_only", (), ()),
+        ("l", "both", (), ()),
+        ("l", "start_only", (), ()),
+        ("l", "after_continue", (), ("idgham_no_ghunnah",))]
+    cont = [(i.ph, i.rules) for i in select_reading(r.items) if i.ph in "nl"]
+    assert cont == [("l", []), ("l", ["idgham_no_ghunnah"])]
+    stopped = [(i.ph, i.rules) for i in select_reading(r.items, stops={(1, 1, 1)}) if i.ph in "nl"]
+    assert stopped == [("n", []), ("l", []), ("l", [])]
