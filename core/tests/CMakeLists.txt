@@ -49,6 +49,20 @@ if(MUTQIN_PYTHON AND EXISTS "${MUTQIN_DATA_DIR}/checksums.txt"
     set_tests_properties(PhonemizerParity.CppEqualsPython PROPERTIES
         FIXTURES_REQUIRED phonemizer_py_dump
         ENVIRONMENT "MUTQIN_PY_PHONEMIZER_DUMP=${MUTQIN_PY_PHONEMIZER_DUMP}")
+    add_executable(mutqin_aligner_parity_tests test_aligner_parity.cpp)
+    target_include_directories(mutqin_aligner_parity_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
+    target_link_libraries(mutqin_aligner_parity_tests PRIVATE Mutqin::Core GTest::gtest_main)
+
+    set(MUTQIN_PY_ALIGN_DUMP "${CMAKE_CURRENT_BINARY_DIR}/aligner_py_dump.txt")
+    add_test(NAME AlignerParity.PythonDump
+        COMMAND ${MUTQIN_PYTHON} -I "${PROJECT_SOURCE_DIR}/tools/prototype/dump_align.py"
+                "${MUTQIN_PY_ALIGN_DUMP}" "${MUTQIN_DATA_DIR}")
+    set_tests_properties(AlignerParity.PythonDump PROPERTIES FIXTURES_SETUP aligner_py_dump)
+
+    add_test(NAME AlignerParity.CppEqualsPython COMMAND mutqin_aligner_parity_tests)
+    set_tests_properties(AlignerParity.CppEqualsPython PROPERTIES
+        FIXTURES_REQUIRED aligner_py_dump
+        ENVIRONMENT "MUTQIN_PY_ALIGN_DUMP=${MUTQIN_PY_ALIGN_DUMP}")
 else()
     message(STATUS "Quran parity test disabled (need data/quran/ and python)")
 endif()

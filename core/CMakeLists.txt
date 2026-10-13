@@ -1,4 +1,5 @@
 add_library(MutqinCore
+    src/align/aligner.cpp
     src/api/engine.cpp
     src/api/version.cpp
     src/features/logmel.cpp

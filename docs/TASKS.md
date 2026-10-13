@@ -36,7 +36,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 ## Phase 3 — C++ core + mutqin-cli
 - [x] 3.1 C++ audio ring buffer, VAD, features — ring buffer, log-mel (80 bins, 25/10 ms) and energy VAD done; Silero VAD and exact model feature settings follow with task 2.1
 - [ ] 3.2 sherpa-onnx integration in core
-- [ ] 3.3 Port aligner + detector to C++, with Python-vs-C++ parity test
+- [x] 3.3 Port aligner + detector to C++, with Python-vs-C++ parity test — 180 generated cases match the Python prototype
 - [ ] 3.4 C API (`mq_`) + tests — skeleton done (engine, session, expected phonemes); audio and events pending
 - [ ] 3.5 (DEFERRED to Phase 3b) Android demo app (Oboe + JNI)
 - [ ] 3.6 (DEFERRED to Phase 3b) iOS demo app (AVAudioEngine + Swift bridge)
