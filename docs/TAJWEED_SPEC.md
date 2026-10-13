@@ -150,3 +150,11 @@ hardcode Arabic text.
 - [ ] Full list for idgham mutajanisayn/mutaqaribayn cases.
 - [ ] Complete ra rules.
 - [ ] Muttasil at waqf: allow 6?
+- [ ] Meaning of the Quranic small signs as encoded in the Tanzil Uthmani text, to confirm with
+  the teacher before the phonemizer interprets them (task 1.2 only parses them, losslessly):
+  U+06DC, U+06DF, U+06E0, U+06E2, U+06E3, U+06E7, U+06E8, U+06EA, U+06EB, U+06EC, U+06ED
+  (combining), U+06E5 small waw and U+06E6 small yeh (non-combining), U+0653 maddah above,
+  U+0654 hamza above, U+0670 superscript alef, U+0640 tatweel.
+- [ ] Orthography to phoneme mapping for letter variants: alef (long a vs hamza seat vs silent),
+  alef maksura, teh marbuta (teh vs heh at waqf), hamza on alef / waw / yeh, alef wasla
+  (U+0671), and which letters are silent. Task 1.3 needs a written table; none is in this spec.
