@@ -9,7 +9,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [x] 0.4 `tools/quran_text/download.py`: fetch Tanzil Uthmani + simple text, write SHA-256 checksums
 - [ ] 0.5 Python loader + data model (surah/ayah/word IDs) with checksum check; tests: 114 surahs, 6236 ayahs
 - [ ] 0.6 C++ loader with the same behavior; test compares with Python output
-- [ ] 0.7 `docs/LICENSES.md` with every source and its license
+- [x] 0.7 `docs/LICENSES.md` with every source and its license
 
 ## Phase 1 — Rule engine
 - [ ] 1.1 Phoneme inventory (`tools/phonemizer/inventory.py`) + docs
