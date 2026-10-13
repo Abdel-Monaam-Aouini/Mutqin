@@ -20,8 +20,24 @@ Live microphone (`--mic [--seconds N]`) and `--wav FILE` need a recognition mode
 which is not chosen yet (candidates and results: `docs/EVAL_RESULTS.md`). The optional sherpa-onnx backend and
 the model manifest format are described in `docs/ARCHITECTURE.md` ("Recognition backends").
 
-Speed numbers (desktop real-time factors) are in `docs/EVAL_RESULTS.md`; reproduce the front-end ones with
-`cmake -DMUTQIN_BUILD_BENCH=ON -DCMAKE_BUILD_TYPE=Release` and `./build/mutqin_bench 120`.
+## Benchmarks
+
+Desktop, Release build, one thread, AMD Ryzen 7 5800H. Real-time factor (RTF) = processing time / audio time
+(lower is faster; the target is below 0.3). Details and method: `docs/EVAL_RESULTS.md`.
+
+| Stage | Measurement | RTF |
+|---|---|---|
+| Log-mel features | 120 s of audio in 0.27 s | 0.0022 |
+| Energy VAD | 120 s in 1.6 ms | 0.00001 |
+| Aligner + detector, 167 s recitation (700+ words), pushed every 250 ms | 0.77 s total | 0.0046 |
+| same, pushed every 40 ms | 2.97 s total (0.7 ms per push) | 0.018 |
+| sherpa-onnx backend, public int8 streaming Zipformer CTC **test** model | 5.6 s of audio in 0.24 s | 0.04 |
+
+The last row is a stand-in model, not our phoneme model, so the full-pipeline figure and the latency to a
+reported mistake are still open. Accuracy so far, on simulated recitations only, is in `docs/EVAL_RESULTS.md`:
+false alarms about 0.4% of words at 11% phoneme error rate, mistake recall 79-99% depending on the kind (skipped words best, added words worst; the target is 90%).
+Reproduce: `cmake -S . -B build-rel -DCMAKE_BUILD_TYPE=Release -DMUTQIN_BUILD_BENCH=ON && cmake --build build-rel`,
+then `./build-rel/mutqin_bench 120`.
 
 ## Working with an AI coding assistant
 
