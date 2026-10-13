@@ -3,9 +3,13 @@
 #include <cstdio>
 #include <cstring>
 #include <exception>
+#include <map>
 #include <string>
+#include <tuple>
 #include <vector>
 
+#include "align/aligner.h"
+#include "align/ctc.h"
 #include "mutqin.h"
 #include "tajweed/phonemizer.h"
 #include "text/quran.h"
@@ -17,6 +21,9 @@ struct mq_engine {
 struct mq_session {
     mutqin::PhonemizeResult result;
     std::vector<std::string> rules;  // joined rule tags, one per item
+    std::vector<mutqin::WordRef> words;
+    std::vector<mutqin::Frame> frames;
+    mutqin::AlignResult aligned;
 };
 
 namespace {
@@ -82,6 +89,7 @@ int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ay
     }
     try {
         std::vector<const mutqin::Ayah*> ayahs;
+        std::map<std::pair<int, int>, int> ayah_words;
         for (int a = ayah_first; a <= ayah_last; ++a) {
             const mutqin::Ayah* found = engine->quran.FindAyah(surah, a);
             if (found == nullptr) {
@@ -89,14 +97,24 @@ int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ay
                 return MQ_ERR_ARGUMENT;
             }
             ayahs.push_back(found);
+            ayah_words[{surah, a}] = static_cast<int>(found->words.size());
         }
+        // Rules look at the next word, so the ayah after the range is phonemized too (and dropped).
+        std::vector<const mutqin::Ayah*> with_next = ayahs;
+        if (const mutqin::Ayah* next = engine->quran.FindAyah(surah, ayah_last + 1))
+            with_next.push_back(next);
         auto session = new mq_session();
         std::string error;
-        if (!mutqin::PhonemizeRange(ayahs, &session->result, &error)) {
+        if (!mutqin::PhonemizeRange(with_next, &session->result, &error)) {
             delete session;
             SetError(err, err_len, error);
             return MQ_ERR_DATA;
         }
+        auto& items = session->result.items;
+        items.erase(std::remove_if(items.begin(), items.end(),
+                                   [&](const mutqin::PhonemeItem& it) { return it.ayah > ayah_last; }),
+                    items.end());
+        session->words = mutqin::BuildWordReadings(items, ayah_words);
         for (const mutqin::PhonemeItem& item : session->result.items)
             session->rules.push_back(Join(item.rules));
         *out = session;
@@ -127,6 +145,60 @@ int mq_session_phoneme(const mq_session* session, size_t index, mq_phoneme* out)
     out->rules = session->rules[index].c_str();
     out->dur_min = item.dur.empty() ? 0 : *std::min_element(item.dur.begin(), item.dur.end());
     out->dur_max = item.dur.empty() ? 0 : *std::max_element(item.dur.begin(), item.dur.end());
+    return MQ_OK;
+}
+
+int mq_session_push_posteriors(mq_session* session, const float* probs, size_t num_frames) {
+    if (session == nullptr || (probs == nullptr && num_frames > 0))
+        return MQ_ERR_ARGUMENT;
+    try {
+        for (size_t i = 0; i < num_frames; ++i)
+            session->frames.push_back(mutqin::ArgmaxFrame(probs + i * MQ_VOCAB_SIZE));
+        std::vector<mutqin::WordReading> readings;
+        for (const mutqin::WordRef& w : session->words)
+            readings.push_back(w.reading);
+        session->aligned = mutqin::AlignTokens(mutqin::GreedyDecode(session->frames), readings);
+        return MQ_OK;
+    } catch (const std::exception&) {
+        return MQ_ERR_INTERNAL;
+    }
+}
+
+size_t mq_session_word_count(const mq_session* session) {
+    return session == nullptr ? 0 : session->words.size();
+}
+
+int mq_session_word_status(const mq_session* session, size_t word_index) {
+    if (session == nullptr || word_index >= session->words.size())
+        return -1;
+    const auto it = session->aligned.statuses.find(static_cast<int>(word_index));
+    if (it == session->aligned.statuses.end())
+        return MQ_WORD_NOT_JUDGED;
+    if (it->second == "wrong")
+        return MQ_WORD_WRONG;
+    if (it->second == "skipped")
+        return MQ_WORD_SKIPPED;
+    return MQ_WORD_OK;
+}
+
+size_t mq_session_event_count(const mq_session* session) {
+    return session == nullptr ? 0 : session->aligned.events.size();
+}
+
+int mq_session_event(const mq_session* session, size_t index, mq_event* out) {
+    if (session == nullptr || out == nullptr || index >= session->aligned.events.size())
+        return MQ_ERR_ARGUMENT;
+    const mutqin::AlignEvent& e = session->aligned.events[index];
+    const mutqin::WordKey& key = session->words[static_cast<size_t>(e.index)].key;
+    out->kind = e.kind == "skipped"    ? MQ_EVENT_SKIPPED
+                : e.kind == "wrong"    ? MQ_EVENT_WRONG
+                : e.kind == "repeated" ? MQ_EVENT_REPEATED
+                                       : MQ_EVENT_ADDED;
+    out->surah = std::get<0>(key);
+    out->ayah = std::get<1>(key);
+    out->word = std::get<2>(key);
+    out->word_index = static_cast<size_t>(e.index);
+    out->confidence = e.confidence;
     return MQ_OK;
 }
 

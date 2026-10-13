@@ -45,6 +45,28 @@ typedef struct mq_phoneme {
     int dur_max;
 } mq_phoneme;
 
+/* Size of the posterior vocabulary the core expects: token 0 is the CTC blank, tokens 1..31 are
+ * the phonemes of docs/PHONEME_INVENTORY.md in contract order. An inference backend maps its own
+ * output units to these. */
+#define MQ_VOCAB_SIZE 32
+
+/* Kinds of word-level events. */
+enum { MQ_EVENT_SKIPPED = 0, MQ_EVENT_WRONG = 1, MQ_EVENT_REPEATED = 2, MQ_EVENT_ADDED = 3 };
+
+/* Status of a word of the range. */
+enum { MQ_WORD_NOT_JUDGED = 0, MQ_WORD_OK = 1, MQ_WORD_WRONG = 2, MQ_WORD_SKIPPED = 3 };
+
+/* A word-level event. word_index counts the words of the session range from 0. For
+ * MQ_EVENT_ADDED it is the word the extra speech follows. */
+typedef struct mq_event {
+    int kind;
+    int surah;
+    int ayah;
+    int word; /* 1-based word index inside the ayah */
+    size_t word_index;
+    double confidence;
+} mq_event;
+
 /* Loads and verifies the Quran text in data_dir (data/quran). On failure *out is NULL and
  * err (if not NULL) receives a message of at most err_len bytes. */
 int mq_engine_create(const char* data_dir, mq_engine** out, char* err, size_t err_len);
@@ -57,6 +79,18 @@ void mq_session_destroy(mq_session* session);
 
 size_t mq_session_phoneme_count(const mq_session* session);
 int mq_session_phoneme(const mq_session* session, size_t index, mq_phoneme* out);
+
+/* Feeds num_frames rows of MQ_VOCAB_SIZE probabilities (row-major, each row sums to about 1).
+ * The core decodes and aligns everything heard so far. Not real-time safe yet. */
+int mq_session_push_posteriors(mq_session* session, const float* probs, size_t num_frames);
+
+/* Words of the range, in recitation order. */
+size_t mq_session_word_count(const mq_session* session);
+int mq_session_word_status(const mq_session* session, size_t word_index); /* MQ_WORD_*, -1 if bad index */
+
+/* Snapshot of the current events (replaced by every push). */
+size_t mq_session_event_count(const mq_session* session);
+int mq_session_event(const mq_session* session, size_t index, mq_event* out);
 
 #ifdef __cplusplus
 }

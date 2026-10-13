@@ -37,7 +37,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [x] 3.1 C++ audio ring buffer, VAD, features — ring buffer, log-mel (80 bins, 25/10 ms) and energy VAD done; Silero VAD and exact model feature settings follow with task 2.1
 - [ ] 3.2 sherpa-onnx integration in core
 - [x] 3.3 Port aligner + detector to C++, with Python-vs-C++ parity test — 180 generated cases match the Python prototype
-- [ ] 3.4 C API (`mq_`) + tests — skeleton done (engine, session, expected phonemes); audio and events pending
+- [ ] 3.4 C API (`mq_`) + tests — expected phonemes, posteriors in, word statuses and events out are done and tested; only the inference backend and live audio are missing
 - [ ] 3.5 (DEFERRED to Phase 3b) Android demo app (Oboe + JNI)
 - [ ] 3.6 (DEFERRED to Phase 3b) iOS demo app (AVAudioEngine + Swift bridge)
 - [ ] 3.7 Desktop benchmarks (RTF, latency); phone benchmarks deferred to Phase 3b
