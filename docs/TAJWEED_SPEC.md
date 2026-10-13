@@ -195,3 +195,9 @@ hardcode Arabic text.
   - Checked over the whole Quran: the written maddah appears exactly on the vowels the engine gives
     muttasil, munfasil, lazim or silah kubra (apart from the two anomalies above), and never on a
     tabi'i, badal or silah sughra vowel.
+- [ ] Task 1.8 (waqf) follows spec section 5 and adds, for confirmation: a tanween fatha written
+  with a following alef becomes a long a at a stop ('iwad, `madd_iwad`); on teh marbuta (no alef is
+  written) it just becomes heh; a final letter that is a qalqalah letter gets `qalqalah_kubra` at
+  a stop even when it carries a vowel in the text; the alef with the small rectangular zero (U+06E0) is
+  read as a long a at a stop (`alef_waqf`, unverified). Every word end offers both readings;
+  `select_reading` picks one for a given set of stops.

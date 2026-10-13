@@ -52,6 +52,7 @@ class Item:
     host_marks: frozenset[int] = frozenset()  # code points of the marks on the host letter
     maddah: bool = False  # a maddah sign was written on/after this vowel (cross-check for 1.7)
     long_by: int = 0  # code point of the letter / sign that made this vowel long
+    flags: set[str] = field(default_factory=set)  # "iwad", "alef_waqf": stop-only lengthening
     signs: set[int] = field(default_factory=set)
     letter: int = 0  # code point of the host letter
 
@@ -60,8 +61,6 @@ class Item:
 class AyahResult:
     items: list[Item]
     diagnostics: list[Diagnostic]
-    # Positions where later tasks add variants: (kind, word index, item index)
-    hooks: list[tuple[str, int, int]]
 
     @property
     def phonemes(self) -> list[ExpectedPhoneme]:
@@ -93,7 +92,6 @@ class _Builder:
         self.cur: Ayah = ayahs[0]
         self.items: list[Item] = []
         self.diags: list[Diagnostic] = []
-        self.hooks: list[tuple[str, int, int]] = []
         self.word: Word | None = None
         self.units: tuple[u.LetterUnit, ...] = ()
         self.pos = 0  # index of the current unit in self.units
@@ -198,13 +196,17 @@ class _Builder:
         if unit.has(ROUNDED_ZERO):
             return  # written, not pronounced
         if unit.has(RECTANGULAR_ZERO):  # DRAFT: silent when continuing, pronounced at waqf
-            self.hooks.append(("alef_waqf", self.word.index, len(self.items)))
+            last = self.last()
+            if last and last.role == "vowel" and last.ph == "a":
+                last.flags.add("alef_waqf")
+            else:
+                self.diag("rectangular_zero_alef_without_fatha", unit.start)
             return
         last = self.last()
         if last and last.role == "vowel" and last.ph == "a" and last.dur == (1,):
             self.lengthen("a", unit.end, ALEF)
         elif last and last.role == "tanween_n" and len(self.items) >= 2 and self.items[-2].ph == "a":
-            self.hooks.append(("iwad", self.word.index, len(self.items)))  # tanween alef
+            self.items[-2].flags.add("iwad")  # tanween alef
         else:
             self.diag("alef_without_fatha", unit.start)
         for k, mark in enumerate(unit.marks):
@@ -272,7 +274,7 @@ class _Builder:
         prev_vowel = last.ph if last and last.role == "vowel" else None
         if (cp == ALEF_MAKSURA and last and last.role == "tanween_n"
                 and len(self.items) >= 2 and self.items[-2].ph == "a"):
-            self.hooks.append(("iwad", self.word.index, len(self.items)))  # tanween alef
+            self.items[-2].flags.add("iwad")  # tanween alef
         elif cp == WAW and prev_vowel == "a" and self.next_unit_has(unit, ROUNDED_ZERO):
             # bare waw after fatha before a silent alef: consonant w, sukun implied by encoding
             self.add("w", (unit.start, unit.start + 1), "cons", letter=cp).rules.append("implicit_sukun")
@@ -326,7 +328,8 @@ class _Builder:
         apply_qalqalah(self.items)
         apply_madd(self.items)
         apply_leen(self.items)
-        return AyahResult(self.items, self.diags, self.hooks)
+        apply_waqf(self.items)
+        return AyahResult(self.items, self.diags)
 
     def run_ayah(self, ayah: Ayah) -> None:
         for word in ayah.words:
@@ -646,3 +649,81 @@ def apply_leen(items: list[Item]) -> None:
         stop = _clone(leen, Variant.WAQF_ONLY, list(leen.rules) + ["madd_leen"], AROID_LEEN)
         leen.variant = Variant.CONTINUE_ONLY
         items.insert(i + 1, stop)
+
+
+# -- waqf (spec section 5) ---------------------------------------------------------------------------
+
+
+def apply_waqf(items: list[Item]) -> None:
+    """End-of-word behaviour at a stop: the final short vowel is dropped (tanween fatha becomes a
+    long a, 'iwad), teh marbuta becomes heh, a final qalqalah letter that is only sakin because of
+    the stop is kubra. Every such item pair keeps the continuing reading as continue_only."""
+    groups: list[list[int]] = []
+    for k, it in enumerate(items):
+        if groups and word_key(items[groups[-1][0]]) == word_key(it):
+            groups[-1].append(k)
+        else:
+            groups.append([k])
+    for idxs in reversed(groups):
+        cont = [k for k in idxs if items[k].variant in (Variant.BOTH, Variant.CONTINUE_ONLY)]
+        end = len(cont)
+        while end and items[cont[end - 1]].role == "tanween_n":
+            end -= 1
+        if not end:
+            continue
+        v_idx = cont[end - 1]
+        vowel = items[v_idx]
+        if not (vowel.role == "vowel" and vowel.dur == (1,) and vowel.variant is Variant.BOTH):
+            continue
+        cons = [k for k in cont[:end - 1] if items[k].role == "cons"]
+        c_idx = cons[-1] if cons else None
+
+        extra = None
+        if "iwad" in vowel.flags:
+            extra = _clone(vowel, Variant.WAQF_ONLY, ["madd_iwad"], (2,))
+        elif "alef_waqf" in vowel.flags:
+            extra = _clone(vowel, Variant.WAQF_ONLY, ["alef_waqf"], (2,))
+        vowel.variant = Variant.CONTINUE_ONLY  # a stop drops the final vowel
+        if extra is not None:
+            items.insert(v_idx + 1, extra)
+        if c_idx is None:
+            continue
+        c = items[c_idx]
+        if c.variant is not Variant.BOTH:
+            continue
+        if "teh_marbuta" in c.rules:
+            stop = _clone(c, Variant.WAQF_ONLY, ["teh_marbuta_waqf"], ())
+            stop.ph = "h"
+        elif c.ph in QALQALAH_LETTERS:
+            stop = _clone(c, Variant.WAQF_ONLY, list(c.rules) + ["qalqalah_kubra"], c.dur)
+        else:
+            continue
+        c.variant = Variant.CONTINUE_ONLY
+        items.insert(c_idx + 1, stop)
+
+
+def select_reading(items: list[Item], stops: set[tuple[int, int, int]] | None = None,
+                   all_stops: bool = False) -> list[Item]:
+    """The phonemes of one concrete reading. `stops` holds (surah, ayah, word) keys of words the
+    reciter stops at; a surah end is always a stop and the first word starts a recitation."""
+    stops = stops or set()
+    out: list[Item] = []
+    prev_key: tuple[int, int, int] | None = None
+    prev_stopped = True
+    stopped_here = False
+    for it in items:
+        key = word_key(it)
+        if key != prev_key:
+            if prev_key is not None:
+                prev_stopped = all_stops or prev_key in stops or prev_key[0] != key[0]
+            stopped_here = all_stops or key in stops
+            prev_key = key
+        v = it.variant
+        keep = (v is Variant.BOTH
+                or (v is Variant.CONTINUE_ONLY and not stopped_here)
+                or (v is Variant.WAQF_ONLY and stopped_here)
+                or (v is Variant.START_ONLY and prev_stopped)
+                or (v is Variant.AFTER_CONTINUE and not prev_stopped))
+        if keep:
+            out.append(it)
+    return out

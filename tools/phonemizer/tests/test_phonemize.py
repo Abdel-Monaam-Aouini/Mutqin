@@ -5,7 +5,7 @@ import pytest
 
 from tools.phonemizer import uthmani as u
 from tools.phonemizer.inventory import BY_SYMBOL, Variant
-from tools.phonemizer.phonemize import phonemize_ayah, phonemize_range
+from tools.phonemizer.phonemize import phonemize_ayah, phonemize_range, select_reading, word_key
 from tools.quran_text import loader
 from tools.quran_text.download import CHECKSUMS_NAME
 from tools.quran_text.model import Ayah, Word
@@ -19,6 +19,13 @@ BA, TA, NOON, LAM, WAW, YEH, ALEF, MAKSURA = (
 FATHA, DAMMA, KASRA, SHADDA, SUKUN = "َ", "ُ", "ِ", "ّ", "ْ"
 FATHATAN, SUPERSCRIPT_ALEF, ROUNDED_ZERO = "ً", "ٰ", "۟"
 
+
+
+@pytest.fixture(scope="module")
+def full():
+    """The whole Quran phonemized once as a single range."""
+    quran = loader.load_quran()
+    return phonemize_range([a for s in quran.surahs for a in s.ayahs])
 
 WASLA = "\u0671"
 
@@ -42,7 +49,7 @@ def test_sukun_emits_no_vowel():
 
 
 def test_shaddah_doubles_the_consonant():
-    assert [p for p, _ in syms(run(BA + SHADDA + FATHA))] == ["b", "b", "a"]
+    assert [p for p, _ in syms(run(TA + SHADDA + FATHA))] == ["t", "t", "a"]
 
 
 def test_alef_after_fatha_is_long_a():
@@ -61,7 +68,7 @@ def test_waw_with_sukun_is_a_consonant():
 
 
 def test_tanween_is_vowel_plus_n():
-    assert [p for p, _ in syms(run(BA + FATHATAN))] == ["b", "a", "n"]
+    assert [p for p, _ in syms(run(TA + FATHATAN))] == ["t", "a", "n"]
 
 
 def test_superscript_alef_lengthens_the_fatha():
@@ -93,7 +100,7 @@ def test_vowel_never_lengthens_across_words():
 def test_article_before_assimilated_letter(tmp_path=None):
     # wasla + bare lam + (ta with shaddah): lam is silent, the next consonant is doubled and tagged
     r = run(WASLA + LAM + TA + SHADDA + FATHA)
-    cont = [(p.ph, p.rules) for p in r.phonemes if p.variant is Variant.BOTH]
+    cont = [(p.ph, p.rules) for p in r.phonemes if p.variant in (Variant.BOTH, Variant.CONTINUE_ONLY)]
     assert [ph for ph, _ in cont] == ["t", "t", "a"]
     assert cont[0][1] == ("lam_shamsiyyah",) and cont[1][1] == ("lam_shamsiyyah",)
     start = [p.ph for p in r.phonemes if p.variant is Variant.START_ONLY]
@@ -102,8 +109,8 @@ def test_article_before_assimilated_letter(tmp_path=None):
 
 def test_article_before_clear_letter():
     r = run(WASLA + LAM + SUKUN + BA + FATHA)
-    cont = [(p.ph, p.rules) for p in r.phonemes if p.variant is Variant.BOTH]
-    assert [ph for ph, _ in cont] == ["l", "b", "a"]
+    cont = [(p.ph, p.rules) for p in r.phonemes if p.variant in (Variant.BOTH, Variant.CONTINUE_ONLY)]
+    assert [ph for ph, _ in cont if ph != "hz"] == ["l", "b", "a"]
     assert cont[0][1] == ("lam_qamariyyah",)
 
 
@@ -270,14 +277,12 @@ def test_noon_with_a_vowel_or_shaddah_is_not_sakin():
 
 
 @needs_data
-def test_noon_rules_agree_with_the_encoding_of_the_text():
+def test_noon_rules_agree_with_the_encoding_of_the_text(full):
     """The mushaf marks izhar with a sukun on the noon, hiding / merging with a bare noon and
     iqlab with a meem sign. The spec's next-letter rules must predict exactly that."""
-    quran = loader.load_quran()
-    result = phonemize_range([a for s in quran.surahs for a in s.ayahs])
     iqlab_sign = {0x06E2, 0x06ED}
     seen_sukun_rules, seen_bare_rules, iqlab_without_sign = set(), set(), 0
-    for item in result.items:
+    for item in full.items:
         rule = next((r for r in item.rules if r.startswith(("izhar", "ikhfa", "iqlab", "idgham"))), None)
         sakin = not item.host_marks & {u.FATHA, u.DAMMA, u.KASRA, u.SHADDA}
         if item.role != "cons" or item.letter != 0x0646 or rule is None or not sakin:
@@ -330,16 +335,14 @@ def test_qalqalah_at_a_word_end_is_sughra_when_continuing_and_kubra_at_waqf():
 
 
 def test_qalqalah_needs_a_sukun_and_a_qalqalah_letter():
-    assert vs(run(BA + FATHA + DAL + FATHA), "d") == [("d", "both", (), ())]
+    assert vs(run(BA + FATHA + DAL + FATHA + KAF + FATHA), "d") == [("d", "both", (), ())]
     assert vs(run(BA + FATHA + KAF + SUKUN + TA + FATHA), "k") == [("k", "both", (), ())]
 
 
 @needs_data
-def test_meem_rules_agree_with_the_encoding_of_the_text():
-    quran = loader.load_quran()
-    result = phonemize_range([a for s in quran.surahs for a in s.ayahs])
+def test_meem_rules_agree_with_the_encoding_of_the_text(full):
     by_rule: dict[str, set[str]] = {}
-    for item in result.items:
+    for item in full.items:
         if item.role != "cons" or item.letter != 0x0645:
             continue
         rule = next((r for r in item.rules if r in ("izhar_shafawi", "ikhfa_shafawi")), None)
@@ -410,14 +413,12 @@ def test_leen_before_the_last_letter_only_at_a_stop():
 
 
 @needs_data
-def test_madd_rules_agree_with_the_written_maddah_sign():
+def test_madd_rules_agree_with_the_written_maddah_sign(full):
     """The text writes a maddah exactly where the spec has a madd longer than 2 counts
     (muttasil, munfasil, lazim, silah kubra), apart from three known anomalies."""
-    quran = loader.load_quran()
-    result = phonemize_range([a for s in quran.surahs for a in s.ayahs])
     long_rules = {"madd_muttasil", "madd_munfasil", "madd_lazim", "madd_silah_kubra"}
     anomalies, signed_but_short = [], 0
-    for item in result.items:
+    for item in full.items:
         if item.role != "vowel" or not item.long_by or item.variant.value == "waqf_only":
             continue
         rule = next((r for r in item.rules if r.startswith("madd")), None)
@@ -429,3 +430,80 @@ def test_madd_rules_agree_with_the_written_maddah_sign():
     # text without a maddah where the rule predicts a long madd: 2:72:4 (no sign written) and
     # 41:44:9 (tas-hil location, spec 3.9)
     assert sorted(anomalies) == [("madd_lazim", "41:44:9"), ("madd_muttasil", "2:72:4")]
+
+
+# -- waqf (spec section 5) ------------------------------------------------------------------------
+TEH_MARBUTA, ALEF_MAKSURA_ = "\u0629", "\u0649"
+DAMMATAN = "\u064C"
+
+
+def reading(result, stop=False):
+    items = select_reading(result.items, all_stops=stop)
+    return [(i.ph, i.dur) for i in items]
+
+
+def test_final_vowel_is_dropped_at_a_stop():
+    r = run(BA + FATHA + TA + DAMMA)
+    assert reading(r) == [("b", ()), ("a", (1,)), ("t", ()), ("u", (1,))]
+    assert reading(r, stop=True) == [("b", ()), ("a", (1,)), ("t", ())]
+
+
+def test_tanween_damma_and_kasra_vanish_at_a_stop():
+    r = run(BA + FATHA + TA + DAMMATAN)
+    assert reading(r) == [("b", ()), ("a", (1,)), ("t", ()), ("u", (1,)), ("n", ())]
+    assert reading(r, stop=True) == [("b", ()), ("a", (1,)), ("t", ())]
+
+
+def test_tanween_fatha_with_alef_becomes_a_long_a_at_a_stop():
+    r = run(BA + FATHA + TA + FATHATAN + ALEF)
+    assert reading(r, stop=True) == [("b", ()), ("a", (1,)), ("t", ()), ("a", (2,))]
+    waqf = [p for p in r.phonemes if p.variant.value == "waqf_only"]
+    assert [p.rules for p in waqf] == [("madd_iwad",)]
+
+
+def test_tanween_fatha_on_teh_marbuta_has_no_long_a_at_a_stop():
+    r = run(BA + FATHA + TEH_MARBUTA + FATHATAN)
+    assert reading(r, stop=True) == [("b", ()), ("a", (1,)), ("h", ())]
+    assert reading(r)[-3:] == [("t", ()), ("a", (1,)), ("n", ())]
+
+
+def test_teh_marbuta_is_heh_at_a_stop():
+    r = run(BA + FATHA + TEH_MARBUTA + KASRA)
+    assert [ph for ph, _ in reading(r)] == ["b", "a", "t", "i"]
+    assert [ph for ph, _ in reading(r, stop=True)] == ["b", "a", "h"]
+
+
+def test_final_qalqalah_letter_is_kubra_at_a_stop_only():
+    r = run(KAF + FATHA + DAL + DAMMA)
+    assert [(p.ph, p.variant.value, p.rules) for p in r.phonemes if p.ph == "d"] == [
+        ("d", "continue_only", ()), ("d", "waqf_only", ("qalqalah_kubra",))]
+
+
+def test_a_long_vowel_at_the_end_of_a_word_is_kept_at_a_stop():
+    r = run(BA + FATHA + ALEF)
+    assert reading(r, stop=True) == [("b", ()), ("a", (2,))]
+
+
+def test_continuing_reading_has_no_stop_only_items_and_stops_pick_them_up():
+    r = two_words(BA + FATHA + NOON, YEH_ + FATHA)  # idgham with ghunnah between the words
+    cont = select_reading(r.items)
+    assert [i.variant.value for i in cont if i.ph == "y"] == ["both", "after_continue"]
+    stopped = select_reading(r.items, stops={(1, 1, 1)})
+    assert [i.ph for i in stopped if i.ph in "ny"] == ["n", "y"]  # noon kept, single y
+
+
+@needs_data
+def test_stopping_after_every_word_never_leaves_a_short_vowel_at_a_word_end(full):
+    ends = {}
+    for item in select_reading(full.items, all_stops=True):
+        ends[word_key(item)] = item
+    assert len(ends) > 77000
+    assert not [k for k, i in ends.items() if i.role == "vowel" and i.dur == (1,)]
+    assert not any(i.variant.value in ("continue_only", "after_continue")
+                   for i in select_reading(full.items, all_stops=True))
+
+
+@needs_data
+def test_a_continuing_reading_has_no_stop_only_items(full):
+    kinds = {i.variant.value for i in select_reading(full.items)}
+    assert "waqf_only" not in kinds
