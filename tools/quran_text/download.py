@@ -19,8 +19,8 @@ import hashlib
 import sys
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 TANZIL_ENDPOINT = "https://tanzil.net/pub/download/index.php"
 CHECKSUMS_NAME = "checksums.txt"
@@ -102,8 +102,11 @@ def download_all(out_dir: Path, fetch: Fetcher = http_fetch) -> dict[str, str]:
         if not data:
             raise RuntimeError(f"{name}: empty download")
         data.decode("utf-8")  # raises UnicodeDecodeError if not valid UTF-8
+        digest = sha256_hex(data)
+        if name in recorded and recorded[name] != digest:
+            raise RuntimeError(f"{name}: downloaded file does not match the recorded checksum (not written)")
         target.write_bytes(data)
-        result[name] = sha256_hex(data)
+        result[name] = digest
 
     write_checksums(checksums_path, {**recorded, **result})
     return result
@@ -137,7 +140,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         print(
             "If the network is blocked, run this on a machine with access and copy "
-            f"data/quran/ back:\n  python3 -I tools/quran_text/download.py --agree-tanzil-terms",
+            "data/quran/ back:\n  python3 -I tools/quran_text/download.py --agree-tanzil-terms",
             file=sys.stderr,
         )
         return 1

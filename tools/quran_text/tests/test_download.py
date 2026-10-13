@@ -13,7 +13,7 @@ class FakeFetcher:
 
     def __call__(self, url: str) -> bytes:
         self.urls.append(url)
-        return f"placeholder for {url}\n".encode("utf-8")
+        return f"placeholder for {url}\n".encode()
 
 
 def test_build_url_has_type_and_agree():
@@ -66,3 +66,19 @@ def test_empty_or_invalid_download_rejected(tmp_path: Path):
 def test_main_requires_terms_flag(tmp_path: Path, capsys):
     assert download.main(["--out-dir", str(tmp_path)]) == 2
     assert not list(tmp_path.iterdir())
+
+
+def test_download_must_match_a_recorded_checksum(tmp_path: Path):
+    download.download_all(tmp_path, FakeFetcher())
+    recorded = (tmp_path / download.CHECKSUMS_NAME).read_text(encoding="utf-8")
+    for name in download.SOURCES:
+        (tmp_path / name).unlink()  # simulate a fresh CI checkout: only checksums.txt is committed
+
+    changed = lambda url: b"upstream text changed\n"  # noqa: E731
+    with pytest.raises(RuntimeError, match="does not match the recorded checksum"):
+        download.download_all(tmp_path, changed)
+    assert not any((tmp_path / name).exists() for name in download.SOURCES)  # nothing written
+    assert (tmp_path / download.CHECKSUMS_NAME).read_text(encoding="utf-8") == recorded  # untouched
+
+    download.download_all(tmp_path, FakeFetcher())  # the genuine bytes are accepted again
+    assert all((tmp_path / name).exists() for name in download.SOURCES)
