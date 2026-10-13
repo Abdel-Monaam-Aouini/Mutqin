@@ -37,6 +37,12 @@ teach acoustics. The point is that labels, features, loss and decoding work end 
 - **Start from a pretrained speech encoder** (for example a wav2vec2 / XLS-R checkpoint; check its
   license) and fine-tune with our 32-token CTC head; this needs far less labelled data than training
   from scratch. A from-scratch Zipformer / Conformer is the later, streaming, mobile-sized model.
+- **Chosen encoder:** `facebook/wav2vec2-xls-r-300m` (Apache-2.0, 128 languages incl. Arabic;
+  see `LICENSES.md`). At 300M parameters it is a **teacher**, far over the 100 MB mobile budget;
+  the app model is a small streaming student distilled from it (or trained on its pseudo-labels).
+  `tools/train/finetune_xlsr.py` fine-tunes it with the 32-token CTC head (feature encoder frozen,
+  fp16 on GPU). Its own front end (raw waveform, 50 frames/s) differs from the app's log-mel, which is fine
+  for a teacher but is why the student, not the teacher, is what ships.
 - **Streaming:** the app needs a causal / chunked encoder; this prototype is non-streaming.
 - **Hardware:** one rented 24 GB GPU for hours to days; the script already takes `--device cuda`.
 - **Targets:** valid PER well under 12% on held-out reciters before the model is worth wiring into
