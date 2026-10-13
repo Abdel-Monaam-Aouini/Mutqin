@@ -154,3 +154,68 @@ jobs:
         run: cmake --build build --config ${{ matrix.build_type }} --parallel
       - name: Test
         run: ctest --test-dir build -C ${{ matrix.build_type }} --output-on-failure --parallel 4
+
+  sherpa-backend:
+    name: sherpa-onnx backend (linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SHERPA_VERSION: v1.13.8
+      SHERPA_ARCHIVE: sherpa-onnx-v1.13.8-linux-x64-shared-no-tts.tar.bz2
+      SHERPA_SHA256: d0f96c8b65c6cd0974fada22737e337de81bc8cd2abbec2e39caf358b1eec5fc
+      MODEL_ARCHIVE: sherpa-onnx-streaming-zipformer-ctc-multi-zh-hans-int8-2023-12-13.tar.bz2
+      MODEL_SHA256: c7ff82aefd36244d1f17a410cc334b271e1742779ce58246c7ac0e3fef5b2a1f
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements.txt
+      - name: Install Python dependencies of the parity tests
+        run: pip install -r tools/requirements.txt
+      - name: Restore Quran text cache
+        id: quran-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/quran/quran-uthmani.txt
+            data/quran/quran-simple-clean.txt
+          key: quran-text-${{ hashFiles('data/quran/checksums.txt') }}
+      - name: Download Quran text (only if the owner accepted the Tanzil terms)
+        if: steps.quran-cache.outputs.cache-hit != 'true' && vars.TANZIL_TERMS_ACCEPTED == 'true'
+        run: python -I tools/quran_text/download.py --agree-tanzil-terms
+      - name: Restore sherpa-onnx and test model cache
+        id: sherpa-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/sherpa
+          key: sherpa-${{ env.SHERPA_SHA256 }}-${{ env.MODEL_SHA256 }}
+      - name: Download sherpa-onnx (Apache-2.0) and a public streaming test model, verify checksums
+        if: steps.sherpa-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/sherpa/dl ~/sherpa/lib ~/sherpa/model
+          cd ~/sherpa/dl
+          curl -sfL -O "https://github.com/k2-fsa/sherpa-onnx/releases/download/${SHERPA_VERSION}/${SHERPA_ARCHIVE}"
+          curl -sfL -O "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/${MODEL_ARCHIVE}"
+          echo "${SHERPA_SHA256}  ${SHERPA_ARCHIVE}" | sha256sum -c -
+          echo "${MODEL_SHA256}  ${MODEL_ARCHIVE}" | sha256sum -c -
+          tar xjf "${SHERPA_ARCHIVE}" -C ~/sherpa/lib
+          tar xjf "${MODEL_ARCHIVE}" -C ~/sherpa/model
+          rm -f ~/sherpa/dl/*.tar.bz2
+      - name: Configure (backend on)
+        run: |
+          SHERPA_DIR=$(ls -d ~/sherpa/lib/sherpa-onnx-*)
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMUTQIN_WERROR=ON \
+            -DMUTQIN_WITH_SHERPA=ON -DSHERPA_ONNX_DIR="$SHERPA_DIR" -DMUTQIN_CLI_MIC=OFF
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test the backend with a real streaming CTC model
+        run: |
+          MODEL_DIR=$(ls -d ~/sherpa/model/sherpa-onnx-*)
+          export MUTQIN_SHERPA_TEST_MODEL_DIR="$MODEL_DIR"
+          export MUTQIN_SHERPA_TEST_WAV="$MODEL_DIR/test_wavs/DEV_T0000000000.wav"
+          if [ ! -f data/quran/quran-uthmani.txt ]; then
+            echo "::warning::Quran text not available (set TANZIL_TERMS_ACCEPTED); the sherpa test is skipped"
+          fi
+          ctest --test-dir build --output-on-failure -R Sherpa
