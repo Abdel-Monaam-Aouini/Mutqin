@@ -27,11 +27,11 @@ AI assistants: do one task at a time, run tests, then tick it here.
 
 ## Phase 2 — Desktop prototype
 - [ ] 2.1 Evaluate 2–3 candidate CTC models on EveryAyah subset; pick one
-- [ ] 2.2 Synthetic error generator (text-side and audio-side)
+- [x] 2.2 Synthetic error generator (text-side and audio-side)
 - [ ] 2.3 Streaming pipeline: VAD → model → posteriors
 - [ ] 2.4 Incremental aligner with re-anchoring
 - [ ] 2.5 Word error detector + confidence thresholds
-- [ ] 2.6 Evaluation script + first results in EVAL_RESULTS.md
+- [x] 2.6 Evaluation script + first results in EVAL_RESULTS.md
 
 ## Phase 3 — C++ core + mutqin-cli
 - [ ] 3.1 C++ audio ring buffer, VAD, features
