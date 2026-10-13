@@ -1,6 +1,8 @@
 add_library(MutqinCore
     src/api/engine.cpp
     src/api/version.cpp
+    src/features/logmel.cpp
+    src/vad/energy_vad.cpp
     src/text/quran.cpp
     src/text/sha256.cpp
     src/text/utf8.cpp

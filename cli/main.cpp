@@ -22,12 +22,14 @@ void Usage() {
 bool ParseRange(const char* text, int* first, int* last) {
     char* end = nullptr;
     *first = static_cast<int>(std::strtol(text, &end, 10));
-    if (end == text) return false;
+    if (end == text)
+        return false;
     *last = *first;
     if (*end == '-') {
         const char* rest = end + 1;
         *last = static_cast<int>(std::strtol(rest, &end, 10));
-        if (end == rest) return false;
+        if (end == rest)
+            return false;
     }
     return *end == '\0';
 }
@@ -65,7 +67,8 @@ int main(int argc, char** argv) {
     char err[256];
     mq_engine* engine = nullptr;
     if (mq_engine_create(data_dir.c_str(), &engine, err, sizeof err) != MQ_OK) {
-        std::fprintf(stderr, "error: %s\n(run tools/quran_text/download.py to fetch the verified text)\n", err);
+        std::fprintf(stderr, "error: %s\n(run tools/quran_text/download.py to fetch the verified text)\n",
+                     err);
         return 1;
     }
     mq_session* session = nullptr;
@@ -79,7 +82,8 @@ int main(int argc, char** argv) {
         mq_phoneme p{};
         mq_session_phoneme(session, i, &p);
         std::printf("%d:%d:%d\t%s\tvariant=%d\t%s", p.surah, p.ayah, p.word, p.symbol, p.variant, p.rules);
-        if (p.dur_max > 0) std::printf("\tcounts=%d-%d", p.dur_min, p.dur_max);
+        if (p.dur_max > 0)
+            std::printf("\tcounts=%d-%d", p.dur_min, p.dur_max);
         std::printf("\n");
     }
     mq_session_destroy(session);

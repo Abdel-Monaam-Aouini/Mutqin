@@ -22,7 +22,8 @@ struct mq_session {
 namespace {
 
 void SetError(char* err, size_t err_len, const std::string& message) {
-    if (err == nullptr || err_len == 0) return;
+    if (err == nullptr || err_len == 0)
+        return;
     const size_t n = std::min(message.size(), err_len - 1);
     std::memcpy(err, message.data(), n);
     err[n] = '\0';
@@ -31,7 +32,8 @@ void SetError(char* err, size_t err_len, const std::string& message) {
 std::string Join(const std::vector<std::string>& parts) {
     std::string out;
     for (const std::string& p : parts) {
-        if (!out.empty()) out += ',';
+        if (!out.empty())
+            out += ',';
         out += p;
     }
     return out;
@@ -42,7 +44,8 @@ std::string Join(const std::vector<std::string>& parts) {
 extern "C" {
 
 int mq_engine_create(const char* data_dir, mq_engine** out, char* err, size_t err_len) {
-    if (out == nullptr) return MQ_ERR_ARGUMENT;
+    if (out == nullptr)
+        return MQ_ERR_ARGUMENT;
     *out = nullptr;
     if (data_dir == nullptr) {
         SetError(err, err_len, "data_dir is null");
@@ -70,7 +73,8 @@ void mq_engine_destroy(mq_engine* engine) {
 
 int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ayah_last, mq_session** out,
                       char* err, size_t err_len) {
-    if (out == nullptr) return MQ_ERR_ARGUMENT;
+    if (out == nullptr)
+        return MQ_ERR_ARGUMENT;
     *out = nullptr;
     if (engine == nullptr || ayah_first < 1 || ayah_last < ayah_first) {
         SetError(err, err_len, "invalid engine or ayah range");
@@ -93,7 +97,8 @@ int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ay
             SetError(err, err_len, error);
             return MQ_ERR_DATA;
         }
-        for (const mutqin::PhonemeItem& item : session->result.items) session->rules.push_back(Join(item.rules));
+        for (const mutqin::PhonemeItem& item : session->result.items)
+            session->rules.push_back(Join(item.rules));
         *out = session;
         return MQ_OK;
     } catch (const std::exception& e) {
@@ -111,7 +116,8 @@ size_t mq_session_phoneme_count(const mq_session* session) {
 }
 
 int mq_session_phoneme(const mq_session* session, size_t index, mq_phoneme* out) {
-    if (session == nullptr || out == nullptr || index >= session->result.items.size()) return MQ_ERR_ARGUMENT;
+    if (session == nullptr || out == nullptr || index >= session->result.items.size())
+        return MQ_ERR_ARGUMENT;
     const mutqin::PhonemeItem& item = session->result.items[index];
     out->symbol = item.ph.c_str();
     out->surah = item.surah;

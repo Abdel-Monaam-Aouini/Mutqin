@@ -34,7 +34,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [x] 2.6 Evaluation script + first results in EVAL_RESULTS.md
 
 ## Phase 3 — C++ core + mutqin-cli
-- [ ] 3.1 C++ audio ring buffer, VAD, features
+- [x] 3.1 C++ audio ring buffer, VAD, features — ring buffer, log-mel (80 bins, 25/10 ms) and energy VAD done; Silero VAD and exact model feature settings follow with task 2.1
 - [ ] 3.2 sherpa-onnx integration in core
 - [ ] 3.3 Port aligner + detector to C++, with Python-vs-C++ parity test
 - [ ] 3.4 C API (`mq_`) + tests — skeleton done (engine, session, expected phonemes); audio and events pending
