@@ -40,6 +40,12 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [ ] 3.4 C API (`mq_`) + tests — expected phonemes, posteriors in, word statuses and events out are done and tested; only the inference backend and live audio are missing
 - [ ] 3.5 (DEFERRED to Phase 3b) Android demo app (Oboe + JNI)
 - [ ] 3.6 (DEFERRED to Phase 3b) iOS demo app (AVAudioEngine + Swift bridge)
+- [ ] 3.5a (DEFERRED, first step of Phase 3b) Mobile readiness of the core, before any app code:
+  cross-compile `core/` for Android (NDK, arm64-v8a and x86_64; about 1 GB of tools, ask the owner first)
+  and iOS (arm64 device and simulator, needs macOS/Xcode); CMake install rules and a shared library (`.so`)
+  / `xcframework` target; Quran text delivery (iOS bundle path, Android: copy from the APK on first run or
+  add a memory loader); sherpa-onnx mobile builds (check they work with our backend); measure speed, memory
+  and battery on a phone
 - [ ] 3.7 Desktop benchmarks (RTF, latency); phone benchmarks deferred to Phase 3b — front end, aligner and a stand-in model measured on desktop (docs/EVAL_RESULTS.md); the real model and latency to an event are pending
 - [ ] 3.8 `mutqin-cli`: WAV (16 kHz mono) and live microphone input, surah + ayah range, prints events and mistakes — expected phonemes, WAV reader, live microphone (--mic) and posterior replay done; analysing audio needs a model
 
