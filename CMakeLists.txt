@@ -27,6 +27,7 @@ if(MUTQIN_WERROR)
 endif()
 
 add_subdirectory(core)
+add_subdirectory(cli)
 
 if(MUTQIN_BUILD_TESTS)
     include(CTest)

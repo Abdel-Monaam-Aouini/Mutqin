@@ -1,4 +1,5 @@
 add_library(MutqinCore
+    src/api/engine.cpp
     src/api/version.cpp
     src/text/quran.cpp
     src/text/sha256.cpp

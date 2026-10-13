@@ -37,11 +37,11 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [ ] 3.1 C++ audio ring buffer, VAD, features
 - [ ] 3.2 sherpa-onnx integration in core
 - [ ] 3.3 Port aligner + detector to C++, with Python-vs-C++ parity test
-- [ ] 3.4 C API (`mq_`) + tests
+- [ ] 3.4 C API (`mq_`) + tests — skeleton done (engine, session, expected phonemes); audio and events pending
 - [ ] 3.5 (DEFERRED to Phase 3b) Android demo app (Oboe + JNI)
 - [ ] 3.6 (DEFERRED to Phase 3b) iOS demo app (AVAudioEngine + Swift bridge)
 - [ ] 3.7 Desktop benchmarks (RTF, latency); phone benchmarks deferred to Phase 3b
-- [ ] 3.8 `mutqin-cli`: WAV (16 kHz mono) and live microphone input, surah + ayah range, prints events and mistakes
+- [ ] 3.8 `mutqin-cli`: WAV (16 kHz mono) and live microphone input, surah + ayah range, prints events and mistakes — skeleton done (prints expected phonemes); WAV and microphone pending
 
 ## Phase 4–6
 Tasks will be broken down when Phase 3 is done.

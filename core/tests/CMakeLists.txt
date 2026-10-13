@@ -7,6 +7,7 @@ add_executable(mutqin_tests
     test_sha256.cpp
     test_quran.cpp
     test_phonemizer.cpp
+    test_api.cpp
 )
 target_include_directories(mutqin_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 target_compile_definitions(mutqin_tests PRIVATE MUTQIN_DATA_DIR="${MUTQIN_DATA_DIR}")
