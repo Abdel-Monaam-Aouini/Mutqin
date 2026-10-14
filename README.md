@@ -47,6 +47,9 @@ Phone benchmarks come with the mobile apps.
 
 ## Quick start
 
+`make help` lists the common tasks (`make build`, `make check`, `make demo`, `make live`, `make record` ...).
+The steps below are what they run.
+
 Requirements: a C++17 compiler, CMake 3.16+, Python 3.10+ (for the tools), `ffmpeg` to convert audio.
 
 ```
@@ -86,7 +89,7 @@ collapse_runs=2
 threads=4
 ```
 
-4. Recite, live or from a recording:
+4. Recite, live or from a recording (`make live`, `make record`, `make check-wav WAV=take.wav` do the same):
 
 ```
 ./build/cli/mutqin-cli --surah 1 --ayah 1-7 --model models/zipformer_p-quran/mutqin_model.txt --mic
@@ -128,6 +131,8 @@ Events look like `[ 12.3 s] skipped 1:2:3` (surah 1, ayah 2, word 3). Convert re
 - Later: Android and iOS apps on the unchanged C API.
 
 ## Development
+
+`make venv` then `make check` runs everything below (lint, C++ tests, Python tests).
 
 ```
 python3 -m venv .venv   # or: uv venv .venv
