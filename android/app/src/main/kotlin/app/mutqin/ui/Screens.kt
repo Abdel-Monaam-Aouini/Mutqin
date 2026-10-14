@@ -1,10 +1,23 @@
 package app.mutqin.ui
 
+import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,9 +27,11 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,11 +50,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -47,26 +70,36 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -76,6 +109,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,6 +120,7 @@ import app.mutqin.core.Strictness
 import app.mutqin.core.TajweedRule
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.Locale
 
 /** The screen's root: a surface in the theme colors that keeps clear of the status and navigation bars. */
 @Composable
@@ -114,7 +149,12 @@ fun MutqinApp(
                     }
 
                     Phase.Setup -> {
-                        SetupScreen(state, vm, language, onLanguageSelected, onStart)
+                        var preferences by rememberSaveable { mutableStateOf(false) }
+                        if (preferences) {
+                            PreferencesScreen(state, vm, language, onLanguageSelected) { preferences = false }
+                        } else {
+                            SetupScreen(state, vm, onOpenPreferences = { preferences = true }, onStart = onStart)
+                        }
                     }
 
                     Phase.Starting -> {
@@ -140,11 +180,7 @@ private fun LogoLoader() {
         animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
         label = "logo alpha",
     )
-    Image(
-        painterResource(R.mipmap.ic_launcher),
-        contentDescription = null,
-        modifier = Modifier.size(96.dp).alpha(alpha),
-    )
+    MutqinLogo(120.dp, Modifier.alpha(alpha))
 }
 
 @Composable
@@ -232,84 +268,102 @@ private fun NeedModelScreen(
 
 // ---------------------------------------------------------------------------------------------- setup
 
+/** The app icon drawn with the theme colors: a closed ring (itqan, mastery) around three sound bars. */
+@Composable
+private fun MutqinLogo(
+    size: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val tile = MaterialTheme.colorScheme.primary
+    val ink = MaterialTheme.colorScheme.onPrimary
+    Canvas(modifier.size(size)) {
+        val u = this.size.minDimension / 1024f // the icon is designed on a 1024 grid (docs/branding/icon.svg)
+        drawRoundRect(tile, cornerRadius = CornerRadius(224f * u))
+        val line = Stroke(width = 44f * u, cap = StrokeCap.Round)
+        drawCircle(ink, radius = 300f * u, center = Offset(512f * u, 512f * u), style = line)
+        for ((x, y1, y2) in listOf(Triple(420f, 452f, 572f), Triple(512f, 392f, 632f), Triple(604f, 432f, 592f))) {
+            drawLine(ink, Offset(x * u, y1 * u), Offset(x * u, y2 * u), strokeWidth = 44f * u, cap = StrokeCap.Round)
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SetupScreen(
     state: UiState,
     vm: MainViewModel,
-    language: AppLanguage,
-    onLanguageSelected: (AppLanguage) -> Unit,
+    onOpenPreferences: () -> Unit,
     onStart: () -> Unit,
 ) {
     val surahNames = stringArrayResource(R.array.surah_names)
+    var picking by remember { mutableStateOf(false) }
+    // everything fits on one screen: the logo takes whatever height the rest leaves
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Column(Modifier.padding(top = 12.dp, bottom = 4.dp)) {
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val logo = minOf(180.dp, maxOf(72.dp, maxHeight - 96.dp))
+            IconButton(
+                onClick = onOpenPreferences,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 8.dp)
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.secondaryContainer),
+            ) {
+                Icon(
+                    Icons.Default.Settings,
+                    contentDescription = stringResource(R.string.preferences),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                MutqinLogo(logo)
+                Spacer(Modifier.height(14.dp))
                 Text(
                     stringResource(R.string.app_name),
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
-                Text(stringResource(R.string.app_tagline), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.app_tagline), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
             }
+        }
 
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Card {
-                Text(stringResource(R.string.language), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(10.dp))
-                val languages =
-                    listOf(
-                        AppLanguage.ENGLISH to R.string.language_english,
-                        AppLanguage.ARABIC to R.string.language_arabic,
+                Text(stringResource(R.string.surah), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.background)
+                        .clickable { picking = true }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(String.format(Locale.US, "%02d", state.surah), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.width(14.dp))
+                    Text(surahNames[state.surah - 1], Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        stringResource(R.string.ayahs_in_surah, state.ayahCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    languages.forEachIndexed { index, (option, label) ->
-                        SegmentedButton(
-                            selected = language == option,
-                            onClick = { onLanguageSelected(option) },
-                            shape = SegmentedButtonDefaults.itemShape(index, languages.size),
-                        ) { Text(stringResource(label)) }
-                    }
+                    Text("▾", Modifier.padding(start = 10.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
             Card {
-                Text(stringResource(R.string.surah), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(state.surah.toString(), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            surahNames[state.surah - 1],
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Text(
-                            stringResource(R.string.ayahs_in_surah, state.ayahCount),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    StepButton("−", state.surah > 1) { vm.setSurah(state.surah - 1) }
-                    Spacer(Modifier.width(12.dp))
-                    StepButton("+", state.surah < 114) { vm.setSurah(state.surah + 1) }
-                }
-            }
-
-            Card {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.range_summary, state.fromAyah, state.toAyah),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                    TextButton(onClick = {
-                        vm.setFrom(1)
-                        vm.setTo(state.ayahCount)
-                    }) { Text(stringResource(R.string.whole_surah)) }
-                }
-                Spacer(Modifier.height(10.dp))
+                Text(stringResource(R.string.practice_passage), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    stringResource(R.string.range_summary, state.fromAyah, state.toAyah),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(8.dp))
                 RangeRow(
                     stringResource(R.string.ayah_from),
                     state.fromAyah,
@@ -318,7 +372,7 @@ private fun SetupScreen(
                     { vm.setFrom(state.fromAyah - 1) },
                     { vm.setFrom(state.fromAyah + 1) },
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
                 RangeRow(
                     stringResource(R.string.ayah_to),
                     state.toAyah,
@@ -326,37 +380,6 @@ private fun SetupScreen(
                     state.toAyah < state.ayahCount,
                     { vm.setTo(state.toAyah - 1) },
                     { vm.setTo(state.toAyah + 1) },
-                )
-            }
-
-            Card {
-                Text(stringResource(R.string.strictness), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(10.dp))
-                val levels =
-                    listOf(
-                        Triple(Strictness.RELAXED, R.string.strictness_relaxed, R.string.strictness_relaxed_hint),
-                        Triple(Strictness.STANDARD, R.string.strictness_standard, R.string.strictness_standard_hint),
-                        Triple(Strictness.STRICT, R.string.strictness_strict, R.string.strictness_strict_hint),
-                    )
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    levels.forEachIndexed { i, (level, label, _) ->
-                        SegmentedButton(
-                            selected = state.strictness == level,
-                            onClick = { vm.setStrictness(level) },
-                            shape = SegmentedButtonDefaults.itemShape(i, levels.size),
-                        ) { Text(stringResource(label)) }
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    stringResource(
-                        levels
-                            .first {
-                                it.first == state.strictness
-                            }.third,
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -371,12 +394,178 @@ private fun SetupScreen(
                     }
                 }
             }
+            val forward = if (LocalLayoutDirection.current == LayoutDirection.Rtl) "←" else "→"
+            Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) {
+                Text(stringResource(R.string.start), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("  $forward", fontSize = 16.sp)
+            }
+            Spacer(Modifier.height(4.dp))
         }
-        Spacer(Modifier.height(12.dp))
-        Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(18.dp)) {
-            Text(stringResource(R.string.start), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+    }
+
+    if (picking) {
+        SurahSheet(surahNames, state.surah, onPick = {
+            vm.setSurah(it)
+            picking = false
+        }, onDismiss = { picking = false })
+    }
+}
+
+/** The list of surahs in a bottom sheet; it opens at the chosen one. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SurahSheet(
+    names: Array<String>,
+    selected: Int,
+    onPick: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val list = rememberLazyListState(initialFirstVisibleItemIndex = maxOf(0, selected - 3))
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    ) {
+        Text(
+            stringResource(R.string.choose_surah),
+            Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = accent,
+        )
+        LazyColumn(Modifier.fillMaxWidth(), state = list, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
+            itemsIndexed(names.toList()) { i, name ->
+                val chosen = i + 1 == selected
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(if (chosen) accent.copy(alpha = 0.16f) else Color.Transparent)
+                        .clickable { onPick(i + 1) }
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(accent.copy(alpha = if (chosen) 0.28f else 0.10f)),
+                        contentAlignment = Alignment.Center,
+                    ) { Text((i + 1).toString(), fontWeight = FontWeight.SemiBold, color = accent, fontSize = 14.sp) }
+                    Spacer(Modifier.width(14.dp))
+                    Text(
+                        name,
+                        Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (chosen) accent else MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (chosen) Text("✓", color = accent, fontWeight = FontWeight.Bold)
+                }
+            }
         }
-        Spacer(Modifier.height(8.dp))
+    }
+}
+
+/** Language and feedback level. Nothing changes until "Save preferences"; the choices are then kept on the phone. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PreferencesScreen(
+    state: UiState,
+    vm: MainViewModel,
+    language: AppLanguage,
+    onLanguageSelected: (AppLanguage) -> Unit,
+    onClose: () -> Unit,
+) {
+    var draftLanguage by rememberSaveable { mutableStateOf(language) }
+    var draftLevel by rememberSaveable { mutableIntStateOf(state.strictness) }
+    BackHandler(onBack = onClose)
+    // the screen shows the chosen language at once, before anything is saved
+    val base = LocalContext.current
+    val current = LocalConfiguration.current
+    val preview =
+        remember(draftLanguage, base, current) {
+            val configuration = Configuration(current)
+            configuration.setLocale(Locale.forLanguageTag(draftLanguage.tag))
+            base.createConfigurationContext(configuration)
+        }
+    CompositionLocalProvider(
+        LocalContext provides preview,
+        LocalLayoutDirection provides if (draftLanguage == AppLanguage.ARABIC) LayoutDirection.Rtl else LayoutDirection.Ltr,
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.secondaryContainer),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = MaterialTheme.colorScheme.primary)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.preferences), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Card {
+                    Text(stringResource(R.string.language), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        stringResource(R.string.preferences_language_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    val languages = listOf(AppLanguage.ENGLISH to R.string.language_english, AppLanguage.ARABIC to R.string.language_arabic)
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        languages.forEachIndexed { index, (option, label) ->
+                            SegmentedButton(
+                                selected = draftLanguage == option,
+                                onClick = { draftLanguage = option },
+                                shape = SegmentedButtonDefaults.itemShape(index, languages.size),
+                            ) { Text(stringResource(label)) }
+                        }
+                    }
+                }
+                Card {
+                    Text(stringResource(R.string.strictness), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(12.dp))
+                    val levels =
+                        listOf(
+                            Triple(Strictness.RELAXED, R.string.strictness_relaxed, R.string.strictness_relaxed_hint),
+                            Triple(Strictness.STANDARD, R.string.strictness_standard, R.string.strictness_standard_hint),
+                            Triple(Strictness.STRICT, R.string.strictness_strict, R.string.strictness_strict_hint),
+                        )
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        levels.forEachIndexed { i, (level, label, _) ->
+                            SegmentedButton(
+                                selected = draftLevel == level,
+                                onClick = { draftLevel = level },
+                                shape = SegmentedButtonDefaults.itemShape(i, levels.size),
+                            ) { Text(stringResource(label)) }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        stringResource(levels.first { it.first == draftLevel }.third),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    vm.setStrictness(draftLevel)
+                    onClose()
+                    onLanguageSelected(draftLanguage) // recreates the screen when the language changed
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text(stringResource(R.string.save), fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+            Spacer(Modifier.height(8.dp))
+        }
     }
 }
 
@@ -472,7 +661,16 @@ private fun ReciteScreen(
                 itemsIndexed(pages) { _, page -> AyahPage(page) }
             }
         }
-        if (reciting) ListeningPanel(state, onStop = vm::stop) else ResultPanel(state, onBack = vm::back, onRetry = vm::retry)
+        if (reciting) {
+            ListeningPanel(
+                state,
+                onPause = vm::pause,
+                onResume = vm::resume,
+                onStop = vm::stop,
+            )
+        } else {
+            ResultPanel(state, onBack = vm::back, onRetry = vm::retry)
+        }
     }
 }
 
@@ -505,12 +703,16 @@ private fun TopBar(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (reciting) RecordingBadge(state.startedAt)
+        if (reciting) RecordingBadge(state.startedAt, state.pausedAt)
     }
 }
 
 @Composable
-private fun RecordingBadge(startedAt: Long) {
+private fun RecordingBadge(
+    startedAt: Long,
+    pausedAt: Long,
+) {
+    val paused = pausedAt != 0L
     val pulse =
         rememberInfiniteTransition(label = "pulse").animateFloat(
             initialValue = 0.35f,
@@ -518,6 +720,7 @@ private fun RecordingBadge(startedAt: Long) {
             animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
             label = "dot",
         )
+    val tone by animateColorAsState(if (paused) MaterialTheme.colorScheme.onSurfaceVariant else LocalAttention.current, label = "badge tone")
     var now by remember { mutableLongStateOf(android.os.SystemClock.elapsedRealtime()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -525,34 +728,97 @@ private fun RecordingBadge(startedAt: Long) {
             delay(500)
         }
     }
-    val seconds = ((now - startedAt) / 1000).coerceAtLeast(0)
+    val seconds = (((if (paused) pausedAt else now) - startedAt) / 1000).coerceAtLeast(0)
     Row(
-        Modifier.clip(RoundedCornerShape(50)).background(LocalAttention.current.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 8.dp),
+        Modifier.clip(RoundedCornerShape(50)).background(tone.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             Modifier
                 .size(10.dp)
-                .alpha(pulse.value)
+                .alpha(if (paused) 0.5f else pulse.value)
                 .clip(CircleShape)
-                .background(LocalAttention.current),
+                .background(tone),
         )
         Spacer(Modifier.width(8.dp))
-        Text("%d:%02d".format(seconds / 60, seconds % 60), style = MaterialTheme.typography.labelLarge, color = LocalAttention.current)
+        Text("%d:%02d".format(seconds / 60, seconds % 60), style = MaterialTheme.typography.labelLarge, color = tone)
+    }
+}
+
+/** A microphone drawn with strokes (the basic icon set has none). */
+@Composable
+private fun MicGlyph(
+    color: Color,
+    size: Dp,
+) {
+    Canvas(Modifier.size(size)) {
+        val w = this.size.width
+        val stroke = w * 0.085f
+        val body = Size(w * 0.34f, w * 0.52f)
+        drawRoundRect(color, Offset((w - body.width) / 2, w * 0.06f), body, CornerRadius(body.width / 2))
+        drawArc(
+            color,
+            startAngle = 0f,
+            sweepAngle = 180f,
+            useCenter = false,
+            topLeft = Offset(w * 0.2f, w * 0.22f),
+            size = Size(w * 0.6f, w * 0.5f),
+            style = Stroke(stroke, cap = StrokeCap.Round),
+        )
+        drawLine(color, Offset(w / 2, w * 0.72f), Offset(w / 2, w * 0.9f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.34f, w * 0.92f), Offset(w * 0.66f, w * 0.92f), stroke, StrokeCap.Round)
+    }
+}
+
+/** The microphone tile: while listening a soft ring spreads out and the tile glows with the voice; paused, it rests. */
+@Composable
+private fun MicTile(
+    level: Float,
+    listening: Boolean,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val ring =
+        rememberInfiniteTransition(label = "ring").animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(1600)),
+            label = "ring",
+        )
+    val glow by animateFloatAsState(if (listening) 0.16f + 0.3f * level else 0.07f, tween(180), label = "glow")
+    val tone by animateColorAsState(if (listening) accent else MaterialTheme.colorScheme.onSurfaceVariant, tween(300), label = "mic tone")
+    val ringAlpha by animateFloatAsState(if (listening) 1f else 0f, tween(300), label = "ring alpha")
+    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .size(48.dp)
+                .graphicsLayer {
+                    scaleX = 1f + 0.55f * ring.value
+                    scaleY = 1f + 0.55f * ring.value
+                    alpha = ringAlpha * (1f - ring.value) * 0.5f
+                }.clip(RoundedCornerShape(14.dp))
+                .background(accent),
+        )
+        Box(
+            Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(accent.copy(alpha = glow)),
+            contentAlignment = Alignment.Center,
+        ) { MicGlyph(tone, 24.dp) }
     }
 }
 
 @Composable
 private fun ListeningPanel(
     state: UiState,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onStop: () -> Unit,
 ) {
+    val paused = state.paused
     // a long stretch of near silence means the phone cannot hear the reciter: say so
     var quietSince by remember { mutableLongStateOf(0L) }
     var quiet by remember { mutableStateOf(false) }
-    LaunchedEffect(state.level) {
+    LaunchedEffect(state.level, paused) {
         val now = android.os.SystemClock.elapsedRealtime()
-        if (state.level > 0.2f) {
+        if (state.level > 0.2f || paused) {
             quietSince = 0L
             quiet = false
         } else {
@@ -570,30 +836,67 @@ private fun ListeningPanel(
             tajweedLabelResource(rule)?.let { resource -> stringResource(resource) }
         }
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-        LinearProgressIndicator(
-            progress = { state.level },
-            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-            color = if (quiet) LocalAttention.current else MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            drawStopIndicator = {},
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            stringResource(if (quiet) R.string.hint_quiet else R.string.hint_ok),
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (quiet) LocalAttention.current else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (ruleLabels.isNotEmpty()) {
-            Spacer(Modifier.height(6.dp))
+        AnimatedVisibility(visible = quiet && !paused) {
+            Text(
+                stringResource(R.string.hint_quiet),
+                Modifier.padding(bottom = 8.dp, start = 4.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = LocalAttention.current,
+            )
+        }
+        if (ruleLabels.isNotEmpty() && !paused) {
             Text(
                 stringResource(R.string.tajweed_expected, ruleLabels.joinToString(" · ")),
+                Modifier.padding(bottom = 8.dp, start = 4.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
             )
         }
-        Spacer(Modifier.height(12.dp))
-        Button(onClick = onStop, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(18.dp)) {
-            Text(stringResource(R.string.stop), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        Surface(
+            Modifier.fillMaxWidth().animateContentSize(),
+            shape = RoundedCornerShape(22.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        ) {
+            Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                MicTile(state.level, listening = !paused)
+                Spacer(Modifier.width(12.dp))
+                AnimatedContent(
+                    targetState = paused,
+                    modifier = Modifier.weight(1f),
+                    transitionSpec = { (fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 3 }) togetherWith fadeOut(tween(120)) },
+                    label = "status",
+                ) { isPaused ->
+                    Text(
+                        stringResource(if (isPaused) R.string.listening_paused else R.string.listening_now),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                OutlinedButton(
+                    onClick = if (paused) onResume else onPause,
+                    modifier = Modifier.height(46.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp),
+                ) {
+                    AnimatedContent(
+                        targetState = paused,
+                        transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) },
+                        label = "pause or resume",
+                    ) { isPaused ->
+                        Text(stringResource(if (isPaused) R.string.resume else R.string.pause), fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = onStop,
+                    modifier = Modifier.height(46.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                ) { Text(stringResource(R.string.finish), fontWeight = FontWeight.SemiBold, maxLines = 1) }
+            }
         }
         Spacer(Modifier.height(8.dp))
     }

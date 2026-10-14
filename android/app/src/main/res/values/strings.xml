@@ -10,11 +10,11 @@
     <string name="ayah_from">From ayah</string>
     <string name="ayah_to">To ayah</string>
     <string name="ayahs_in_surah">%1$d ayahs</string>
-    <string name="strictness">Reports</string>
+    <string name="strictness">Feedback level</string>
     <string name="strictness_relaxed">Fewer</string>
-    <string name="strictness_standard">Standard</string>
+    <string name="strictness_standard">Balanced</string>
     <string name="strictness_strict">More</string>
-    <string name="start">Start</string>
+    <string name="start">Begin recitation</string>
     <string name="stop">Stop</string>
     <string name="back">Back</string>
     <string name="try_again">Try again</string>
@@ -36,7 +36,7 @@
     <string name="allow_mic">Allow the microphone</string>
     <string name="range_too_long">That range is too long. Choose a shorter one.</string>
     <string name="error_generic">Something went wrong: %1$s</string>
-    <string name="app_tagline">Recite with itqan</string>
+    <string name="app_tagline">Qur\'an recitation</string>
     <string name="language">Language</string>
     <string name="language_english">English</string>
     <string name="language_arabic">Arabic</string>
@@ -83,4 +83,15 @@
     <string name="error_quran_body">The exact error is below. You can select it or copy it.</string>
     <string name="error_copy">Copy the error</string>
     <string name="error_copied">Copied</string>
+    <string name="practice_passage">Practice passage</string>
+    <string name="preferences">Preferences</string>
+    <string name="preferences_language_hint">Choose the language used across the app.</string>
+    <string name="save_preferences">Save preferences</string>
+    <string name="listening_now">Listening to your recitation</string>
+    <string name="listening_paused">Listening paused</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+    <string name="finish">Finish</string>
+    <string name="save">Save</string>
+    <string name="choose_surah">Choose a surah</string>
 </resources>

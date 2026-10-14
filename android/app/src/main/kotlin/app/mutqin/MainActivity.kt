@@ -19,18 +19,12 @@ import app.mutqin.ui.MutqinApp
 import app.mutqin.ui.MutqinTheme
 import java.util.Locale
 
-private const val LANGUAGE_PREFERENCES = "mutqin_preferences"
-private const val LANGUAGE_KEY = "language"
-
 class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
     private var language = AppLanguage.ENGLISH
 
     override fun attachBaseContext(newBase: Context) {
-        val selected =
-            AppLanguage.fromTag(
-                newBase.getSharedPreferences(LANGUAGE_PREFERENCES, MODE_PRIVATE).getString(LANGUAGE_KEY, null),
-            )
+        val selected = AppPreferences.language(newBase)
         val locale = Locale.forLanguageTag(selected.tag)
         Locale.setDefault(locale)
         val configuration = Configuration(newBase.resources.configuration)
@@ -40,10 +34,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        language =
-            AppLanguage.fromTag(
-                getSharedPreferences(LANGUAGE_PREFERENCES, MODE_PRIVATE).getString(LANGUAGE_KEY, null),
-            )
+        language = AppPreferences.language(this)
         enableEdgeToEdge()
         setContent {
             MutqinTheme {
@@ -82,10 +73,7 @@ class MainActivity : ComponentActivity() {
 
     private fun selectLanguage(selected: AppLanguage) {
         if (selected == language) return
-        getSharedPreferences(LANGUAGE_PREFERENCES, MODE_PRIVATE)
-            .edit()
-            .putString(LANGUAGE_KEY, selected.tag)
-            .apply()
+        AppPreferences.saveLanguage(this, selected)
         language = selected
         recreate()
     }

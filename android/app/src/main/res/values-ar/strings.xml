@@ -12,9 +12,9 @@
     <string name="ayahs_in_surah">%1$d آيات</string>
     <string name="strictness">مستوى التنبيهات</string>
     <string name="strictness_relaxed">أقل</string>
-    <string name="strictness_standard">متوسط</string>
+    <string name="strictness_standard">متوازن</string>
     <string name="strictness_strict">أكثر</string>
-    <string name="start">ابدأ</string>
+    <string name="start">ابدأ التلاوة</string>
     <string name="stop">إيقاف</string>
     <string name="back">رجوع</string>
     <string name="try_again">حاول مرة أخرى</string>
@@ -87,4 +87,15 @@
     <string name="error_quran_body">يوجد الخطأ التفصيلي أدناه. يمكنك تحديده أو نسخه.</string>
     <string name="error_copy">نسخ الخطأ</string>
     <string name="error_copied">تم النسخ</string>
+    <string name="practice_passage">مقطع التدريب</string>
+    <string name="preferences">التفضيلات</string>
+    <string name="preferences_language_hint">اختر اللغة المستخدمة في التطبيق.</string>
+    <string name="save_preferences">حفظ التفضيلات</string>
+    <string name="listening_now">نستمع لتلاوتك</string>
+    <string name="listening_paused">تم إيقاف الاستماع</string>
+    <string name="pause">إيقاف مؤقت</string>
+    <string name="resume">متابعة</string>
+    <string name="finish">إنهاء</string>
+    <string name="save">حفظ</string>
+    <string name="choose_surah">اختر سورة</string>
 </resources>
