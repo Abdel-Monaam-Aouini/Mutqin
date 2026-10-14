@@ -37,6 +37,11 @@ the spec), so neither is in the repository. `make android-bundle` is the excepti
 embeds the model from the local `models/zipformer_p-quran/` checkout and the app extracts it on first launch.
 The model remains ignored by Git. The command fails if the four required files, including `LICENSE`, are not present.
 
+The Android CI job can do the same for trusted pushes and manual runs when the repository has `HF_USERNAME` and
+`HF_TOKEN` secrets. `HF_TOKEN` should be a Hugging Face access token with access to the gated model; it is used as
+the Git password. Pull requests and CI runs without those secrets intentionally build the model-free APK. CI verifies
+the embedded model but does not publish the APK because it also contains the separately licensed Tanzil text.
+
 Debug builds also accept, for automated checks:
 
 ```
