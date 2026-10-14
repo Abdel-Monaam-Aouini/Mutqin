@@ -45,12 +45,13 @@ bool Check(JNIEnv* env, int rc, const char* what) {
 
 #define JNI(ret, name) extern "C" JNIEXPORT ret JNICALL Java_app_mutqin_core_MutqinNative_##name
 
-JNI(jlong, engineCreateFromMemory)(JNIEnv* env, jobject, jbyteArray uthmani, jbyteArray simple, jbyteArray checksums) {
+JNI(jlong, engineCreateFromMemory)(JNIEnv* env, jobject, jbyteArray uthmani, jbyteArray simple,
+                                   jbyteArray checksums) {
     const std::vector<char> a = Bytes(env, uthmani), b = Bytes(env, simple), c = Bytes(env, checksums);
     mq_engine* engine = nullptr;
     char err[256] = {0};
-    const int rc = mq_engine_create_from_memory(a.data(), a.size(), b.data(), b.size(), c.data(), c.size(), &engine,
-                                                err, sizeof err);
+    const int rc = mq_engine_create_from_memory(a.data(), a.size(), b.data(), b.size(), c.data(), c.size(),
+                                                &engine, err, sizeof err);
     if (rc != MQ_OK) {
         Throw(env, rc, err);
         return 0;
@@ -69,7 +70,8 @@ JNI(jint, engineAyahCount)(JNIEnv*, jobject, jlong engine, jint surah) {
 JNI(jlong, sessionCreate)(JNIEnv* env, jobject, jlong engine, jint surah, jint from, jint to) {
     mq_session* session = nullptr;
     char err[256] = {0};
-    const int rc = mq_session_create(FromHandle<mq_engine>(engine), surah, from, to, &session, err, sizeof err);
+    const int rc =
+        mq_session_create(FromHandle<mq_engine>(engine), surah, from, to, &session, err, sizeof err);
     if (rc != MQ_OK) {
         Throw(env, rc, err);
         return 0;
@@ -124,7 +126,8 @@ JNI(jint, sessionItemCount)(JNIEnv*, jobject, jlong session) {
 // out: surah, ayah, word, wordLast
 JNI(void, sessionItem)(JNIEnv* env, jobject, jlong session, jint index, jintArray out) {
     mq_item item{};
-    if (!Check(env, mq_session_item(FromHandle<mq_session>(session), static_cast<size_t>(index), &item), "bad item"))
+    if (!Check(env, mq_session_item(FromHandle<mq_session>(session), static_cast<size_t>(index), &item),
+               "bad item"))
         return;
     const jint values[4] = {item.surah, item.ayah, item.word, item.word_last};
     env->SetIntArrayRegion(out, 0, 4, values);
@@ -154,7 +157,8 @@ JNI(jint, sessionEventCount)(JNIEnv*, jobject, jlong session) {
 // out: kind, surah, ayah, word, wordIndex, wordLast
 JNI(void, sessionEvent)(JNIEnv* env, jobject, jlong session, jint index, jintArray out) {
     mq_event e{};
-    if (!Check(env, mq_session_event(FromHandle<mq_session>(session), static_cast<size_t>(index), &e), "bad event"))
+    if (!Check(env, mq_session_event(FromHandle<mq_session>(session), static_cast<size_t>(index), &e),
+               "bad event"))
         return;
     const jint values[6] = {e.kind, e.surah, e.ayah, e.word, static_cast<jint>(e.word_index), e.word_last};
     env->SetIntArrayRegion(out, 0, 6, values);
