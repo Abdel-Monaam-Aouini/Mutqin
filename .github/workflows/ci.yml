@@ -28,8 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -52,8 +52,8 @@ jobs:
       matrix:
         python: ["3.10", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
           cache: pip
@@ -62,7 +62,7 @@ jobs:
         run: pip install -r tools/requirements.txt
       - name: Restore Quran text cache
         id: quran-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             data/quran/quran-uthmani.txt
@@ -122,8 +122,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -132,7 +132,7 @@ jobs:
         run: pip install -r tools/requirements.txt
       - name: Restore Quran text cache
         id: quran-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             data/quran/quran-uthmani.txt
@@ -166,8 +166,8 @@ jobs:
       MODEL_ARCHIVE: sherpa-onnx-streaming-zipformer-ctc-multi-zh-hans-int8-2023-12-13.tar.bz2
       MODEL_SHA256: c7ff82aefd36244d1f17a410cc334b271e1742779ce58246c7ac0e3fef5b2a1f
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -176,7 +176,7 @@ jobs:
         run: pip install -r tools/requirements.txt
       - name: Restore Quran text cache
         id: quran-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             data/quran/quran-uthmani.txt
@@ -187,7 +187,7 @@ jobs:
         run: python -I tools/quran_text/download.py --agree-tanzil-terms
       - name: Restore sherpa-onnx and test model cache
         id: sherpa-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/sherpa
           key: sherpa-${{ env.SHERPA_SHA256 }}-${{ env.MODEL_SHA256 }}
