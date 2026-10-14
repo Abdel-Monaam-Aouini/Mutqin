@@ -27,7 +27,7 @@ struct mq_engine {
 struct mq_session {
     const mq_engine* engine = nullptr;  // for the text of the items; must outlive the session
     mutqin::PhonemizeResult result;
-    std::vector<std::string> rules;  // joined rule tags, one per item
+    std::vector<std::string> rules;       // joined rule tags, one per item
     std::vector<std::string> item_rules;  // unique expected rule tags, one per recitation item
     std::vector<mutqin::WordRef> words;
     std::vector<mutqin::Frame> frames;

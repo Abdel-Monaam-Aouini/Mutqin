@@ -104,10 +104,12 @@ class Session internal constructor(
 
     fun item(index: Int): Item {
         MutqinNative.sessionItem(handle, index, itemBuffer)
-        val rules = MutqinNative.sessionItemRules(handle, index)
-            .split(',')
-            .filter(String::isNotEmpty)
-            .map(::TajweedRule)
+        val rules =
+            MutqinNative
+                .sessionItemRules(handle, index)
+                .split(',')
+                .filter(String::isNotEmpty)
+                .map(::TajweedRule)
         return Item(
             itemBuffer[0],
             itemBuffer[1],

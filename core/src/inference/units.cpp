@@ -82,6 +82,13 @@ bool LoadUnitGroups(const std::string& path, int surah, int ayah_first, int ayah
             return false;
         }
         seen[static_cast<size_t>(g.ayah - ayah_first)] = true;
+        // The table may spell one word in several rows (the letters of an opening letter group are read
+        // one after the other): rows with the same ayah and span are one word, so the units are joined.
+        if (!out->empty() && out->back().ayah == g.ayah && out->back().first_word == g.first_word &&
+            out->back().last_word == g.last_word) {
+            out->back().units.insert(out->back().units.end(), g.units.begin(), g.units.end());
+            continue;
+        }
         out->push_back(std::move(g));
     }
     for (size_t i = 0; i < seen.size(); ++i) {

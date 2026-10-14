@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -67,9 +68,10 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -100,11 +102,7 @@ fun MutqinApp(
             Box(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 20.dp)) {
                 when (state.phase) {
                     Phase.Loading -> {
-                        Centered {
-                            CircularProgressIndicator()
-                            Spacer(Modifier.height(14.dp))
-                            Text(stringResource(R.string.loading))
-                        }
+                        Centered { LogoLoader() }
                     }
 
                     Phase.NeedModel -> {
@@ -120,11 +118,7 @@ fun MutqinApp(
                     }
 
                     Phase.Starting -> {
-                        Centered {
-                            CircularProgressIndicator()
-                            Spacer(Modifier.height(14.dp))
-                            Text(stringResource(R.string.preparing_session))
-                        }
+                        Centered { LogoLoader() }
                     }
 
                     Phase.Reciting, Phase.Result -> {
@@ -134,6 +128,23 @@ fun MutqinApp(
             }
         }
     }
+}
+
+/** The app icon, softly pulsing: shown while the model loads or a session starts (no text, no spinner). */
+@Composable
+private fun LogoLoader() {
+    val pulse = rememberInfiniteTransition(label = "logo")
+    val alpha by pulse.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+        label = "logo alpha",
+    )
+    Image(
+        painterResource(R.mipmap.ic_launcher),
+        contentDescription = null,
+        modifier = Modifier.size(96.dp).alpha(alpha),
+    )
 }
 
 @Composable
@@ -442,8 +453,11 @@ private fun ReciteScreen(
 ) {
     val groups = remember(state.items) { state.items.groupBy { it.ayah }.toList() }
     val listState = rememberLazyListState()
+    // the ayahs run on one after the other, as in a mushaf; they are cut into pages of a few ayahs for the list
+    val pages = remember(groups) { groups.chunked(AYAHS_PER_PAGE) }
     val currentGroup = groups.indexOfFirst { (_, words) -> words.any { it.state == ItemState.Current } }
-    LaunchedEffect(currentGroup) { if (currentGroup >= 0) listState.animateScrollToItem(currentGroup) }
+    val currentPage = if (currentGroup >= 0) currentGroup / AYAHS_PER_PAGE else -1
+    LaunchedEffect(currentPage) { if (currentPage >= 0) listState.animateScrollToItem(currentPage) }
     val reciting = state.phase == Phase.Reciting
 
     Column(Modifier.fillMaxSize()) {
@@ -453,9 +467,9 @@ private fun ReciteScreen(
             LazyColumn(
                 Modifier.weight(1f).fillMaxWidth(),
                 state = listState,
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                itemsIndexed(groups) { _, (ayah, words) -> AyahBlock(ayah, words) }
+                itemsIndexed(pages) { _, page -> AyahPage(page) }
             }
         }
         if (reciting) ListeningPanel(state, onStop = vm::stop) else ResultPanel(state, onBack = vm::back, onRetry = vm::retry)
@@ -546,10 +560,15 @@ private fun ListeningPanel(
             quiet = now - quietSince > 4000
         }
     }
-    val currentRules = state.items.firstOrNull { it.state == ItemState.Current }?.tajweedRules.orEmpty()
-    val ruleLabels = currentRules.mapNotNull { rule ->
-        tajweedLabelResource(rule)?.let { resource -> stringResource(resource) }
-    }
+    val currentRules =
+        state.items
+            .firstOrNull { it.state == ItemState.Current }
+            ?.tajweedRules
+            .orEmpty()
+    val ruleLabels =
+        currentRules.mapNotNull { rule ->
+            tajweedLabelResource(rule)?.let { resource -> stringResource(resource) }
+        }
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
         LinearProgressIndicator(
             progress = { state.level },
@@ -654,27 +673,28 @@ private fun MarkSample(kind: EventKind) {
     )
 }
 
+private const val AYAHS_PER_PAGE = 10
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AyahBlock(
-    ayah: Int,
-    words: List<UiItem>,
-) {
+private fun AyahPage(ayahs: List<Pair<Int, List<UiItem>>>) {
     FlowRow(
-        Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        Modifier.fillMaxWidth().padding(vertical = 1.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        if (ayah > 0 && words.isNotEmpty()) {
-            words.dropLast(1).forEach { WordText(it) }
-            // the ring stays with the last word instead of wrapping onto a line of its own
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                WordText(words.last())
-                AyahMarker(ayah)
+        ayahs.forEach { (ayah, words) ->
+            if (ayah > 0 && words.isNotEmpty()) {
+                words.dropLast(1).forEach { WordText(it) }
+                // the ring stays with the last word instead of wrapping onto a line of its own
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    WordText(words.last())
+                    AyahMarker(ayah)
+                }
+            } else {
+                words.forEach { WordText(it) }
             }
-        } else {
-            words.forEach { WordText(it) }
         }
     }
 }

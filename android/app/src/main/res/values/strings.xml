@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Mutqin</string>
-    <string name="loading">Preparing…</string>
     <string name="need_model_title">Recognition model not found</string>
     <string name="need_model_body">Copy the model files into this folder on the phone, then reopen the app:</string>
     <string name="need_model_files">quran_phoneme_zipformer.int8.onnx, tokens.txt, expected_units.tsv</string>
@@ -20,7 +19,6 @@
     <string name="back">Back</string>
     <string name="try_again">Try again</string>
     <string name="listening">Listening… recite now</string>
-    <string name="preparing_session">Loading the model…</string>
     <string name="result_title">Result</string>
     <string name="nothing_found">Nothing was detected. A quiet screen does not mean the recitation was perfect.</string>
     <plurals name="differences_found">

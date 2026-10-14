@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">متقن</string>
-    <string name="loading">جارٍ التحضير…</string>
     <string name="need_model_title">نموذج التعرّف غير موجود</string>
     <string name="need_model_body">انسخ ملفات النموذج إلى هذا المجلد في الهاتف، ثم أعد فتح التطبيق:</string>
     <string name="need_model_files">quran_phoneme_zipformer.int8.onnx، tokens.txt، expected_units.tsv</string>
@@ -20,10 +19,10 @@
     <string name="back">رجوع</string>
     <string name="try_again">حاول مرة أخرى</string>
     <string name="listening">جارٍ الاستماع… ابدأ التلاوة</string>
-    <string name="preparing_session">جارٍ تحميل النموذج…</string>
     <string name="result_title">النتيجة</string>
     <string name="nothing_found">لم يُكتشف شيء. عدم ظهور تنبيه لا يعني أن التلاوة كانت كاملة.</string>
     <plurals name="differences_found">
+        <item quantity="zero">لم يُوجد فرق أعلاه.</item>
         <item quantity="one">وُجد فرق واحد أعلاه.</item>
         <item quantity="two">وُجد فرقان أعلاه.</item>
         <item quantity="few">وُجدت %1$d فروق أعلاه.</item>

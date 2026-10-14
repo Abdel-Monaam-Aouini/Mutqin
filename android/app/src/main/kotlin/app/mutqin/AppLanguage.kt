@@ -9,7 +9,6 @@ enum class AppLanguage(
     ;
 
     companion object {
-        fun fromTag(tag: String?): AppLanguage =
-            entries.firstOrNull { it.tag == tag } ?: ENGLISH
+        fun fromTag(tag: String?): AppLanguage = entries.firstOrNull { it.tag == tag } ?: ENGLISH
     }
 }
