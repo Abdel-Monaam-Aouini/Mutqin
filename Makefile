@@ -37,7 +37,7 @@ JOBS       ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo
 
 .DEFAULT_GOAL := help
 .PHONY: help venv build test test-py format lint check data units sherpa build-live model-check \
-        live check-wav record demo bench shared install android android-app android-run android-model android-replay android-log android-format android-lint android-check clean
+        live check-wav record demo bench shared install android android-app android-bundle android-run android-model android-replay android-log android-format android-lint android-check clean
 
 help: ## show this list
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -97,6 +97,12 @@ android-app: ## build the Android debug app (android/); needs make data; fetches
 	android/scripts/fetch_sherpa.sh
 	cd android && JAVA_HOME=$(ANDROID_JAVA_HOME) ./gradlew --no-daemon -q :app:assembleDebug
 	@ls -l $(APK)
+
+android-bundle: model-check ## build a shareable release APK with the local recognition model embedded
+	android/scripts/fetch_sherpa.sh
+	cd android && JAVA_HOME=$(ANDROID_JAVA_HOME) ./gradlew --no-daemon -q -PbundleModel=true :app:assembleRelease
+	@ls -lh android/app/build/outputs/apk/release/app-release.apk
+	@echo "share this APK; it includes the model and its license"
 
 android-run: android-app ## install the debug app on the connected phone and start it (then: make android-model)
 	$(ADB) install -r $(APK)

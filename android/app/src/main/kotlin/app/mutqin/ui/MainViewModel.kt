@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
 
 enum class Phase { Loading, NeedModel, Setup, Starting, Reciting, Result, Error }
@@ -113,6 +115,7 @@ class MainViewModel(
                     engine = Engine.fromMemory(uthmani, simple, checksums)
                 }
                 stage = "checking the model files"
+                installBundledModelIfPresent()
                 if (modelFiles.any { !File(modelDir, it).isFile }) {
                     modelDir.mkdirs()
                     _state.update { it.copy(phase = Phase.NeedModel) }
@@ -124,6 +127,31 @@ class MainViewModel(
                 Log.e(TAG, "prepare failed while $stage", e)
                 _state.update { it.copy(phase = Phase.Error, error = exactError(stage, e)) }
             }
+        }
+    }
+
+    /**
+     * A shareable APK may carry the gated model in assets/model. Extract it to the same directory
+     * used by the development adb workflow. The temporary file prevents a killed first launch from
+     * leaving a partial ONNX file that looks present on the next launch.
+     */
+    private fun installBundledModelIfPresent() {
+        val assets = getApplication<Application>().assets
+        val bundled = modelFiles + "LICENSE"
+        val names = assets.list("model")?.toSet().orEmpty()
+        if (!bundled.all { it in names }) return
+        modelDir.mkdirs()
+        for (name in bundled) {
+            val destination = File(modelDir, name)
+            val temporary = File(modelDir, "$name.part")
+            if (destination.isFile && destination.length() == assets.open("model/$name").use { it.available().toLong() }) continue
+            assets.open("model/$name").use { input ->
+                BufferedInputStream(input).use { source ->
+                    BufferedOutputStream(temporary.outputStream()).use { output -> source.copyTo(output) }
+                }
+            }
+            if (destination.exists()) check(destination.delete()) { "could not replace bundled model file $name" }
+            check(temporary.renameTo(destination)) { "could not install bundled model file $name" }
         }
     }
 
