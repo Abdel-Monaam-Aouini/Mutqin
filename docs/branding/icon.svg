@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Mutqin app icon: a closed ring around three sound bars">
+  <!-- Concept: a closed ring (itqan, mastery) around a voice (three bars). Two colours only. -->
+  <rect width="1024" height="1024" rx="224" fill="#0F5C4D"/>
+  <circle cx="512" cy="512" r="300" fill="none" stroke="#F4F1EA" stroke-width="44"/>
+  <g stroke="#F4F1EA" stroke-width="44" stroke-linecap="round">
+    <line x1="420" y1="452" x2="420" y2="572"/>
+    <line x1="512" y1="392" x2="512" y2="632"/>
+    <line x1="604" y1="432" x2="604" y2="592"/>
+  </g>
+</svg>
