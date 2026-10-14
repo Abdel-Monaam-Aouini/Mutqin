@@ -315,3 +315,22 @@ TEST(SessionLimits, TooLongRangesAndTooMuchSpeechAreRefused) {
     }
     EXPECT_EQ(mq_session_push_posteriors(f.session, rows.data(), frames), MQ_ERR_LIMIT);
 }
+
+TEST(SessionAudio, TheWordBeingSpokenIsJudgedOnlyAfterTheAudioIsFinished) {
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    const std::vector<float> rows = f.Speak(AllWords(f.words.size()));
+    const size_t frames = rows.size() / MQ_VOCAB_SIZE;
+    SetSessionModel(f.session, std::make_unique<ScriptedModel>(rows));
+    const std::vector<float> audio((frames * 4 + 2) * 160 + 400, 0.01f);
+    for (size_t at = 0; at < audio.size(); at += 1600)
+        ASSERT_EQ(
+            mq_session_push_audio(f.session, audio.data() + at, std::min<size_t>(1600, audio.size() - at)),
+            MQ_OK);
+    const size_t last = mq_session_word_count(f.session) - 1;
+    EXPECT_EQ(mq_session_word_status(f.session, last), MQ_WORD_NOT_JUDGED);  // still streaming
+    EXPECT_EQ(mq_session_word_status(f.session, last - 1), MQ_WORD_OK);
+    ASSERT_EQ(mq_session_finish_audio(f.session), MQ_OK);
+    EXPECT_EQ(mq_session_word_status(f.session, last), MQ_WORD_OK);
+}

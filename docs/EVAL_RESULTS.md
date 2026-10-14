@@ -216,3 +216,22 @@ some phrases twice at the breath points of long ayahs (for example 10:24 and 2:1
 phrase). Changing the repeat cost or the repeat ratio leaves these events unchanged, which fits: they match
 too well to be noise. Together with the 49-minute recitation of surah 5 this gives two voices and two styles
 below the 2% target; learners' recitation and phone microphones are still unmeasured.
+
+### Latency to an event while streaming (2026-10-14)
+
+`mutqin-cli --wav FILE --timeline` pushes the audio in 100 ms chunks, as a microphone would, and prints each
+event with the audio time at which it first appeared. Edited 100 s clip of 5:1-8 (the model's look-ahead is
+about 1 s; the core does not judge the word being spoken until the next word has started):
+
+| Mistake | Where it happened in the audio | Event first shown | Delay after the end of the faulty word |
+|---|---|---|---|
+| word 5:1:6 cut out | the next word 5:1:7 spans 8.6-10.1 s | 10.3 s (`skipped 5:1:6`) | about 0.2 s after the next word ended |
+| words 5:1:12-13 said twice | repeat ends at 17.15 s | 18.0 s (`repeated 5:1:13`) | 0.9 s |
+| word 5:1:15 replaced | ends at 16.98 s | 18.4 s (`wrong 5:1:15`) | 1.4 s |
+| word added after 5:1:15 | ends at 17.4 s | 19.4 s (`added 5:1:15`) | 2.0 s |
+
+So a mistake is reported about 1-2 s after it is spoken. Before the commit rule (the last word heard is not
+judged) the same run showed 20-30 transient false events per clip that later disappeared; now only the
+two events that the unedited audio also has (`repeated 5:2:14` at 37 s, `wrong 5:3:25` at 100 s) and the edit
+itself appear. The target of 300 ms in `PLAN.md` is not met by this model (its own look-ahead is 1 s);
+whether 1-2 s is acceptable for the user experience is an open decision.

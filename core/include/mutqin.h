@@ -123,7 +123,10 @@ int mq_session_load_model(mq_session* session, const char* manifest_path, char* 
 size_t mq_session_word_count(const mq_session* session);
 int mq_session_word_status(const mq_session* session, size_t word_index); /* MQ_WORD_*, -1 if bad index */
 
-/* Snapshot of the current events (replaced by every push). */
+/* Snapshot of the current events (replaced by every push). While audio is being pushed the last word
+ * heard so far is not judged yet (it is only partly in), so an event about a word appears about one
+ * word after it was spoken; after mq_session_finish_audio every word is judged. Posteriors pushed with
+ * mq_session_push_posteriors are not streaming and are judged at once. */
 size_t mq_session_event_count(const mq_session* session);
 int mq_session_event(const mq_session* session, size_t index, mq_event* out);
 

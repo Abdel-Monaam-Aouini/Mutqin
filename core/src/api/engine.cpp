@@ -34,6 +34,7 @@ struct mq_session {
     std::unique_ptr<mutqin::TokenRecognizer> recognizer;
     int surah = 0, ayah_first = 0, ayah_last = 0;
     mutqin::AlignParams params;
+    bool streaming = false;  // audio is being pushed and not finished yet
 };
 
 namespace mutqin {
@@ -65,6 +66,22 @@ std::string Join(const std::vector<std::string>& parts) {
     return out;
 }
 
+}  // namespace
+
+namespace {
+// While audio streams, the last word heard so far is only partly in and is not judged: events and
+// statuses about it would flash and then disappear. Once the audio is finished everything is judged.
+bool Settled(const mq_session* session, int item) {
+    return !session->streaming || !session->aligned.has_span || item < session->aligned.span_last;
+}
+
+std::vector<size_t> VisibleEvents(const mq_session* session) {
+    std::vector<size_t> visible;
+    for (size_t i = 0; i < session->aligned.events.size(); ++i)
+        if (Settled(session, session->aligned.events[i].index))
+            visible.push_back(i);
+    return visible;
+}
 }  // namespace
 
 extern "C" {
@@ -222,6 +239,7 @@ int mq_session_push_posteriors(mq_session* session, const float* probs, size_t n
 int mq_session_push_audio(mq_session* session, const float* samples, size_t num_samples) {
     if (session == nullptr || (samples == nullptr && num_samples > 0))
         return MQ_ERR_ARGUMENT;
+    session->streaming = true;
     if (session->recognizer) {
         try {
             std::vector<mutqin::HeardToken> heard;
@@ -248,11 +266,14 @@ int mq_session_push_audio(mq_session* session, const float* samples, size_t num_
 int mq_session_finish_audio(mq_session* session) {
     if (session == nullptr)
         return MQ_ERR_ARGUMENT;
-    if (!session->recognizer)
+    if (!session->recognizer) {
+        session->streaming = false;
         return session->model ? MQ_OK : MQ_ERR_NO_MODEL;
+    }
     try {
         std::vector<mutqin::HeardToken> heard;
         session->recognizer->Finish(&heard);
+        session->streaming = false;
         return AlignHeard(session, heard) ? MQ_OK : MQ_ERR_LIMIT;
     } catch (const std::exception&) {
         return MQ_ERR_INTERNAL;
@@ -342,7 +363,7 @@ int mq_session_word_status(const mq_session* session, size_t word_index) {
     if (session == nullptr || word_index >= session->words.size())
         return -1;
     const auto it = session->aligned.statuses.find(static_cast<int>(word_index));
-    if (it == session->aligned.statuses.end())
+    if (it == session->aligned.statuses.end() || !Settled(session, static_cast<int>(word_index)))
         return MQ_WORD_NOT_JUDGED;
     if (it->second == "wrong")
         return MQ_WORD_WRONG;
@@ -352,13 +373,16 @@ int mq_session_word_status(const mq_session* session, size_t word_index) {
 }
 
 size_t mq_session_event_count(const mq_session* session) {
-    return session == nullptr ? 0 : session->aligned.events.size();
+    return session == nullptr ? 0 : VisibleEvents(session).size();
 }
 
 int mq_session_event(const mq_session* session, size_t index, mq_event* out) {
-    if (session == nullptr || out == nullptr || index >= session->aligned.events.size())
+    if (session == nullptr || out == nullptr)
         return MQ_ERR_ARGUMENT;
-    const mutqin::AlignEvent& e = session->aligned.events[index];
+    const std::vector<size_t> visible = VisibleEvents(session);
+    if (index >= visible.size())
+        return MQ_ERR_ARGUMENT;
+    const mutqin::AlignEvent& e = session->aligned.events[visible[index]];
     const mutqin::WordKey& key = session->words[static_cast<size_t>(e.index)].key;
     out->kind = e.kind == "skipped"    ? MQ_EVENT_SKIPPED
                 : e.kind == "wrong"    ? MQ_EVENT_WRONG

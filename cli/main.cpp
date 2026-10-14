@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -30,6 +31,7 @@ void Usage() {
         "                     (blank + 31 phonemes); prints word statuses and events\n"
         "  --chunk N          with --posteriors: push N frames at a time (streaming), prints the time\n"
         "  --model FILE       recognition model manifest (mutqin_model.txt), needed by --wav and --mic\n"
+        "  --timeline         with --wav: print each event with the audio time at which it first appeared\n"
         "  --mic [--seconds N]  live microphone (stop with Ctrl-C or after N seconds); needs a model\n"
         "  --wav FILE         16 kHz WAV (mono or stereo, 16-bit or float)\n"
         "  --version    print the library version\n",
@@ -76,6 +78,19 @@ void PrintEvents(const mq_session* session) {
         std::printf("no mistakes found\n");
 }
 
+// Prints the events that were not reported before, with the audio time at which they first appeared.
+void ReportNewEvents(const mq_session* session, std::set<std::string>* seen, double audio_seconds) {
+    const size_t events = mq_session_event_count(session);
+    for (size_t i = 0; i < events; ++i) {
+        mq_event e{};
+        mq_session_event(session, i, &e);
+        const std::string id = std::string(KindName(e.kind)) + " " + std::to_string(e.surah) + ":" +
+                               std::to_string(e.ayah) + ":" + std::to_string(e.word);
+        if (seen->insert(id).second)
+            std::printf("[%6.1f s] %s\n", audio_seconds, id.c_str());
+    }
+}
+
 #ifdef MUTQIN_HAVE_MIC
 volatile std::sig_atomic_t g_stop = 0;
 
@@ -91,7 +106,8 @@ int RunMic(mq_session* session, int seconds) {
     std::fprintf(stderr, "listening%s... (Ctrl-C to stop)\n", seconds > 0 ? " for a limited time" : "");
     const auto started = std::chrono::steady_clock::now();
     std::vector<float> samples;
-    size_t shown = static_cast<size_t>(-1);
+    std::set<std::string> seen;
+    size_t pushed = 0;
     while (!g_stop) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         samples.clear();
@@ -107,11 +123,9 @@ int RunMic(mq_session* session, int seconds) {
                 std::fprintf(stderr, "error: could not process the audio\n");
                 return 1;
             }
-            const size_t count = mq_session_event_count(session);
-            if (count != shown) {
-                shown = count;
-                PrintEvents(session);
-            }
+            pushed += samples.size();
+            ReportNewEvents(session, &seen, static_cast<double>(pushed) / 16000.0);
+            std::fflush(stdout);
         }
         if (seconds > 0 && std::chrono::steady_clock::now() - started >= std::chrono::seconds(seconds))
             break;
@@ -157,6 +171,7 @@ int Replay(mq_session* session, const std::string& path, size_t chunk_frames) {
 int main(int argc, char** argv) {
     std::string data_dir = "data/quran";
     std::string posteriors_path, wav_path, model_path;
+    bool timeline = false;
     bool use_mic = false;
     [[maybe_unused]] int mic_seconds = 0;  // unused when built without microphone support
     size_t chunk_frames = 0;
@@ -173,6 +188,8 @@ int main(int argc, char** argv) {
             posteriors_path = argv[++i];
         } else if (arg == "--model" && has_value) {
             model_path = argv[++i];
+        } else if (arg == "--timeline") {
+            timeline = true;
         } else if (arg == "--mic") {
             use_mic = true;
         } else if (arg == "--seconds" && has_value) {
@@ -244,6 +261,7 @@ int main(int argc, char** argv) {
         } else {
             std::printf("%s: %.2f s of 16 kHz audio\n", wav_path.c_str(),
                         static_cast<double>(wav.samples.size()) / 16000.0);
+            std::set<std::string> seen;
             const size_t chunk = 1600;  // 100 ms, as a microphone would deliver it
             for (size_t at = 0; at < wav.samples.size() && status == 0; at += chunk) {
                 const size_t n = std::min(chunk, wav.samples.size() - at);
@@ -255,10 +273,16 @@ int main(int argc, char** argv) {
                 } else if (rc != MQ_OK) {
                     std::fprintf(stderr, "error: could not process the audio\n");
                     status = 1;
+                } else if (timeline) {
+                    ReportNewEvents(session, &seen, static_cast<double>(at + n) / 16000.0);
                 }
             }
-            if (status == 0 && mq_session_finish_audio(session) == MQ_OK)
+            if (status == 0 && mq_session_finish_audio(session) == MQ_OK) {
+                if (timeline)
+                    ReportNewEvents(session, &seen, static_cast<double>(wav.samples.size()) / 16000.0);
+                std::printf("final result:\n");
                 PrintEvents(session);
+            }
         }
         mq_session_destroy(session);
         mq_engine_destroy(engine);

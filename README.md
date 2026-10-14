@@ -21,7 +21,8 @@ With a recognition model, `--wav FILE` and the live microphone (`--mic [--second
 ```
 python3 tools/zipformer/expected_units.py      # once, after downloading the model into models/zipformer_p-quran/
 cmake -S . -B build -DMUTQIN_WITH_SHERPA=ON -DSHERPA_ONNX_DIR=/path/to/sherpa-onnx-v1.13.8-...-shared-no-tts
-./build/cli/mutqin-cli --surah 5 --ayah 1-8 --model models/zipformer_p-quran/mutqin_model.txt --wav recitation.wav
+./build/cli/mutqin-cli --surah 5 --ayah 1-8 --model models/zipformer_p-quran/mutqin_model.txt --wav recitation.wav --timeline
+./build/cli/mutqin-cli --surah 5 --ayah 1-8 --model models/zipformer_p-quran/mutqin_model.txt --mic   # live
 ```
 
 The model is Muno459/zipformer_p-quran (gated, NPL-1.1: free apps only; not in this repository). The manifest
@@ -44,7 +45,8 @@ Desktop, Release build, one thread, AMD Ryzen 7 5800H. Real-time factor (RTF) = 
 Accuracy on a real correct recitation (49 minutes of surah 5, one reciter): 0.9% of words flagged and 2.5% events
 (wrong, skipped, repeated, added) against a 2% target; recall on mistakes injected into the real model output:
 skipped 100%, wrong 97%, repeated 99%, added 94%. One reciter, professional audio, synthetic mistakes: learners
-and other reciters are not measured yet. Details: `docs/EVAL_RESULTS.md`.
+and other reciters are not measured yet; on 339 single-ayah clips of a second reciter 0.1% of words were flagged.
+A mistake is reported about 1-2 s after it is spoken (the model looks ahead 1 s). Details: `docs/EVAL_RESULTS.md`.
 Reproduce: `cmake -S . -B build-rel -DCMAKE_BUILD_TYPE=Release -DMUTQIN_BUILD_BENCH=ON && cmake --build build-rel`,
 then `./build-rel/mutqin_bench 120`.
 

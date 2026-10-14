@@ -124,7 +124,9 @@ tanween sound is assimilated (ikhfa, idgham, iqlab), so the unit of judgment is 
 words**; the table maps every group back to its Tanzil words (all 6,236 ayahs; the mapping aligns the
 consonant letters of both sequences). Events carry `word` .. `word_last` of the group. A range that
 starts at ayah 1 of a surah other than 1 and 9 begins with the four basmala groups, reported as ayah 0,
-which a reciter may leave out. This path uses the tuned profile `edge_free=2` (at most a third of a word may
+which a reciter may leave out. While audio streams the item being spoken is not judged yet (events and
+statuses about it would flash and disappear), so an event appears about one word after the mistake, roughly
+1-2 s with this model. This path uses the tuned profile `edge_free=2` (at most a third of a word may
 be missing at its edges), runs of one character cut to 2 (madd length ignored) and `add_min_tokens=3`
 (see `EVAL_RESULTS.md`). Files from the model repository (weights, units, table) stay outside this
 repository (`models/`, gated, NPL-1.1: free apps only).
