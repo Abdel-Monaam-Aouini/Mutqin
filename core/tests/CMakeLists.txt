@@ -10,6 +10,7 @@ add_executable(mutqin_tests
     test_api.cpp
     test_session_events.cpp
     test_audio.cpp
+    test_units.cpp
 )
 target_include_directories(mutqin_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 target_compile_definitions(mutqin_tests PRIVATE MUTQIN_DATA_DIR="${MUTQIN_DATA_DIR}")
@@ -98,7 +99,7 @@ endif()
 
 # sherpa-onnx backend integration test (only when the backend is built in).
 if(MUTQIN_WITH_SHERPA)
-    add_executable(mutqin_sherpa_tests test_sherpa.cpp)
+    add_executable(mutqin_sherpa_tests test_sherpa.cpp test_zipformer.cpp)
     target_include_directories(mutqin_sherpa_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
     target_compile_definitions(mutqin_sherpa_tests PRIVATE MUTQIN_DATA_DIR="${MUTQIN_DATA_DIR}")
     target_link_libraries(mutqin_sherpa_tests PRIVATE Mutqin::Core mutqin_cli_lib GTest::gtest_main)

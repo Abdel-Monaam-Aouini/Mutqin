@@ -13,6 +13,7 @@
 #include "api/session_internal.h"
 #include "features/logmel.h"
 #include "inference/sherpa_recognizer.h"
+#include "inference/units.h"
 #include "mutqin.h"
 #include "tajweed/phonemizer.h"
 #include "text/quran.h"
@@ -31,6 +32,8 @@ struct mq_session {
     mutqin::LogMel logmel;
     std::unique_ptr<mutqin::AcousticModel> model;
     std::unique_ptr<mutqin::TokenRecognizer> recognizer;
+    int surah = 0, ayah_first = 0, ayah_last = 0;
+    mutqin::AlignParams params;
 };
 
 namespace mutqin {
@@ -131,6 +134,9 @@ int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ay
                                    [&](const mutqin::PhonemeItem& it) { return it.ayah > ayah_last; }),
                     items.end());
         session->words = mutqin::BuildWordReadings(items, ayah_words);
+        session->surah = surah;
+        session->ayah_first = ayah_first;
+        session->ayah_last = ayah_last;
         size_t expected = 0;
         for (const mutqin::WordRef& w : session->words)
             expected += w.reading.cont.size();
@@ -181,7 +187,7 @@ void EnsureAligner(mq_session* session) {
     std::vector<mutqin::WordReading> readings;
     for (const mutqin::WordRef& w : session->words)
         readings.push_back(w.reading);
-    session->aligner = std::make_unique<mutqin::StreamingAligner>(std::move(readings));
+    session->aligner = std::make_unique<mutqin::StreamingAligner>(std::move(readings), session->params);
 }
 
 // False if more was heard than the session may hold (memory bound, see mutqin.h).
@@ -269,6 +275,53 @@ int mq_session_load_model(mq_session* session, const char* manifest_path, char* 
             SetError(err, err_len, error);
             return MQ_ERR_DATA;
         }
+        if (!config.units.empty()) {
+            // The model's own reading: expected units per group of words, compared as they are.
+            std::vector<mutqin::UnitGroup> groups;
+            if (!mutqin::LoadUnitGroups(config.units, session->surah, session->ayah_first, session->ayah_last,
+                                        &groups, &error)) {
+                SetError(err, err_len, error);
+                return MQ_ERR_DATA;
+            }
+            // A recitation of a surah usually opens with the basmala, which is not a word of its first ayah.
+            // Its groups (those of 1:1) are put in front as ayah 0; if the reciter leaves it out the
+            // aligner's free start skips them.
+            if (session->ayah_first == 1 && session->surah != 1 && session->surah != 9) {
+                std::vector<mutqin::UnitGroup> basmala;
+                if (!mutqin::LoadUnitGroups(config.units, 1, 1, 1, &basmala, &error)) {
+                    SetError(err, err_len, error);
+                    return MQ_ERR_DATA;
+                }
+                for (mutqin::UnitGroup& g : basmala) {
+                    g.surah = session->surah;
+                    g.ayah = 0;
+                }
+                groups.insert(groups.begin(), basmala.begin(), basmala.end());
+            }
+            std::vector<mutqin::WordRef> words;
+            size_t expected = 0;
+            for (const mutqin::UnitGroup& g : groups) {
+                mutqin::WordRef w;
+                w.key = mutqin::WordKey(g.surah, g.ayah, g.first_word);
+                w.last_word = g.last_word;
+                for (const std::string& u : g.units)
+                    w.reading.cont.push_back(mutqin::CollapseRuns(u, config.collapse_runs));
+                for (auto& context : w.reading.contexts)
+                    context = w.reading.cont;
+                expected += w.reading.cont.size();
+                words.push_back(std::move(w));
+            }
+            if (expected > MQ_MAX_EXPECTED_PHONEMES) {
+                SetError(err, err_len, "range too long for the model's units");
+                return MQ_ERR_LIMIT;
+            }
+            session->words = std::move(words);
+            session->params.edge_free = 2;  // tuned on real model output (docs/EVAL_RESULTS.md)
+            session->params.add_min_tokens = 3;
+            session->aligner.reset();
+            session->aligned = mutqin::AlignResult();
+            session->frames.clear();
+        }
         session->recognizer = std::move(recognizer);
         return MQ_OK;
     } catch (const std::exception& e) {
@@ -315,6 +368,7 @@ int mq_session_event(const mq_session* session, size_t index, mq_event* out) {
     out->ayah = std::get<1>(key);
     out->word = std::get<2>(key);
     out->word_index = static_cast<size_t>(e.index);
+    out->word_last = session->words[static_cast<size_t>(e.index)].last_word;
     out->confidence = e.confidence;
     return MQ_OK;
 }

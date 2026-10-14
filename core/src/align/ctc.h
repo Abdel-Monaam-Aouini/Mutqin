@@ -32,6 +32,7 @@ std::vector<HeardToken> GreedyDecode(const std::vector<Frame>& frames);
 struct WordRef {
     WordKey key;
     WordReading reading;
+    int last_word = 0;  // last Tanzil word covered (equals the key's word unless a group joins words)
 };
 std::vector<WordRef> BuildWordReadings(const std::vector<PhonemeItem>& items,
                                        const std::map<std::pair<int, int>, int>& ayah_words);

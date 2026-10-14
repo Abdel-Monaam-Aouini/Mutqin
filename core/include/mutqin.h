@@ -74,8 +74,12 @@ enum { MQ_EVENT_SKIPPED = 0, MQ_EVENT_WRONG = 1, MQ_EVENT_REPEATED = 2, MQ_EVENT
 /* Status of a word of the range. */
 enum { MQ_WORD_NOT_JUDGED = 0, MQ_WORD_OK = 1, MQ_WORD_WRONG = 2, MQ_WORD_SKIPPED = 3 };
 
-/* A word-level event. word_index counts the words of the session range from 0. For
- * MQ_EVENT_ADDED it is the word the extra speech follows. */
+/* Ayah 0 of a surah (other than 1 and 9) is its basmala: with a model that supplies expected units,
+ * a range that starts at ayah 1 begins with these four optional items (reported as ayah 0).
+ *
+ * A word-level event. word_index counts the items of the session range from 0; an item is one Tanzil
+ * word, or a group of consecutive words that the model's reading joins (word..word_last). For
+ * MQ_EVENT_ADDED it is the item the extra speech follows. */
 typedef struct mq_event {
     int kind;
     int surah;
@@ -83,6 +87,7 @@ typedef struct mq_event {
     int word; /* 1-based word index inside the ayah */
     size_t word_index;
     double confidence;
+    int word_last; /* last word of the item (== word unless the model's reading joins words) */
 } mq_event;
 
 /* Loads and verifies the Quran text in data_dir (data/quran). On failure *out is NULL and

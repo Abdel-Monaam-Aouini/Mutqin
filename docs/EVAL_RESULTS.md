@@ -179,3 +179,22 @@ Chosen for the unit-based path: `edge_free=2`, run cap 2, `add_min_tokens=3`. Ca
 recitation style, professional audio; injected mistakes are synthetic (one per window, units only); learners,
 other reciters and phone microphones are not measured. "Events" counts every reported event including
 repeated / added; the 0.6% counts only wrong or skipped words.
+
+### End to end through the C++ core and `mutqin-cli` (2026-10-14)
+
+`mutqin-cli --surah 5 --ayah 1-8 --model models/zipformer_p-quran/mutqin_model.txt --wav FILE`, first 100 s of
+the same recitation (it starts with the basmala), edited with ffmpeg using the model's own word timestamps:
+
+| Audio | Reported (besides 2 events that also appear on the unedited audio) |
+|---|---|
+| unedited | `repeated 5:2:14`, `wrong 5:3:25` (2 events in 100 s) |
+| word 5:1:6 cut out | `skipped 5:1:6` |
+| word 5:1:7 cut out | `skipped 5:1:7` |
+| words 5:1:12-13 said twice | `repeated 5:1:13` |
+| word 5:1:15 replaced by another word's audio | `wrong 5:1:15` |
+| another word's audio inserted after 5:1:15 | `added 5:1:15` |
+
+Each edit is reported at the right place. A first cut of the 3-unit word 5:1:14 left a one-unit
+fragment and was not reported: a fragment of a short word is treated as a pronunciation variant (at most a
+third of a word may be missing at its edges). Whole run of 100 s: about 6 s on 4 threads including the start-up.
+`core/tests/test_zipformer.cpp` repeats the clean and the cut-word run (skipped unless the model is available).

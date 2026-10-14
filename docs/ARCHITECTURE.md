@@ -24,7 +24,7 @@ phoneme sequence (with waqf / continue variants).
 |---|---|
 | Quran text, rule engine (phonemizer), word readings | done in C++, checked against the Python reference for the whole Quran |
 | Ring buffer, log-mel features, energy VAD | done in C++ (`audio/`, `features/`, `vad/`) |
-| Recognition model | **not chosen yet** (candidates and results in `EVAL_RESULTS.md`). Two plug-in shapes exist: CTC posteriors over a fixed 32-token vocabulary (blank + the 31 phonemes of `PHONEME_INVENTORY.md`), or phoneme tokens from the optional sherpa-onnx backend (see "Recognition backends") |
+| Recognition model | **Muno459/zipformer_p-quran** (streaming Zipformer2 CTC, NPL-1.1, run through the optional sherpa-onnx backend); results in `EVAL_RESULTS.md`. A CTC-posterior plug-in shape also exists (see "Recognition backends") |
 | CTC decoding, aligner, word detector | done in C++ (`align/`), same results as the Python prototype on generated cases |
 | C API | expected phonemes, posteriors in, word statuses and events out (see below) |
 | `mutqin-cli` | prints expected phonemes, reads WAV, replays recorded posteriors (`--posteriors`) |
@@ -114,7 +114,20 @@ threads=2
 `token_map.tsv` maps each of the model's units to one or more of our 31 symbols (a long vowel unit
 becomes the vowel; a geminate unit may become two symbols); units not in the map are dropped. It
 has to be written against the real model's `tokens.txt` and checked by someone who knows its units.
-Tested with a public Chinese streaming model only (plumbing, real-time factor 0.04 on the dev CPU).
+
+**Model-native units (used with the Quran phoneme Zipformer).** Instead of a token map the manifest can say
+`units=expected_units.tsv` (and `collapse_runs=2`). Then the model's own units are compared as they are
+against the model's canonical units for the ayah range: no mapping onto our 31 phonemes, nothing about the
+units is interpreted. `tools/zipformer/expected_units.py` builds the table from the model's
+`ordered_quran_phonemes.json`: the model's phonetizer joins neighbouring Tanzil words when a noon or
+tanween sound is assimilated (ikhfa, idgham, iqlab), so the unit of judgment is a **group of consecutive
+words**; the table maps every group back to its Tanzil words (all 6,236 ayahs; the mapping aligns the
+consonant letters of both sequences). Events carry `word` .. `word_last` of the group. A range that
+starts at ayah 1 of a surah other than 1 and 9 begins with the four basmala groups, reported as ayah 0,
+which a reciter may leave out. This path uses the tuned profile `edge_free=2` (at most a third of a word may
+be missing at its edges), runs of one character cut to 2 (madd length ignored) and `add_min_tokens=3`
+(see `EVAL_RESULTS.md`). Files from the model repository (weights, units, table) stay outside this
+repository (`models/`, gated, NPL-1.1: free apps only).
 
 ## Threading contract and limits (for the apps)
 

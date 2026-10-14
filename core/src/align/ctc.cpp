@@ -87,6 +87,7 @@ std::vector<WordRef> BuildWordReadings(const std::vector<PhonemeItem>& items,
     for (const WordKey& key : order) {
         WordRef ref;
         ref.key = key;
+        ref.last_word = std::get<2>(key);
         std::array<std::vector<std::string>, 4> combos;
         for (int ctx = 0; ctx < 4; ++ctx) {
             const bool before = ctx >= 2, after = ctx % 2 == 1;

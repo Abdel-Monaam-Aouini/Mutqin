@@ -5,6 +5,7 @@ add_library(MutqinCore
     src/api/version.cpp
     src/features/logmel.cpp
     src/inference/sherpa_recognizer.cpp
+    src/inference/units.cpp
     src/vad/energy_vad.cpp
     src/text/quran.cpp
     src/text/sha256.cpp

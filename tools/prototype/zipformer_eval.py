@@ -15,6 +15,7 @@ import json
 import sys
 import time
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -81,6 +82,9 @@ def main() -> int:
     ap.add_argument(
         "--save-heard", type=Path, help="write the heard units and times as JSON (for offline tuning)"
     )
+    ap.add_argument(
+        "--tuned", action="store_true", help="the C++ profile: edge_free=2, add_min_tokens=3, runs cut to 2"
+    )
     ap.add_argument("--load-heard", type=Path, help="reuse saved heard units instead of running the model")
     args = ap.parse_args()
     first, _, last = args.ayahs.partition("-")
@@ -95,7 +99,13 @@ def main() -> int:
                 json.dumps({"tokens": tokens, "timestamps": times}, ensure_ascii=False)
             )
     heard = [Token(t, 1.0, round(s * 100), round(s * 100) + 4) for t, s in zip(tokens, times, strict=True)]
-    result = align_tokens(heard, words, Params())
+    params = replace(Params(), edge_free=2, add_min_tokens=3) if args.tuned else Params()
+    if args.tuned:
+        from tools.prototype.zipformer_tune import prepare
+
+        words, heard = prepare(words, heard, 2)
+        tokens = [t.symbol for t in heard]
+    result = align_tokens(heard, words, params)
     flagged = [w for w, s in result.statuses.items() if s != "ok"]
     judged = len(result.statuses)
     print(f"{len(tokens)} units heard, real-time factor {rtf:.3f}, expected words {len(words)}")

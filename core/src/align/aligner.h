@@ -38,6 +38,8 @@ struct AlignParams {
     int add_inside_min = 3;
     int max_jump_words = 3;
     int pause_frames = 8;
+    int edge_free =
+        0;  // leading / trailing expected units (at most 1/3 of a word) that may be missing at no cost
 };
 
 struct AlignEvent {

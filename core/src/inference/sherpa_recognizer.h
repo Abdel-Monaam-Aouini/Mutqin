@@ -15,7 +15,10 @@ namespace mutqin {
 struct SherpaConfig {
     std::string model;      // streaming Zipformer2 CTC ONNX file
     std::string tokens;     // the model's tokens.txt
-    std::string token_map;  // lines "<model unit><TAB><our symbols separated by spaces>"
+    std::string token_map;  // optional: lines "<model unit><TAB><our symbols separated by spaces>"
+    std::string
+        units;  // optional: expected-units table (units.h); then the model's units are used as they are
+    int collapse_runs = 0;  // cut runs of the same character in heard units to this length (0 = off)
     int threads = 1;
 };
 
@@ -25,7 +28,8 @@ using TokenMap = std::map<std::string, std::vector<std::string>>;
 // Parses a token map; every symbol must be in the phoneme inventory. Sets *error on failure.
 bool ParseTokenMap(const std::string& text, TokenMap* out, std::string* error);
 
-// Reads "key=value" lines (model, tokens, token_map, threads), paths relative to the file's folder.
+// Reads "key=value" lines (model, tokens, token_map, units, collapse_runs, threads); paths are relative
+// to the file's folder. One of token_map= or units= is required.
 bool ReadModelManifest(const std::string& path, SherpaConfig* out, std::string* error);
 
 #ifdef MUTQIN_HAVE_SHERPA

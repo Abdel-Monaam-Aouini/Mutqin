@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 
+#include "inference/units.h"
 #include "tajweed/inventory.h"
 
 #ifdef MUTQIN_HAVE_SHERPA
@@ -73,6 +74,10 @@ bool ReadModelManifest(const std::string& path, SherpaConfig* out, std::string* 
             out->tokens = resolve(value);
         else if (key == "token_map")
             out->token_map = resolve(value);
+        else if (key == "units")
+            out->units = resolve(value);
+        else if (key == "collapse_runs")
+            out->collapse_runs = std::max(0, std::atoi(value.c_str()));
         else if (key == "threads")
             out->threads = std::max(1, std::atoi(value.c_str()));
         else {
@@ -80,8 +85,8 @@ bool ReadModelManifest(const std::string& path, SherpaConfig* out, std::string* 
             return false;
         }
     }
-    if (out->model.empty() || out->tokens.empty() || out->token_map.empty()) {
-        *error = "manifest needs model=, tokens= and token_map=";
+    if (out->model.empty() || out->tokens.empty() || (out->token_map.empty() && out->units.empty())) {
+        *error = "manifest needs model=, tokens= and one of token_map= or units=";
         return false;
     }
     return true;
@@ -93,8 +98,13 @@ namespace {
 
 class SherpaRecognizer : public TokenRecognizer {
 public:
-    SherpaRecognizer(const SherpaOnnxOnlineRecognizer* recognizer, TokenMap map)
-        : recognizer_(recognizer), map_(std::move(map)), stream_(SherpaOnnxCreateOnlineStream(recognizer)) {}
+    // `identity`: the model's units are used as they are (no token map), cut by `collapse` if > 0.
+    SherpaRecognizer(const SherpaOnnxOnlineRecognizer* recognizer, TokenMap map, bool identity, int collapse)
+        : recognizer_(recognizer),
+          map_(std::move(map)),
+          identity_(identity),
+          collapse_(collapse),
+          stream_(SherpaOnnxCreateOnlineStream(recognizer)) {}
 
     ~SherpaRecognizer() override {
         SherpaOnnxDestroyOnlineStream(stream_);
@@ -121,15 +131,24 @@ private:
         tokens->clear();
         if (r != nullptr) {
             for (int32_t i = 0; i < r->count; ++i) {
-                const auto it = map_.find(r->tokens_arr[i]);
-                if (it == map_.end())
-                    continue;
+                std::vector<std::string> symbols;
+                if (identity_) {
+                    const std::string unit = CollapseRuns(r->tokens_arr[i], collapse_);
+                    if (unit.empty() || unit[0] == '<')
+                        continue;  // blank and other markers
+                    symbols.push_back(unit);
+                } else {
+                    const auto it = map_.find(r->tokens_arr[i]);
+                    if (it == map_.end())
+                        continue;
+                    symbols = it->second;
+                }
                 // timestamps are seconds; the model's output step is 40 ms = 4 frames of 10 ms
                 const int start = r->timestamps != nullptr
                                       ? static_cast<int>(r->timestamps[i] * 100.0f + 0.5f)
                                       : static_cast<int>(i) * 4;
                 int offset = 0;
-                for (const std::string& symbol : it->second) {
+                for (const std::string& symbol : symbols) {
                     HeardToken t;
                     t.symbol = symbol;
                     t.confidence = 1.0;  // sherpa-onnx gives no per-token confidence
@@ -145,6 +164,8 @@ private:
 
     const SherpaOnnxOnlineRecognizer* recognizer_;
     TokenMap map_;
+    bool identity_;
+    int collapse_;
     const SherpaOnnxOnlineStream* stream_;
 };
 
@@ -161,14 +182,17 @@ bool ReadFile(const std::string& path, std::string* out) {
 }  // namespace
 
 std::unique_ptr<TokenRecognizer> CreateSherpaRecognizer(const SherpaConfig& config, std::string* error) {
-    std::string map_text;
-    if (!ReadFile(config.token_map, &map_text)) {
-        *error = "cannot read " + config.token_map;
-        return nullptr;
-    }
     TokenMap map;
-    if (!ParseTokenMap(map_text, &map, error))
-        return nullptr;
+    const bool identity = config.token_map.empty();
+    if (!identity) {
+        std::string map_text;
+        if (!ReadFile(config.token_map, &map_text)) {
+            *error = "cannot read " + config.token_map;
+            return nullptr;
+        }
+        if (!ParseTokenMap(map_text, &map, error))
+            return nullptr;
+    }
 
     SherpaOnnxOnlineRecognizerConfig c;
     std::memset(&c, 0, sizeof(c));
@@ -186,7 +210,7 @@ std::unique_ptr<TokenRecognizer> CreateSherpaRecognizer(const SherpaConfig& conf
         *error = "sherpa-onnx could not load the model " + config.model;
         return nullptr;
     }
-    return std::make_unique<SherpaRecognizer>(recognizer, std::move(map));
+    return std::make_unique<SherpaRecognizer>(recognizer, std::move(map), identity, config.collapse_runs);
 }
 
 #endif  // MUTQIN_HAVE_SHERPA

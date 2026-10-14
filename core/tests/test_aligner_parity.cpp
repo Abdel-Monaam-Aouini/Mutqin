@@ -51,6 +51,7 @@ TEST(AlignerParity, CppEqualsPython) {
         if (line.rfind("CASE ", 0) != 0)
             continue;
         const std::string id = line.substr(5);
+        AlignParams params;
         std::vector<WordReading> words;
         std::vector<HeardToken> heard;
         std::map<int, std::string> want_status;
@@ -58,7 +59,10 @@ TEST(AlignerParity, CppEqualsPython) {
         bool want_span = false;
         int want_first = 0, want_last = 0;
         while (std::getline(in, line) && line != "END") {
-            if (line.rfind("W: ", 0) == 0) {
+            if (line.rfind("P ", 0) == 0) {
+                std::istringstream ls(line.substr(2));
+                ls >> params.edge_free >> params.add_min_tokens;
+            } else if (line.rfind("W: ", 0) == 0) {
                 const std::vector<std::string> parts = Split(line.substr(3), '|');
                 ASSERT_EQ(parts.size(), 5u);
                 WordReading w;
@@ -93,18 +97,18 @@ TEST(AlignerParity, CppEqualsPython) {
                 want_events.push_back(e);
             }
         }
-        const AlignResult got = AlignTokens(heard, words);
+        const AlignResult got = AlignTokens(heard, words, params);
 
         // The streaming aligner must give the batch result at every prefix, also after the last
         // token was provisionally heard with a different confidence.
-        StreamingAligner streaming(words);
+        StreamingAligner streaming(words, params);
         for (size_t end = 3; end <= heard.size(); end += 11) {
             std::vector<HeardToken> prefix(heard.begin(), heard.begin() + static_cast<std::ptrdiff_t>(end));
             std::vector<HeardToken> provisional = prefix;
             provisional.back().confidence = 0.1;
             streaming.Update(provisional);
             const AlignResult stream = streaming.Update(prefix);
-            const AlignResult batch = AlignTokens(prefix, words);
+            const AlignResult batch = AlignTokens(prefix, words, params);
             ASSERT_EQ(stream.statuses, batch.statuses) << "case " << id << " prefix " << end;
             ASSERT_EQ(stream.events.size(), batch.events.size()) << "case " << id << " prefix " << end;
             for (size_t k = 0; k < batch.events.size(); ++k) {

@@ -16,9 +16,17 @@ python3 tools/prototype/make_posteriors.py /tmp/p.f32 --surah 1 --ayahs 1-7 --sc
 ./build/cli/mutqin-cli --surah 1 --ayah 1-7 --posteriors /tmp/p.f32   # replay: reports the skipped word
 ```
 
-Live microphone (`--mic [--seconds N]`) and `--wav FILE` need a recognition model (`--model mutqin_model.txt`),
-which is not chosen yet (candidates and results: `docs/EVAL_RESULTS.md`). The optional sherpa-onnx backend and
-the model manifest format are described in `docs/ARCHITECTURE.md` ("Recognition backends").
+With a recognition model, `--wav FILE` and the live microphone (`--mic [--seconds N]`) report mistakes:
+
+```
+python3 tools/zipformer/expected_units.py      # once, after downloading the model into models/zipformer_p-quran/
+cmake -S . -B build -DMUTQIN_WITH_SHERPA=ON -DSHERPA_ONNX_DIR=/path/to/sherpa-onnx-v1.13.8-...-shared-no-tts
+./build/cli/mutqin-cli --surah 5 --ayah 1-8 --model models/zipformer_p-quran/mutqin_model.txt --wav recitation.wav
+```
+
+The model is Muno459/zipformer_p-quran (gated, NPL-1.1: free apps only; not in this repository). The manifest
+format and the sherpa-onnx backend are described in `docs/ARCHITECTURE.md` ("Recognition backends"); results in
+`docs/EVAL_RESULTS.md`.
 
 ## Benchmarks
 
@@ -31,11 +39,12 @@ Desktop, Release build, one thread, AMD Ryzen 7 5800H. Real-time factor (RTF) = 
 | Energy VAD | 120 s in 1.6 ms | 0.00001 |
 | Aligner + detector, 167 s recitation (700+ words), pushed every 250 ms | 0.77 s total | 0.0046 |
 | same, pushed every 40 ms | 2.97 s total (0.7 ms per push) | 0.018 |
-| sherpa-onnx backend, public int8 streaming Zipformer CTC **test** model | 5.6 s of audio in 0.24 s | 0.04 |
+| sherpa-onnx + Quran phoneme Zipformer (int8, 4 threads), 49 min of audio | 90 s | 0.031 |
 
-The last row is a stand-in model, not our phoneme model, so the full-pipeline figure and the latency to a
-reported mistake are still open. Accuracy so far, on simulated recitations only, is in `docs/EVAL_RESULTS.md`:
-false alarms about 0.4% of words at 11% phoneme error rate, mistake recall 79-99% depending on the kind (skipped words best, added words worst; the target is 90%).
+Accuracy on a real correct recitation (49 minutes of surah 5, one reciter): 0.9% of words flagged and 2.5% events
+(wrong, skipped, repeated, added) against a 2% target; recall on mistakes injected into the real model output:
+skipped 100%, wrong 97%, repeated 99%, added 94%. One reciter, professional audio, synthetic mistakes: learners
+and other reciters are not measured yet. Details: `docs/EVAL_RESULTS.md`.
 Reproduce: `cmake -S . -B build-rel -DCMAKE_BUILD_TYPE=Release -DMUTQIN_BUILD_BENCH=ON && cmake --build build-rel`,
 then `./build-rel/mutqin_bench 120`.
 

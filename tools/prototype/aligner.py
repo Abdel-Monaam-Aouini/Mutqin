@@ -58,8 +58,9 @@ def edit_distance_wild(
 ) -> int:
     """Edit distance between the tokens heard for a word and its expected phonemes, where a
     low-confidence heard token matches anything (it may just be noise). Up to `edge_free` expected
-    units may be missing at the start and at the end for free (the neighbour word took them)."""
-    free = min(edge_free, len(expected))
+    units (at most a third of the word) may be missing at the start and at the end for free (the neighbour
+    word took them)."""
+    free = min(edge_free, len(expected) // 3)  # at most a third of a word may be missing at its edges
     prev = [0 if j <= free else j for j in range(len(expected) + 1)]
     for i, tok in enumerate(heard, 1):
         wild = tok.confidence < low_conf

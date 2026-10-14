@@ -2,7 +2,8 @@
 
 Usage: python3 -I tools/prototype/dump_align.py OUT_FILE DATA_DIR [--per-case N]
 Format (one token or word per line, floats as repr so they round-trip exactly):
-  CASE id / W n / W: cont|ctx0|ctx1|ctx2|ctx3 (symbols space separated) / T n / T: symbol conf start end
+  CASE id / P edge_free add_min_tokens / W n / W: cont|ctx0|ctx1|ctx2|ctx3 (symbols space separated)
+  / T n / T: symbol conf start end
   SPAN a b | SPAN none / S word status / E kind index conf / END
 """
 
@@ -11,6 +12,7 @@ from __future__ import annotations
 import argparse
 import random
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -31,7 +33,7 @@ def main() -> int:
     args = ap.parse_args()
     quran = load_quran(Path(args.data_dir))
     words = build_word_phonemes(quran)
-    params = Params()
+    profiles = (Params(), replace(Params(), edge_free=2, add_min_tokens=3))
     lines: list[str] = []
     case = 0
     for scenario in ("clean", *KINDS):
@@ -50,23 +52,24 @@ def main() -> int:
                     tokens, pause_after = render(utt, words)
                     heard = greedy_decode(simulate_frames(rng, tokens, per, pause_after, informative))
                     wps = [words[k] for k in expected]
-                    result = align_tokens(heard, wps, params)
-                    lines.append(f"CASE {case}")
-                    case += 1
-                    lines.append(f"W {len(wps)}")
-                    for wp in wps:
-                        lines.append("W: " + "|".join(" ".join(c) for c in (wp.cont, *wp.contexts)))
-                    lines.append(f"T {len(heard)}")
-                    for t in heard:
-                        lines.append(f"T: {t.symbol} {t.confidence!r} {t.start} {t.end}")
-                    lines.append(
-                        "SPAN " + ("none" if result.span is None else f"{result.span[0]} {result.span[1]}")
-                    )
-                    for w in sorted(result.statuses):
-                        lines.append(f"S {w} {result.statuses[w]}")
-                    for e in result.events:
-                        lines.append(f"E {e.kind} {e.index} {e.confidence!r}")
-                    lines.append("END")
+                    for params in profiles:  # the same input under both parameter profiles
+                        result = align_tokens(heard, wps, params)
+                        lines.append(f"CASE {case}")
+                        case += 1
+                        lines.append(f"P {params.edge_free} {params.add_min_tokens}")
+                        lines.append(f"W {len(wps)}")
+                        for wp in wps:
+                            lines.append("W: " + "|".join(" ".join(c) for c in (wp.cont, *wp.contexts)))
+                        lines.append(f"T {len(heard)}")
+                        for t in heard:
+                            lines.append(f"T: {t.symbol} {t.confidence!r} {t.start} {t.end}")
+                        span = "none" if result.span is None else f"{result.span[0]} {result.span[1]}"
+                        lines.append("SPAN " + span)
+                        for w in sorted(result.statuses):
+                            lines.append(f"S {w} {result.statuses[w]}")
+                        for e in result.events:
+                            lines.append(f"E {e.kind} {e.index} {e.confidence!r}")
+                        lines.append("END")
     Path(args.out).write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"wrote {case} cases to {args.out}")
     return 0

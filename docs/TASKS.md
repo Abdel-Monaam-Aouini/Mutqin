@@ -26,16 +26,16 @@ AI assistants: do one task at a time, run tests, then tick it here.
 - [x] 1.12 C++ port + full-Quran equality test with Python (phonemizer ported to core/src/tajweed; tools such as report, validate and show stay in Python)
 
 ## Phase 2 — Desktop prototype
-- [ ] 2.1 Evaluate 2–3 candidate CTC models on EveryAyah subset; pick one
+- [x] 2.1 Evaluate 2–3 candidate CTC models on EveryAyah subset; pick one — Zipformer chosen (Whisper 10.2% word errors, wav2vec2 word clips only); 1.8% flagged words untuned on 49 min of correct recitation
 - [x] 2.2 Synthetic error generator (text-side and audio-side)
-- [ ] 2.3 Streaming pipeline: VAD → model → posteriors
-- [ ] 2.4 Incremental aligner with re-anchoring — streaming aligner with incremental DP done in C++ (equal to batch at every prefix); re-anchoring by skip/repeat jump arcs; tuning on real model output pending
-- [ ] 2.5 Word error detector + confidence thresholds
+- [x] 2.3 Streaming pipeline: VAD → model → posteriors — sherpa-onnx streaming backend, real-time factor about 0.03
+- [x] 2.4 Incremental aligner with re-anchoring — incremental aligner in C++; re-anchoring by skip/repeat arcs; tuned on real output
+- [x] 2.5 Word error detector + confidence thresholds — tuned on one reciter: 0.9% flagged words and 2.5% events on a correct recitation, recall 94-100%; no per-token confidences from sherpa-onnx; more reciters and learners pending
 - [x] 2.6 Evaluation script + first results in EVAL_RESULTS.md
 
 ## Phase 3 — C++ core + mutqin-cli
 - [x] 3.1 C++ audio ring buffer, VAD, features — ring buffer, log-mel (80 bins, 25/10 ms) and energy VAD done; Silero VAD and exact model feature settings follow with task 2.1
-- [ ] 3.2 sherpa-onnx integration in core — backend written and plumbing-tested with a public streaming CTC model (RTF 0.04); needs the real phoneme model and its token map
+- [x] 3.2 sherpa-onnx integration in core — sherpa-onnx backend with the real Zipformer through the C API (model-native units); CI runs it with a public test model
 - [x] 3.3 Port aligner + detector to C++, with Python-vs-C++ parity test — 180 generated cases match the Python prototype
 - [ ] 3.4 C API (`mq_`) + tests — expected phonemes, posteriors in, word statuses and events out are done and tested; only the inference backend and live audio are missing
 - [ ] 3.5 (DEFERRED to Phase 3b) Android demo app (Oboe + JNI)
@@ -47,7 +47,7 @@ AI assistants: do one task at a time, run tests, then tick it here.
   add a memory loader); sherpa-onnx mobile builds (check they work with our backend); measure speed, memory
   and battery on a phone
 - [ ] 3.7 Desktop benchmarks (RTF, latency); phone benchmarks deferred to Phase 3b — front end, aligner and a stand-in model measured on desktop (docs/EVAL_RESULTS.md); the real model and latency to an event are pending
-- [ ] 3.8 `mutqin-cli`: WAV (16 kHz mono) and live microphone input, surah + ayah range, prints events and mistakes — expected phonemes, WAV reader, live microphone (--mic) and posterior replay done; analysing audio needs a model
+- [x] 3.8 `mutqin-cli`: WAV (16 kHz mono) and live microphone input, surah + ayah range, prints events and mistakes — expected phonemes, WAV, live microphone (--mic), posterior replay, --model for the real model
 
 ## Phase 4–6
 Tasks will be broken down when Phase 3 is done.

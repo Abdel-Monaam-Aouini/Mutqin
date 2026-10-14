@@ -30,12 +30,15 @@ struct Interner {
     }
 };
 
-// Edit distance where a low-confidence heard token matches anything.
+// Edit distance where a low-confidence heard token matches anything. Up to `edge_free` expected
+// units may be missing at the start and at the end for free (the neighbouring word took them).
 int EditDistanceWild(const std::vector<int>& heard, const std::vector<char>& wild,
-                     const std::vector<int>& expected) {
+                     const std::vector<int>& expected, int edge_free) {
+    // at most a third of the word may be missing at its edges
+    const int free_units = std::min(edge_free, static_cast<int>(expected.size()) / 3);
     std::vector<int> prev(expected.size() + 1), cur(expected.size() + 1);
     for (size_t j = 0; j <= expected.size(); ++j)
-        prev[j] = static_cast<int>(j);
+        prev[j] = static_cast<int>(j) <= free_units ? 0 : static_cast<int>(j);
     for (size_t i = 1; i <= heard.size(); ++i) {
         cur[0] = static_cast<int>(i);
         for (size_t j = 1; j <= expected.size(); ++j) {
@@ -44,7 +47,10 @@ int EditDistanceWild(const std::vector<int>& heard, const std::vector<char>& wil
         }
         prev = cur;
     }
-    return prev.back();
+    int best = prev[expected.size()];
+    for (int t = 1; t <= free_units; ++t)
+        best = std::min(best, prev[expected.size() - static_cast<size_t>(t)]);
+    return best;
 }
 
 int LcsWild(const std::vector<int>& heard, const std::vector<char>& wild, const std::vector<int>& expected) {
@@ -373,7 +379,7 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
             std::vector<int> alt_sym;
             for (const std::string& s : alt)
                 alt_sym.push_back(interner.Id(s));
-            const int d = EditDistanceWild(word_sym, word_low, alt_sym);
+            const int d = EditDistanceWild(word_sym, word_low, alt_sym, params.edge_free);
             if (!have || d < best_dist || (d == best_dist && alt.size() < best_len)) {
                 have = true;
                 best_dist = d;
