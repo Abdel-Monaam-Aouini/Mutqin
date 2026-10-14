@@ -5,7 +5,7 @@
 before any rule ships. Sources to verify against: Tuhfat al-Atfal, al-Muqaddimah
 al-Jazariyyah, and a color-coded tajweed mushaf.
 
-AI assistants: implement only what is written here. Unknown or unclear cases go to
+Implement only what is written here. Unknown or unclear cases go to
 "Open questions" at the bottom. Never guess.
 
 ## 1. Input and output

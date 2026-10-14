@@ -1,0 +1,21 @@
+Mutqin
+Copyright 2026 AbdelMonaam Aouini
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Third-party material (details and licenses in docs/LICENSES.md):
+
+- Quran text: Tanzil (https://tanzil.net), Creative Commons Attribution 3.0 plus the Tanzil Terms of Use.
+  Not included in this repository; downloaded by tools/quran_text/download.py after accepting the terms.
+- sherpa-onnx (Apache-2.0, k2-fsa) and ONNX Runtime (MIT): optional recognition backend, downloaded by
+  the developer, not included.
+- miniaudio (public domain / MIT-0, David Reid): live microphone capture in the command-line tool,
+  downloaded at build time, not included.
+- GoogleTest (BSD-3-Clause): tests only, downloaded at build time, not included.
+- Quran phoneme Zipformer by Muno459 / Quran-Lab (https://huggingface.co/Muno459/zipformer_p-quran),
+  Quran-Lab No-Profit License 1.1 (NPL-1.1; the unmodified text is in licenses/NPL-1.1-zipformer.txt): NOT
+  part of this repository and NOT covered by the Apache License. It is gated and may only be used, and its outputs redistributed, in applications that are free to
+  end users (no sale, subscription, paywall or advertising). An application that bundles or uses it must meet
+  those terms; the Apache License of this code does not change them.
+  Files produced from the model, such as the expected-units table written by tools/zipformer/expected_units.py,
+  are Derivatives under section 7 of that license and must stay under it; they are never committed here.

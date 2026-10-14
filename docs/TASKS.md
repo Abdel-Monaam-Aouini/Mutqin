@@ -1,6 +1,6 @@
 # Task Checklist
 
-AI assistants: do one task at a time, run tests, then tick it here.
+Work one task at a time, run the tests, then tick it here.
 
 ## Phase 0 — Foundation
 - [x] 0.1 Create folder layout from ARCHITECTURE.md (incl. `cli/`, placeholder `android/` and `ios/`), `.gitignore`, `.editorconfig`
