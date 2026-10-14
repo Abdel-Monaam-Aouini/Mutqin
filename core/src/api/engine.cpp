@@ -4,6 +4,7 @@
 #include <cstring>
 #include <exception>
 #include <map>
+#include <mutex>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -38,6 +39,7 @@ struct mq_session {
     bool streaming = false;                        // audio is being pushed and not finished yet
     std::unique_ptr<mutqin::Resampler> resampler;  // null at 16 kHz
     std::vector<float> converted;                  // resampled audio of the current push
+    mutable std::mutex mutex;                      // serialises the calls on this session
 };
 
 namespace mutqin {
@@ -69,6 +71,20 @@ std::string Join(const std::vector<std::string>& parts) {
     return out;
 }
 
+}  // namespace
+
+namespace {
+// Every public call on a session holds its lock, so one thread can push audio while another polls events.
+class SessionLock {
+public:
+    explicit SessionLock(const mq_session* session) {
+        if (session != nullptr)
+            lock_ = std::unique_lock<std::mutex>(session->mutex);
+    }
+
+private:
+    std::unique_lock<std::mutex> lock_;
+};
 }  // namespace
 
 namespace {
@@ -212,10 +228,12 @@ void mq_session_destroy(mq_session* session) {
 }
 
 size_t mq_session_phoneme_count(const mq_session* session) {
+    SessionLock lock(session);
     return session == nullptr ? 0 : session->result.items.size();
 }
 
 int mq_session_phoneme(const mq_session* session, size_t index, mq_phoneme* out) {
+    SessionLock lock(session);
     if (session == nullptr || out == nullptr || index >= session->result.items.size())
         return MQ_ERR_ARGUMENT;
     const mutqin::PhonemeItem& item = session->result.items[index];
@@ -260,6 +278,7 @@ bool Realign(mq_session* session, const float* probs, size_t num_frames) {
 }  // namespace
 
 int mq_session_push_posteriors(mq_session* session, const float* probs, size_t num_frames) {
+    SessionLock lock(session);
     if (session == nullptr || (probs == nullptr && num_frames > 0))
         return MQ_ERR_ARGUMENT;
     try {
@@ -270,6 +289,7 @@ int mq_session_push_posteriors(mq_session* session, const float* probs, size_t n
 }
 
 int mq_session_set_input_rate(mq_session* session, int sample_rate_hz) {
+    SessionLock lock(session);
     if (session == nullptr || sample_rate_hz < 8000 || sample_rate_hz > 192000)
         return MQ_ERR_ARGUMENT;
     try {
@@ -284,6 +304,7 @@ int mq_session_set_input_rate(mq_session* session, int sample_rate_hz) {
 }
 
 int mq_session_push_audio(mq_session* session, const float* samples, size_t num_samples) {
+    SessionLock lock(session);
     if (session == nullptr || (samples == nullptr && num_samples > 0))
         return MQ_ERR_ARGUMENT;
     if (session->resampler) {
@@ -321,6 +342,7 @@ int mq_session_push_audio(mq_session* session, const float* samples, size_t num_
 }
 
 int mq_session_finish_audio(mq_session* session) {
+    SessionLock lock(session);
     if (session == nullptr)
         return MQ_ERR_ARGUMENT;
     if (!session->recognizer) {
@@ -338,6 +360,7 @@ int mq_session_finish_audio(mq_session* session) {
 }
 
 int mq_session_load_model(mq_session* session, const char* manifest_path, char* err, size_t err_len) {
+    SessionLock lock(session);
     if (session == nullptr || manifest_path == nullptr)
         return MQ_ERR_ARGUMENT;
 #ifdef MUTQIN_HAVE_SHERPA
@@ -413,6 +436,7 @@ int mq_session_load_model(mq_session* session, const char* manifest_path, char* 
 }
 
 int mq_session_item(const mq_session* session, size_t item_index, mq_item* out) {
+    SessionLock lock(session);
     if (session == nullptr || out == nullptr || item_index >= session->words.size())
         return MQ_ERR_ARGUMENT;
     const mutqin::WordRef& w = session->words[item_index];
@@ -424,12 +448,14 @@ int mq_session_item(const mq_session* session, size_t item_index, mq_item* out) 
 }
 
 int mq_session_position(const mq_session* session) {
+    SessionLock lock(session);
     if (session == nullptr || !session->aligned.has_span)
         return -1;
     return session->aligned.span_last;
 }
 
 int mq_session_reset(mq_session* session) {
+    SessionLock lock(session);
     if (session == nullptr)
         return MQ_ERR_ARGUMENT;
     try {
@@ -452,10 +478,12 @@ int mq_session_reset(mq_session* session) {
 }
 
 size_t mq_session_word_count(const mq_session* session) {
+    SessionLock lock(session);
     return session == nullptr ? 0 : session->words.size();
 }
 
 int mq_session_word_status(const mq_session* session, size_t word_index) {
+    SessionLock lock(session);
     if (session == nullptr || word_index >= session->words.size())
         return -1;
     const auto it = session->aligned.statuses.find(static_cast<int>(word_index));
@@ -469,10 +497,12 @@ int mq_session_word_status(const mq_session* session, size_t word_index) {
 }
 
 size_t mq_session_event_count(const mq_session* session) {
+    SessionLock lock(session);
     return session == nullptr ? 0 : VisibleEvents(session).size();
 }
 
 int mq_session_event(const mq_session* session, size_t index, mq_event* out) {
+    SessionLock lock(session);
     if (session == nullptr || out == nullptr)
         return MQ_ERR_ARGUMENT;
     const std::vector<size_t> visible = VisibleEvents(session);

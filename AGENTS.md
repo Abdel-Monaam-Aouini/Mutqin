@@ -100,9 +100,9 @@ C++ namespace **`mutqin`**.
 - Plain C API, `int` return codes, error text in a caller buffer, no exceptions across the boundary,
   opaque handles. **ABI-stable structs: add fields only at the end.** Document every new function in
   `core/include/mutqin.h` and `docs/ARCHITECTURE.md`.
-- **Threading contract:** one session is used by one thread at a time; an engine is read-only and may be
-  shared; push audio from a worker thread, never from a real-time audio callback; the core starts no
-  threads. **Memory is bounded** (`MQ_MAX_EXPECTED_PHONEMES`, the heard-phoneme cap, `MQ_ERR_LIMIT`).
+- **Threading contract:** calls on one session are serialised by a lock inside the core (push on one thread,
+  poll on another is fine); an engine is read-only and may be shared; push audio from a worker thread,
+  never from a real-time audio callback; the core starts no threads. **Memory is bounded** (`MQ_MAX_EXPECTED_PHONEMES`, the heard-phoneme cap, `MQ_ERR_LIMIT`).
 - Recognition backends sit behind `AcousticModel` / `TokenRecognizer`. The sherpa-onnx backend
   (`MUTQIN_WITH_SHERPA`) and the CLI microphone (`MUTQIN_CLI_MIC`) stay **optional**: the default build and
   CI must pass without any model.

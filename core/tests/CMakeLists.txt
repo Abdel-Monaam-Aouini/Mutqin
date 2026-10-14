@@ -14,7 +14,8 @@ add_executable(mutqin_tests
 )
 target_include_directories(mutqin_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 target_compile_definitions(mutqin_tests PRIVATE MUTQIN_DATA_DIR="${MUTQIN_DATA_DIR}")
-target_link_libraries(mutqin_tests PRIVATE Mutqin::Core GTest::gtest_main)
+find_package(Threads REQUIRED)
+target_link_libraries(mutqin_tests PRIVATE Mutqin::Core GTest::gtest_main Threads::Threads)
 gtest_discover_tests(mutqin_tests)
 
 # C++ loader vs Python reference loader (needs data/quran/ and a Python interpreter).

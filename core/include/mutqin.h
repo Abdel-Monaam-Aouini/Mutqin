@@ -64,12 +64,14 @@ typedef struct mq_phoneme {
 } mq_phoneme;
 
 /* Threading contract
- *  - A session is not thread-safe: call all functions of one session from one thread at a time
- *    (any thread, but never concurrently). Different sessions are independent.
- *  - An engine is read-only after creation and may be shared by sessions on different threads.
- *  - mq_session_push_audio / push_posteriors allocate memory and run the aligner: call them from a
- *    worker thread, never from a real-time audio callback. Copy the callback's samples into your own
- *    queue and push from the worker. The core starts no threads of its own.
+ *  - Calls on one session are serialised inside (one lock per session): one thread may push audio while
+ *    another polls events, the position or word statuses. Different sessions are independent.
+ *  - An engine is read-only after creation and may be shared by sessions on different threads. Do not
+ *    destroy an engine or a session while another thread still uses it.
+ *  - mq_session_push_audio / push_posteriors allocate memory, take that lock and run the aligner for a few
+ *    milliseconds: call them from a worker thread, never from a real-time audio callback. Copy the
+ *    callback's samples into your own queue and push from the worker. A poll from the UI thread waits at
+ *    most for the push in progress. The core starts no threads of its own.
  *
  * Limits (memory is bounded so a phone cannot run out of it)
  *  - A range may have at most MQ_MAX_EXPECTED_PHONEMES expected phonemes (about 900 words, more than

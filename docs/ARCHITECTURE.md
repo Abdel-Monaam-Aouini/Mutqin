@@ -155,11 +155,12 @@ repository (`models/`, gated, NPL-1.1: free apps only).
 
 Written in `core/include/mutqin.h` and repeated here:
 
-- One session = one thread at a time (any thread, never concurrently); sessions are independent;
-  an engine is read-only and can be shared across sessions and threads.
-- `mq_session_push_audio` / `push_posteriors` allocate memory and run the aligner. Call them from a
-  **worker thread**, never from the platform's real-time audio callback (copy samples into your own
-  queue there). The core starts no threads.
+- Calls on one session are serialised by a lock inside the core, so one thread can push audio while another
+  polls events, the position or word statuses (a `ThreadSanitizer` run of the test confirms it; without the
+  lock it reports data races). Sessions are independent; an engine is read-only and can be shared.
+- `mq_session_push_audio` / `push_posteriors` allocate memory, take the session lock and run the aligner
+  for a few milliseconds. Call them from a **worker thread**, never from the platform's real-time audio
+  callback (copy samples into your own queue there). The core starts no threads.
 - Memory is bounded: a range may have at most `MQ_MAX_EXPECTED_PHONEMES` (5000, about 900 words) and a
   session accepts at most 2 x expected + 500 heard phonemes, then returns `MQ_ERR_LIMIT`. The aligner
   keeps one byte per cell plus a few cost rows; the 700-word test session peaks at about 25 MB above

@@ -386,3 +386,69 @@ TEST(SessionPosition, ItemsPositionAndReset) {
     EXPECT_EQ(mq_session_position(f.session), 9);  // a new attempt behaves like the first
     EXPECT_EQ(mq_session_reset(nullptr), MQ_ERR_ARGUMENT);
 }
+
+#include <atomic>
+#include <thread>
+
+TEST(SessionThreads, OnePushesWhileAnotherPollsAndTheResultIsTheSame) {
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    std::vector<size_t> order = AllWords(f.words.size());
+    order.erase(order.begin() + 8);  // one skipped word
+    const std::vector<float> rows = f.Speak(order);
+    const size_t frames = rows.size() / MQ_VOCAB_SIZE;
+    SetSessionModel(f.session, std::make_unique<ScriptedModel>(rows));
+    const std::vector<float> audio((frames * 4 + 2) * 160 + 400, 0.01f);
+
+    std::atomic<bool> done{false};
+    std::atomic<long> polls{0};
+    std::thread poller([&] {
+        while (!done) {
+            const size_t count = mq_session_event_count(f.session);
+            for (size_t i = 0; i < count; ++i) {
+                mq_event e{};
+                (void)mq_session_event(f.session, i,
+                                       &e);  // may race with a push: only the lock keeps it valid
+            }
+            (void)mq_session_position(f.session);
+            (void)mq_session_word_status(f.session, 3);
+            ++polls;
+        }
+    });
+    for (size_t at = 0; at < audio.size(); at += 160)
+        ASSERT_EQ(
+            mq_session_push_audio(f.session, audio.data() + at, std::min<size_t>(160, audio.size() - at)),
+            MQ_OK);
+    ASSERT_EQ(mq_session_finish_audio(f.session), MQ_OK);
+    done = true;
+    poller.join();
+    EXPECT_GT(polls.load(), 0);
+
+    ASSERT_EQ(mq_session_event_count(f.session), 1u);
+    mq_event e{};
+    ASSERT_EQ(mq_session_event(f.session, 0, &e), MQ_OK);
+    EXPECT_EQ(e.kind, MQ_EVENT_SKIPPED);
+    EXPECT_EQ(e.word_index, 8u);
+}
+
+TEST(SessionThreads, TwoSessionsOfOneEngineRunOnTwoThreads) {
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    char err[256];
+    mq_session* other = nullptr;
+    ASSERT_EQ(mq_session_create(f.engine, 1, 1, 7, &other, err, sizeof err), MQ_OK) << err;
+    const std::vector<float> rows = f.Speak(AllWords(f.words.size()));
+    const size_t n = rows.size() / MQ_VOCAB_SIZE;
+    int rc_a = -1, rc_b = -1;
+    std::thread a([&] { rc_a = mq_session_push_posteriors(f.session, rows.data(), n); });
+    std::thread b([&] { rc_b = mq_session_push_posteriors(other, rows.data(), n); });
+    a.join();
+    b.join();
+    EXPECT_EQ(rc_a, MQ_OK);
+    EXPECT_EQ(rc_b, MQ_OK);
+    EXPECT_EQ(mq_session_event_count(f.session), 0u);
+    EXPECT_EQ(mq_session_event_count(other), 0u);
+    mq_session_destroy(other);
+}
