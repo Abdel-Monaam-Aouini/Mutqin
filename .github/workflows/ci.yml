@@ -242,7 +242,7 @@ jobs:
       - name: Android SDK components (platform, NDK, CMake)
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "ndk;${NDK_VERSION}" "cmake;3.22.1"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "ndk;${NDK_VERSION}" "cmake;3.22.1"
       - name: sherpa-onnx Android libraries (checksum-verified)
         run: android/scripts/fetch_sherpa.sh
       - name: Restore Quran text cache
