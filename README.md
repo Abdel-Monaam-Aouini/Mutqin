@@ -110,7 +110,8 @@ Events look like `[ 12.3 s] skipped 1:2:3` (surah 1, ayah 2, word 3). Convert re
 | `cli/` | `mutqin-cli`, a thin client of the C API (WAV, microphone, replay) |
 | `tools/` | Python: Quran text download and verification, the reference rule engine, evaluation and tuning tools |
 | `docs/` | plan, architecture, tajweed specification, evaluation results, licenses, task list |
-| `android/`, `ios/` | placeholders for the future mobile apps |
+| `android/` | the Android app (Kotlin, Compose, JNI over the core); see `android/README.md` |
+| `ios/` | placeholder for the future iOS app |
 
 | Document | Purpose |
 |---|---|

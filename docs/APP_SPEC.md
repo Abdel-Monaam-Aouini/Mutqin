@@ -208,7 +208,7 @@ Minimum Android 5.0 (API 21) and iOS 13; target the latest stable releases. What
 |---|---|---|
 | 1 | UI technology | **Native**: Jetpack Compose on Android, SwiftUI on iOS, over the shared C++ core |
 | 2 | Name, icon, branding | proposal in section 11; store accounts to be created by the owner |
-| 3 | Minimum OS | **Old phones are supported** (owner, 2026-10-14): Android 5.0 (API 21) and iOS 13, the lowest that sherpa-onnx's own Android demos (`minSdk 21`) and iOS build (deployment target 13.0), Jetpack Compose (API 21) and SwiftUI (iOS 13) allow. Raised only if tests on old devices show a problem (section 9a). Phones first; tablets work through adaptive layouts |
+| 3 | Minimum OS | **Old phones are supported** (owner, 2026-10-14): Android 5.0 (API 21) and iOS 13, the lowest that sherpa-onnx's own Android demos (`minSdk 21`) and iOS build (deployment target 13.0), Jetpack Compose (API 21) and SwiftUI (iOS 13) allow. Raised only if tests on old devices show a problem (section 9a). The Android app pins Compose 1.8 (BOM 2025.07.00) because Compose 1.9 and later need API 23. Phones first; tablets work through adaptive layouts |
 | 4 | UI languages | **Localization from the start** (section 10); English and Arabic first, others as language files later |
 | 5 | Look of the marks | left to the project: **professional, few colors**, shapes instead of colors (section 5) |
 | 6 | Quran script and font | **Uthmani script** (the Tanzil Uthmani text). Font candidates, both under the SIL Open Font License 1.1 (checked on GitHub): Amiri (Quran variant) and Scheherazade New. The final choice needs a rendering test on a device with the real text, including the small high marks, and the font's license text goes into the app's licenses screen |

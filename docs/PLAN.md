@@ -11,7 +11,7 @@ previous one meets its acceptance criteria.
 | 1 Rule engine | done in Python and C++ (identical over the whole Quran); teacher review of the rules still open |
 | 2 Word-level prototype | done with the real model (Muno459/zipformer_p-quran); latency target not met, see "Open decisions" |
 | 3 C++ core + CLI | done: C API, CLI with WAV, microphone and replay, sherpa-onnx backend, packaging; needs the gated model for real audio |
-| 3b Mobile apps | not started; core side prepared, app specification drafted (`APP_SPEC.md`) |
+| 3b Mobile apps | Android prototype running on a phone (setup, live recitation with marks, result, exact error screen; `android/README.md`); hifz mode, history, settings, model download, iOS still to do |
 | 4 Harakat / letter level | not started |
 | 5 Tajweed | not started |
 | 6 Review, beta, release | not started; the repository is being prepared for a public release |

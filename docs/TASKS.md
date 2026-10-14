@@ -38,7 +38,7 @@ Work one task at a time, run the tests, then tick it here.
 - [x] 3.2 sherpa-onnx integration in core — sherpa-onnx backend with the real Zipformer through the C API (model-native units); CI runs it with a public test model
 - [x] 3.3 Port aligner + detector to C++, with Python-vs-C++ parity test — 180 generated cases match the Python prototype
 - [ ] 3.4 C API (`mq_`) + tests — expected phonemes, posteriors in, word statuses and events out are done and tested; only the inference backend and live audio are missing
-- [ ] 3.5 (DEFERRED to Phase 3b) Android demo app (Oboe + JNI)
+- [ ] 3.5 (Phase 3b) Android demo app (Oboe + JNI) — first prototype done in `android/` (Compose, `AudioRecord`, JNI; runs on a Galaxy A15, release build 21.2 MB with R8); hifz mode, history, settings, model download and old-device tests open
 - [ ] 3.6 (DEFERRED to Phase 3b) iOS demo app (AVAudioEngine + Swift bridge)
 - [ ] 3.5a (DEFERRED, first step of Phase 3b) Mobile readiness of the core, before any app code.
   Done: the core cross-compiles for Android with NDK r27.1 (arm64-v8a 0.64 MB and armeabi-v7a 0.39 MB stripped,

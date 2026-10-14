@@ -1,0 +1,3 @@
+# Copy to local.properties (not committed) and set the paths for your machine
+sdk.dir=/home/you/Android/Sdk
+java.home=/usr/lib/jvm/java-21-openjdk-amd64

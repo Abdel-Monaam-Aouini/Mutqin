@@ -54,8 +54,9 @@ C++ namespace **`mutqin`**.
   Swift bindings can be added later without changing the core).
 - `mutqin-cli` is a thin client of the C API: reads a WAV (any rate, resampled inside the core) or live
   microphone input, plus a surah and ayah range, and prints detected events and mistakes.
-- Android (Kotlin, JNI, Oboe) and iOS (Swift, AVAudioEngine) are **deferred**. Do not create
-  code in `android/` or `ios/` until told.
+- The Android app lives in `android/` (Kotlin, Jetpack Compose, JNI over the C API; started by the owner on 2026-10-14,
+  decisions in `docs/APP_SPEC.md`, how to build in `android/README.md`). iOS (Swift, AVAudioEngine) is still **deferred**:
+  do not create code in `ios/` until told. Keep `minSdk 21` and the pinned Compose 1.8 versions unless the owner agrees to raise them.
 - Inference: **sherpa-onnx / ONNX Runtime** (int8 quantized models). No network calls at
   runtime; everything works offline.
 - Python is used only in `tools/` (data prep, training, evaluation, reference phonemizer).

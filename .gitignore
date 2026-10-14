@@ -38,3 +38,18 @@ Thumbs.db
 
 # Claude Code local-only settings
 .claude/settings.local.json
+
+# Android app: build output, local settings, downloaded libraries and the (licensed) Quran text copied into assets
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/local.properties
+android/app/sherpa/
+android/app/src/main/assets/quran/
+*.apk
+*.aab
+android/app/.cxx/
+android/.idea/
+android/**/*.iml
+android/captures/

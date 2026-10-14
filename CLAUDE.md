@@ -5,8 +5,8 @@ Read and follow `AGENTS.md` (rules) and the relevant file in `docs/` before ever
 
 ## Current scope: C++ core + CLI only (a real model already works end to end)
 - Build only `core/` (library **MutqinCore**, C++17) and `cli/` (**mutqin-cli**), plus Python in `tools/`.
-- `android/` and `ios/` exist as **placeholders only**. Write no Kotlin, Swift, JNI, Oboe, or
-  AVAudioEngine code and add no files there except their README until the user says so.
+- `android/` holds the Android app (Kotlin, Compose, JNI; see `android/README.md` and `docs/APP_SPEC.md`). `ios/` is a
+  **placeholder only**: write no Swift or AVAudioEngine code there until the user says so.
 - No platform-specific code in `core/`. Must build on Linux, macOS, Windows.
 - Naming: C API prefix `mq_`, header `core/include/mutqin.h`, C++ namespace `mutqin`.
 
