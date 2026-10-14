@@ -2,3 +2,4 @@
 -r requirements.txt
 torch>=2.5          # BSD-3-Clause: use the CPU or CUDA build that fits the machine
 soundfile>=0.12     # BSD-3-Clause: read WAV files
+sherpa-onnx>=1.13   # Apache-2.0: runs the streaming Zipformer in tools/prototype/zipformer_eval.py

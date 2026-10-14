@@ -138,3 +138,24 @@ Reading: the front end and the aligner cost almost nothing next to a model; even
 Zipformer from the candidate list is 65M parameters, similar in size to this one), so the model
 row is indicative only; the real figure and the latency to a reported mistake need the real model.
 Phone benchmarks are deferred to Phase 3b.
+
+## Real model: Muno459/zipformer_p-quran (task 2.1, third candidate, first run 2026-10-14)
+
+Streaming Zipformer2 CTC, 65.5M parameters, int8 ONNX (73 MB), run through sherpa-onnx (greedy). Its output
+is 250 phoneme units; the aligner here compares the units heard against the model's own canonical
+phonemes of each word (`ordered_quran_phonemes.json`, shipped with the model), unchanged aligner and
+default parameters (`tools/prototype/zipformer_eval.py`). The recording is a professional, correct
+recitation of surah 5 (49 minutes, 120 ayahs, 2,444 words judged), so every flagged word is a false alarm.
+
+| Measure | Result |
+|---|---|
+| Flagged words (wrong or skipped) on correct recitation | **44 of 2,444 = 1.8%** (first 10 minutes: 4 of 487 = 0.8%); target < 2% |
+| All events including repeated / added | 83 (3.4% of words): 34 wrong, 30 repeated, 10 skipped, 9 added |
+| Speed (4 threads, dev CPU) | real-time factor 0.031 (49 min in 90 s) |
+| For comparison, Whisper base on the same file | 10.2% word errors |
+
+What the flags look like: most are the **first word of an ayah** where the first one or two units are
+missing or attached to the previous word (expected `يَ اااا ءَ ييُ هَ`, heard `ييُ هَ`), plus a few real
+recognition errors. Not yet measured: recall on injected mistakes, other reciters, learners' recitation,
+phone microphones. The reciter's madd lengths differ from the model's fixed canonical lengths (4 counts),
+so long-vowel units can differ by length without being a mistake.
