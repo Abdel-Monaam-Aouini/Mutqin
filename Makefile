@@ -5,6 +5,7 @@
 #   WAV           a 16 kHz mono recording for `make check-wav`
 #   SECONDS       length of `make record`
 #   SHERPA_DIR    where `make sherpa` puts sherpa-onnx (default ~/sherpa-onnx)
+#   LEVEL         strictness: relaxed | standard | strict (default standard)
 #   MODEL         the model manifest (default models/zipformer_p-quran/mutqin_model.txt)
 
 SURAH      ?= 1
@@ -15,6 +16,7 @@ SHERPA_VER ?= v1.13.8
 SHERPA_DIR ?= $(HOME)/sherpa-onnx
 SHERPA_PKG := sherpa-onnx-$(SHERPA_VER)-linux-x64-shared-no-tts
 SHERPA_SHA := d0f96c8b65c6cd0974fada22737e337de81bc8cd2abbec2e39caf358b1eec5fc
+LEVEL      ?= standard
 MODEL      ?= models/zipformer_p-quran/mutqin_model.txt
 LIVE_CLI   := build-live/cli/mutqin-cli
 VENV       ?= .venv
@@ -113,10 +115,10 @@ $(LIVE_CLI):
 	$(MAKE) build-live
 
 live: model-check $(LIVE_CLI) ## recite into the microphone and see events as they appear (Ctrl-C to stop)
-	$(LIVE_CLI) --surah $(SURAH) --ayah $(AYAH) --model $(MODEL) --mic
+	$(LIVE_CLI) --surah $(SURAH) --ayah $(AYAH) --model $(MODEL) --strictness $(LEVEL) --mic
 
 record: ## record the microphone to WAV for SECONDS seconds (press q to stop early)
 	ffmpeg -f pulse -i default -ac 1 -ar 16000 -t $(SECONDS) $(WAV)
 
 check-wav: model-check $(LIVE_CLI) ## check a recording against the ayah range, with event times
-	$(LIVE_CLI) --surah $(SURAH) --ayah $(AYAH) --model $(MODEL) --wav $(WAV) --timeline
+	$(LIVE_CLI) --surah $(SURAH) --ayah $(AYAH) --model $(MODEL) --strictness $(LEVEL) --wav $(WAV) --timeline

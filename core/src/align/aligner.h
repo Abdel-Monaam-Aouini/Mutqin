@@ -42,6 +42,11 @@ struct AlignParams {
         0;  // leading / trailing expected units (at most 1/3 of a word) that may be missing at no cost
 };
 
+// Parameters of the strictness levels for the Zipformer's units: 0 relaxed, 1 standard, 2 strict (other
+// values give standard). Measured on real model output (docs/EVAL_RESULTS.md); tools/prototype/aligner.py has
+// the same profiles and the aligner parity test checks that both give identical results.
+AlignParams StrictnessProfile(int level);
+
 struct AlignEvent {
     std::string kind;  // "skipped" | "wrong" | "repeated" | "added"
     int index = 0;

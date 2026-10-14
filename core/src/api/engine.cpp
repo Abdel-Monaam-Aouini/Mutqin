@@ -40,6 +40,9 @@ struct mq_session {
     std::unique_ptr<mutqin::Resampler> resampler;  // null at 16 kHz
     std::vector<float> converted;                  // resampled audio of the current push
     mutable std::mutex mutex;                      // serialises the calls on this session
+    int strictness = MQ_STRICTNESS_STANDARD;
+    bool units_active = false;                   // expected units from the model: the levels apply
+    std::vector<mutqin::HeardToken> last_heard;  // for judging again after a level change
 };
 
 namespace mutqin {
@@ -266,6 +269,7 @@ bool AlignHeard(mq_session* session, const std::vector<mutqin::HeardToken>& hear
     if (heard.size() > 2 * expected + 500)
         return false;
     EnsureAligner(session);
+    session->last_heard = heard;
     session->aligned = session->aligner->Update(heard);
     return true;
 }
@@ -417,11 +421,12 @@ int mq_session_load_model(mq_session* session, const char* manifest_path, char* 
                 return MQ_ERR_LIMIT;
             }
             session->words = std::move(words);
-            session->params.edge_free = 2;  // tuned on real model output (docs/EVAL_RESULTS.md)
-            session->params.add_min_tokens = 3;
+            session->units_active = true;
+            session->params = mutqin::StrictnessProfile(session->strictness);  // tuned on real model output
             session->aligner.reset();
             session->aligned = mutqin::AlignResult();
             session->frames.clear();
+            session->last_heard.clear();
         }
         session->recognizer = std::move(recognizer);
         return MQ_OK;
@@ -454,12 +459,31 @@ int mq_session_position(const mq_session* session) {
     return session->aligned.span_last;
 }
 
+int mq_session_set_strictness(mq_session* session, int level) {
+    SessionLock lock(session);
+    if (session == nullptr || level < MQ_STRICTNESS_RELAXED || level > MQ_STRICTNESS_STRICT)
+        return MQ_ERR_ARGUMENT;
+    try {
+        session->strictness = level;
+        if (!session->units_active)
+            return MQ_OK;  // remembered for when units are loaded
+        session->params = mutqin::StrictnessProfile(level);
+        session->aligner.reset();  // the stored alignment belongs to the old parameters
+        if (!session->last_heard.empty())
+            AlignHeard(session, session->last_heard);  // judge what was heard so far again
+        return MQ_OK;
+    } catch (const std::exception&) {
+        return MQ_ERR_INTERNAL;
+    }
+}
+
 int mq_session_reset(mq_session* session) {
     SessionLock lock(session);
     if (session == nullptr)
         return MQ_ERR_ARGUMENT;
     try {
         session->frames.clear();
+        session->last_heard.clear();
         session->aligned = mutqin::AlignResult();
         session->aligner.reset();
         session->logmel = mutqin::LogMel();

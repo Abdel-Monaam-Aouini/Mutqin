@@ -61,7 +61,7 @@ TEST(AlignerParity, CppEqualsPython) {
         while (std::getline(in, line) && line != "END") {
             if (line.rfind("P ", 0) == 0) {
                 std::istringstream ls(line.substr(2));
-                ls >> params.edge_free >> params.add_min_tokens;
+                ls >> params.edge_free >> params.add_min_tokens >> params.wrong_below >> params.min_mismatch;
             } else if (line.rfind("W: ", 0) == 0) {
                 const std::vector<std::string> parts = Split(line.substr(3), '|');
                 ASSERT_EQ(parts.size(), 5u);

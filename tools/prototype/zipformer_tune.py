@@ -19,7 +19,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.prototype.aligner import Params, align_tokens, edit_distance_wild  # noqa: E402
+from tools.prototype.aligner import (  # noqa: E402
+    STRICTNESS_PROFILES,
+    Params,
+    align_tokens,
+    edit_distance_wild,
+)
 from tools.prototype.decode import Token  # noqa: E402
 from tools.prototype.phoneme_data import WordPhonemes  # noqa: E402
 from tools.prototype.zipformer_eval import ROOT, expected_words  # noqa: E402
@@ -171,6 +176,8 @@ def parse_variant(spec: str) -> tuple[Params, int]:
     """ "base" or "key=value;key=value" over the Params fields plus keep (run-length cap on units)."""
     fields: dict[str, float] = {}
     keep = 0
+    if spec in STRICTNESS_PROFILES:  # a named level (all levels cut runs of one unit to 2)
+        return replace(Params(), **STRICTNESS_PROFILES[spec]), 2
     if spec != "base":
         for part in spec.split(";"):
             key, _, value = part.partition("=")

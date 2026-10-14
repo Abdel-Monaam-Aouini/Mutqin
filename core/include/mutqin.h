@@ -92,6 +92,11 @@ enum { MQ_EVENT_SKIPPED = 0, MQ_EVENT_WRONG = 1, MQ_EVENT_REPEATED = 2, MQ_EVENT
 /* Status of a word of the range. */
 enum { MQ_WORD_NOT_JUDGED = 0, MQ_WORD_OK = 1, MQ_WORD_WRONG = 2, MQ_WORD_SKIPPED = 3 };
 
+/* How many differences are reported. The levels were measured with the Zipformer's units
+ * (docs/EVAL_RESULTS.md): relaxed finds fewer mistakes and raises fewer false alarms, strict finds more and
+ * raises more. */
+enum { MQ_STRICTNESS_RELAXED = 0, MQ_STRICTNESS_STANDARD = 1, MQ_STRICTNESS_STRICT = 2 };
+
 /* Ayah 0 of a surah (other than 1 and 9) is its basmala: with a model that supplies expected units,
  * a range that starts at ayah 1 begins with these four optional items (reported as ayah 0).
  *
@@ -164,6 +169,11 @@ MQ_API int mq_session_item(const mq_session* session, size_t item_index, mq_item
 /* Index of the item being recited now (the last one heard), or -1 before anything was recognised. For
  * highlighting the current word. */
 MQ_API int mq_session_position(const mq_session* session);
+
+/* Selects the strictness level (default MQ_STRICTNESS_STANDARD). It may be called at any time: what was
+ * heard so far is judged again at the new level. It applies when the model supplies expected units
+ * (mq_session_load_model with units=); with the built-in phonemizer text there is only one profile. */
+MQ_API int mq_session_set_strictness(mq_session* session, int level);
 
 /* Starts a new attempt on the same range: forgets the audio, the recognition state and the events, keeps
  * the loaded model and the input rate. */

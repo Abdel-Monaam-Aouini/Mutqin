@@ -85,6 +85,7 @@ mq_session_push_audio(session, samples, n);             /* needs a model, else M
 mq_session_finish_audio(session);                       /* judge the last word too */
 mq_session_load_model(session, manifest, err, len);     /* recognition model (optional sherpa-onnx backend) */
 mq_session_item / mq_session_position(...)              /* item -> Tanzil words; the item being recited now */
+mq_session_set_strictness(session, level);              /* MQ_STRICTNESS_RELAXED / STANDARD / STRICT, any time */
 mq_session_reset(session);                              /* new attempt on the same range */
 mq_session_word_count / mq_session_word_status(...)     /* MQ_WORD_OK / WRONG / SKIPPED */
 mq_session_event_count / mq_session_event(...)          /* skipped, wrong, repeated, added */
@@ -144,11 +145,12 @@ tanween sound is assimilated (ikhfa, idgham, iqlab), so the unit of judgment is 
 words**; the table maps every group back to its Tanzil words (all 6,236 ayahs; the mapping aligns the
 consonant letters of both sequences). Events carry `word` .. `word_last` of the group. A range that
 starts at ayah 1 of a surah other than 1 and 9 begins with the four basmala groups, reported as ayah 0,
-which a reciter may leave out. While audio streams the item being spoken is not judged yet (events and
+which a reciter may leave out. The strictness level (relaxed, standard, strict) selects the parameter set; see
+`EVAL_RESULTS.md` for what each level finds and how many false alarms it raises. While audio streams the item being spoken is not judged yet (events and
 statuses about it would flash and disappear), so an event appears about one word after the mistake, roughly
-1-2 s with this model. This path uses the tuned profile `edge_free=2` (at most a third of a word may
-be missing at its edges), runs of one character cut to 2 (madd length ignored) and `add_min_tokens=3`
-(see `EVAL_RESULTS.md`). Files from the model repository (weights, units, table) stay outside this
+1-2 s with this model. This path uses the profile of the chosen level (standard: `edge_free=2`, at most a third of a word may
+be missing at its edges, `add_min_tokens=3`) and cuts runs of one character to 2 (madd length ignored); see
+`EVAL_RESULTS.md`. Files from the model repository (weights, units, table) stay outside this
 repository (`models/`, gated, NPL-1.1: free apps only).
 
 ## Threading contract and limits (for the apps)

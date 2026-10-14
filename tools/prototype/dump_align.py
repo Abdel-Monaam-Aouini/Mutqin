@@ -2,8 +2,8 @@
 
 Usage: python3 -I tools/prototype/dump_align.py OUT_FILE DATA_DIR [--per-case N]
 Format (one token or word per line, floats as repr so they round-trip exactly):
-  CASE id / P edge_free add_min_tokens / W n / W: cont|ctx0|ctx1|ctx2|ctx3 (symbols space separated)
-  / T n / T: symbol conf start end
+  CASE id / P edge_free add_min_tokens wrong_below min_mismatch / W n
+  / W: cont|ctx0|ctx1|ctx2|ctx3 (symbols space separated) / T n / T: symbol conf start end
   SPAN a b | SPAN none / S word status / E kind index conf / END
 """
 
@@ -12,13 +12,12 @@ from __future__ import annotations
 import argparse
 import random
 import sys
-from dataclasses import replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from tools.prototype.acoustic_sim import simulate_frames  # noqa: E402
-from tools.prototype.aligner import Params, align_tokens  # noqa: E402
+from tools.prototype.aligner import Params, align_tokens, strictness_params  # noqa: E402
 from tools.prototype.decode import greedy_decode  # noqa: E402
 from tools.prototype.errors import KINDS, make_utterance, pick_range, render  # noqa: E402
 from tools.prototype.phoneme_data import build_word_phonemes  # noqa: E402
@@ -29,11 +28,16 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("out")
     ap.add_argument("data_dir")
-    ap.add_argument("--per-case", type=int, default=6)
+    ap.add_argument("--per-case", type=int, default=3)
     args = ap.parse_args()
     quran = load_quran(Path(args.data_dir))
     words = build_word_phonemes(quran)
-    profiles = (Params(), replace(Params(), edge_free=2, add_min_tokens=3))
+    profiles = (
+        Params(),
+        strictness_params("relaxed"),
+        strictness_params("standard"),
+        strictness_params("strict"),
+    )
     lines: list[str] = []
     case = 0
     for scenario in ("clean", *KINDS):
@@ -56,7 +60,13 @@ def main() -> int:
                         result = align_tokens(heard, wps, params)
                         lines.append(f"CASE {case}")
                         case += 1
-                        lines.append(f"P {params.edge_free} {params.add_min_tokens}")
+                        knobs = (
+                            params.edge_free,
+                            params.add_min_tokens,
+                            repr(params.wrong_below),
+                            params.min_mismatch,
+                        )
+                        lines.append("P " + " ".join(str(k) for k in knobs))
                         lines.append(f"W {len(wps)}")
                         for wp in wps:
                             lines.append("W: " + "|".join(" ".join(c) for c in (wp.cont, *wp.contexts)))

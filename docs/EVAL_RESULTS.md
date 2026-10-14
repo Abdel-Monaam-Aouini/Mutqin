@@ -235,3 +235,25 @@ judged) the same run showed 20-30 transient false events per clip that later dis
 two events that the unedited audio also has (`repeated 5:2:14` at 37 s, `wrong 5:3:25` at 100 s) and the edit
 itself appear. The target of 300 ms in `PLAN.md` is not met by this model (its own look-ahead is 1 s);
 whether 1-2 s is acceptable for the user experience is an open decision.
+
+### Strictness levels (2026-10-14)
+
+The app offers three levels (`mq_session_set_strictness`, `mutqin-cli --strictness`, `make live LEVEL=strict`).
+They are parameter sets of the same aligner, measured like the tuning above on the real model's output
+(`zipformer_tune.py` with 100 injected mistakes per kind in the 49-minute recording; `zipformer_clips.py` on the
+339 clips of the second reciter). Standard is the profile tuned before; the other two were chosen from a small
+grid (profiles with `edge_free` 0 to 3, `add_min_tokens` 2 to 4, `wrong_below` 0.4 to 0.6).
+
+| Level | `edge_free` | `add_min_tokens` | `wrong_below` | `min_mismatch` | Flagged words, surah 5 | Events, surah 5 | Flagged words, Husary clips | Skipped | Wrong (any kind) | Repeated | Added (any kind) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| relaxed | 3 | 4 | 0.4 | 3 | 0.5% | 2.1% | 0.0% | 100% | 87% | 99% | 77% |
+| standard (default) | 2 | 3 | 0.5 | 2 | 0.9% | 2.5% | 0.1% | 100% | 97% | 99% | 94% |
+| strict | 1 | 2 | 0.6 | 2 | 1.2% | 3.3% | 0.3% | 100% | 99% | 99% | 97% |
+
+Relaxed stays well below the false-alarm target but no longer reaches 90% recall for wrong and added words;
+strict keeps flagged words under 2% and finds almost everything, at the price of more stray events. The most
+sensitive profile tried (no edge tolerance) reached 100% / 97% recall but flagged 2.0% of words, so it was not
+offered. The same profiles in Python (`STRICTNESS_PROFILES`) and C++ (`StrictnessProfile`) are checked against
+each other by the aligner parity test. Through the C++ core on the first 100 s of the recording: the clean audio
+gives 1 / 2 / 4 events at relaxed / standard / strict, and a replaced word is missed at relaxed and found at the
+other two. Levels apply to the Zipformer's units only; the built-in phonemizer text has one profile.

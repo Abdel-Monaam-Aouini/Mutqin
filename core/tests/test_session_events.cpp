@@ -452,3 +452,31 @@ TEST(SessionThreads, TwoSessionsOfOneEngineRunOnTwoThreads) {
     EXPECT_EQ(mq_session_event_count(other), 0u);
     mq_session_destroy(other);
 }
+
+TEST(Strictness, LevelsAreOrderedAndTheApiValidatesThem) {
+    const AlignParams relaxed = StrictnessProfile(MQ_STRICTNESS_RELAXED);
+    const AlignParams standard = StrictnessProfile(MQ_STRICTNESS_STANDARD);
+    const AlignParams strict = StrictnessProfile(MQ_STRICTNESS_STRICT);
+    // more edge tolerance, a lower "wrong" bar and later "added" mean fewer reports; strict is the opposite
+    EXPECT_GT(relaxed.edge_free, standard.edge_free);
+    EXPECT_GT(standard.edge_free, strict.edge_free);
+    EXPECT_LT(relaxed.wrong_below, standard.wrong_below);
+    EXPECT_LT(standard.wrong_below, strict.wrong_below);
+    EXPECT_GT(relaxed.add_min_tokens, standard.add_min_tokens);
+    EXPECT_GT(standard.add_min_tokens, strict.add_min_tokens);
+    EXPECT_EQ(StrictnessProfile(7).edge_free, standard.edge_free);  // unknown level: standard
+
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    EXPECT_EQ(mq_session_set_strictness(f.session, MQ_STRICTNESS_STRICT), MQ_OK);
+    EXPECT_EQ(mq_session_set_strictness(f.session, MQ_STRICTNESS_RELAXED), MQ_OK);
+    EXPECT_EQ(mq_session_set_strictness(f.session, 3), MQ_ERR_ARGUMENT);
+    EXPECT_EQ(mq_session_set_strictness(f.session, -1), MQ_ERR_ARGUMENT);
+    EXPECT_EQ(mq_session_set_strictness(nullptr, MQ_STRICTNESS_STANDARD), MQ_ERR_ARGUMENT);
+    // a level change on a session without model units is remembered and does not disturb the result
+    const std::vector<float> rows = f.Speak(AllWords(f.words.size()));
+    ASSERT_EQ(mq_session_push_posteriors(f.session, rows.data(), rows.size() / MQ_VOCAB_SIZE), MQ_OK);
+    EXPECT_EQ(mq_session_set_strictness(f.session, MQ_STRICTNESS_STRICT), MQ_OK);
+    EXPECT_EQ(mq_session_event_count(f.session), 0u);
+}

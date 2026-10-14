@@ -93,6 +93,7 @@ threads=4
 
 ```
 ./build/cli/mutqin-cli --surah 1 --ayah 1-7 --model models/zipformer_p-quran/mutqin_model.txt --mic
+./build/cli/mutqin-cli ... --strictness strict   # relaxed | standard (default) | strict
 ./build/cli/mutqin-cli --surah 1 --ayah 1-7 --model models/zipformer_p-quran/mutqin_model.txt --wav take.wav --timeline
 ```
 

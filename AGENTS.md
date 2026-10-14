@@ -83,8 +83,10 @@ C++ namespace **`mutqin`**.
   font or model is added or changed, update `docs/LICENSES.md` (and `NOTICE` if it ships or is linked).
 - **Recognition model.** Zipformer through the optional sherpa-onnx backend, comparing the model's own
   canonical units (`tools/zipformer/expected_units.py`) instead of mapping them onto our 31 phonemes.
-  Tuned profile: `edge_free=2` (at most a third of a word missing at its edges), runs of one character cut
-  to 2 (madd length ignored), `add_min_tokens=3`. Our phonemizer and `TAJWEED_SPEC.md` stay for the
+  Strictness levels relaxed / standard (default) / strict (`StrictnessProfile` in C++, `STRICTNESS_PROFILES` in
+  Python, parity-tested): standard is `edge_free=2` (at most a third of a word missing at its edges), `add_min_tokens=3`;
+  runs of one character are cut to 2 (madd length ignored) at every level. Change a profile only after re-measuring
+  (`tools/prototype/zipformer_tune.py`, `zipformer_clips.py`) and record it in `docs/EVAL_RESULTS.md`. Our phonemizer and `TAJWEED_SPEC.md` stay for the
   harakat/tajweed phases. Whisper and wav2vec2 phonetics were measured and rejected.
 - **No own model training for now** (no GPU). Do not propose GPU rentals, more audio downloads or new
   models unless asked. Training audio from EveryAyah has no stated license: research use only, never

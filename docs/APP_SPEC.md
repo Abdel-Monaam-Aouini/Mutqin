@@ -122,9 +122,10 @@ file kept. The network is used for this download only; recitation stays offline.
 ## 8. Strictness, errors and limits
 
 **Strictness** (decided: yes). Three levels, default "standard": relaxed (fewer reports), standard, strict (more
-reports). The core currently has one tuned profile (`edge_free=2`, runs of one unit cut to 2, `add_min_tokens=3`).
-Core work needed: an API call that selects a level, with the parameters of each level measured on real
-recordings the same way as the current profile (`EVAL_RESULTS.md`).
+reports). The core offers it: `mq_session_set_strictness` (any time; what was heard so far is judged again). The
+three profiles were measured on real recordings (`EVAL_RESULTS.md`): relaxed raises the fewest false alarms but
+finds fewer wrong and added words; strict finds almost everything with more stray reports. Explain the choice in
+the settings screen in plain words ("fewer reports" / "more reports"), not with numbers.
 
 | Situation | App behaviour |
 |---|---|
@@ -213,7 +214,7 @@ Minimum Android 5.0 (API 21) and iOS 13; target the latest stable releases. What
 | 6 | Quran script and font | **Uthmani script** (the Tanzil Uthmani text). Font candidates, both under the SIL Open Font License 1.1 (checked on GitHub): Amiri (Quran variant) and Scheherazade New. The final choice needs a rendering test on a device with the real text, including the small high marks, and the font's license text goes into the app's licenses screen |
 | 7 | Model delivery | **After install** (section 6); the design is not the focus now |
 | 8 | History | **Local, on the phone's storage** (section 7) |
-| 9 | Strictness setting | **Yes**: three levels; needs core work (section 8) |
+| 9 | Strictness setting | **Yes**: three levels; implemented in the core (section 8) |
 | 10 | Latency of 1-2 s | **Acceptable for now**, to be improved later |
 | 11 | Beta and consent | **Yes**: opt-in sharing of a saved take through the share sheet (section 7) |
 | 12 | Disclaimer wording | **Dropped**; no required statement in the app for now |
@@ -226,8 +227,8 @@ kind, notifications, widgets and wearables, background recitation.
 
 ## 14. Milestones (order, no dates)
 
-1. Core additions the app needs: a strictness level API (with measured parameters); cross-compiled builds for
-   Android (and later iOS); phone measurements.
+1. Core additions the app needs: cross-compiled builds for Android (and later iOS) and phone measurements
+   (the strictness level API is done).
 2. Android prototype (Compose): record, push, highlight the current word, show marks; range picker; follow
    mode; model files placed by hand.
 3. Hifz mode, result screen, history, settings, localization (en, ar), licenses screen, first-run flow with the

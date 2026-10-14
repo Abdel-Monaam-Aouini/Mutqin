@@ -410,6 +410,24 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
 
 }  // namespace
 
+AlignParams StrictnessProfile(int level) {
+    AlignParams p;
+    if (level == 0) {  // relaxed
+        p.edge_free = 3;
+        p.add_min_tokens = 4;
+        p.wrong_below = 0.4;
+        p.min_mismatch = 3;
+    } else if (level == 2) {  // strict
+        p.edge_free = 1;
+        p.add_min_tokens = 2;
+        p.wrong_below = 0.6;
+    } else {  // standard
+        p.edge_free = 2;
+        p.add_min_tokens = 3;
+    }
+    return p;
+}
+
 AlignResult AlignTokens(const std::vector<HeardToken>& heard, const std::vector<WordReading>& words,
                         const AlignParams& params) {
     DpState state;

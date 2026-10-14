@@ -101,8 +101,8 @@ Steps, in order:
    for Android (NDK, arm64-v8a and x86_64; about 1 GB of tools, ask first) and iOS (device and simulator,
    needs macOS and Xcode; xcframework); check that sherpa-onnx's Android and iOS builds work with our
    backend (Android archives exist; no prebuilt iOS archive was found); measure speed, memory, battery and heat.
-2. **Decisions** are taken (`APP_SPEC.md`, section 12). Remaining before app code: the strictness level API in
-   the core, the font rendering test, store accounts and identifiers.
+2. **Decisions** are taken (`APP_SPEC.md`, section 12). Remaining before app code: the font rendering test,
+   store accounts and identifiers (the strictness level API is done).
 3. **Android prototype** (Jetpack Compose): record, push on a worker thread, highlight the current word, show
    marks, range picker, follow mode; model files placed by hand.
 4. **Hifz mode, result screen, history, settings, localization (English, Arabic), first-run flow with the model
@@ -169,7 +169,7 @@ for now; opt-in sharing of saved takes for beta testing; no required disclaimer 
 
 | # | Open item | Who or what it waits for |
 |---|-----------|--------------------------|
-| 1 | Strictness levels: an API call and measured parameters for relaxed / standard / strict | core work |
+| 1 | ~~Strictness levels~~ done: `mq_session_set_strictness` with three measured profiles (`EVAL_RESULTS.md`) | - |
 | 2 | Accuracy on **learners'** voices and **phone microphones** is unmeasured: record takes (correct and with deliberate mistakes), score them, tune | owner's recordings |
 | 3 | The tajweed rules and the phoneme tables are provisional until a qualified teacher reviews them | a teacher |
 | 4 | The word-level check depends on a **gated third-party model** (Muno459/zipformer_p-quran, NPL-1.1: free apps only, derived files stay under the same license, no commercial license exists). Keep a local copy; if it disappeared or the terms changed, the fallback is the paused own-model training | owner |

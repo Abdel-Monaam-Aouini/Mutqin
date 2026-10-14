@@ -15,12 +15,11 @@ import json
 import sys
 import time
 from collections import Counter
-from dataclasses import replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.prototype.aligner import Params, align_tokens  # noqa: E402
+from tools.prototype.aligner import Params, align_tokens, strictness_params  # noqa: E402
 from tools.prototype.decode import Token  # noqa: E402
 from tools.prototype.phoneme_data import WordPhonemes  # noqa: E402
 
@@ -99,7 +98,7 @@ def main() -> int:
                 json.dumps({"tokens": tokens, "timestamps": times}, ensure_ascii=False)
             )
     heard = [Token(t, 1.0, round(s * 100), round(s * 100) + 4) for t, s in zip(tokens, times, strict=True)]
-    params = replace(Params(), edge_free=2, add_min_tokens=3) if args.tuned else Params()
+    params = strictness_params("standard") if args.tuned else Params()
     if args.tuned:
         from tools.prototype.zipformer_tune import prepare
 

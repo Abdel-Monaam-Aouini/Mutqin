@@ -16,7 +16,7 @@ so a missed mistake is preferred to a false alarm (AGENTS.md rule 4).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from tools.prototype.decode import Token, greedy_decode
 from tools.prototype.phoneme_data import WordPhonemes
@@ -36,6 +36,20 @@ class Params:
     max_jump_words: int = 3
     pause_frames: int = 8  # a gap this long between tokens is a pause (a stop is possible there)
     edge_free: int = 0  # leading / trailing expected units that may be missing without cost (word joins)
+
+
+# Strictness levels for the Zipformer's units (what the app offers: relaxed / standard / strict). Measured on
+# real model output in docs/EVAL_RESULTS.md; core/src/align/aligner.cpp (StrictnessProfile) must match, which
+# the aligner parity test checks. Units that differ only in elongation compare equal at every level.
+STRICTNESS_PROFILES: dict[str, dict] = {
+    "relaxed": {"edge_free": 3, "add_min_tokens": 4, "wrong_below": 0.4, "min_mismatch": 3},
+    "standard": {"edge_free": 2, "add_min_tokens": 3},
+    "strict": {"edge_free": 1, "add_min_tokens": 2, "wrong_below": 0.6},
+}
+
+
+def strictness_params(name: str) -> Params:
+    return replace(Params(), **STRICTNESS_PROFILES[name])
 
 
 @dataclass(frozen=True)

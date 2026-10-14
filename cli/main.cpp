@@ -31,6 +31,7 @@ void Usage() {
         "                     (blank + 31 phonemes); prints word statuses and events\n"
         "  --chunk N          with --posteriors: push N frames at a time (streaming), prints the time\n"
         "  --model FILE       recognition model manifest (mutqin_model.txt), needed by --wav and --mic\n"
+        "  --strictness LEVEL relaxed | standard (default) | strict: how many differences are reported\n"
         "  --timeline         with --wav: print each event with the audio time at which it first appeared\n"
         "  --mic [--seconds N]  live microphone (stop with Ctrl-C or after N seconds); needs a model\n"
         "  --wav FILE         16 kHz WAV (mono or stereo, 16-bit or float)\n"
@@ -182,6 +183,7 @@ int Replay(mq_session* session, const std::string& path, size_t chunk_frames) {
 int main(int argc, char** argv) {
     std::string data_dir = "data/quran";
     std::string posteriors_path, wav_path, model_path;
+    int strictness = MQ_STRICTNESS_STANDARD;
     bool timeline = false;
     bool use_mic = false;
     [[maybe_unused]] int mic_seconds = 0;  // unused when built without microphone support
@@ -199,6 +201,18 @@ int main(int argc, char** argv) {
             posteriors_path = argv[++i];
         } else if (arg == "--model" && has_value) {
             model_path = argv[++i];
+        } else if (arg == "--strictness" && has_value) {
+            const std::string level = argv[++i];
+            if (level == "relaxed")
+                strictness = MQ_STRICTNESS_RELAXED;
+            else if (level == "standard")
+                strictness = MQ_STRICTNESS_STANDARD;
+            else if (level == "strict")
+                strictness = MQ_STRICTNESS_STRICT;
+            else {
+                Usage();
+                return 2;
+            }
         } else if (arg == "--timeline") {
             timeline = true;
         } else if (arg == "--mic") {
@@ -240,6 +254,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     int status = 0;
+    mq_session_set_strictness(session, strictness);
     if (!model_path.empty() && mq_session_load_model(session, model_path.c_str(), err, sizeof err) != MQ_OK) {
         std::fprintf(stderr, "error: %s\n", err);
         mq_session_destroy(session);
