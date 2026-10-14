@@ -198,3 +198,21 @@ Each edit is reported at the right place. A first cut of the 3-unit word 5:1:14 
 fragment and was not reported: a fragment of a short word is treated as a pronunciation variant (at most a
 third of a word may be missing at its edges). Whole run of 100 s: about 6 s on 4 threads including the start-up.
 `core/tests/test_zipformer.cpp` repeats the clean and the cut-word run (skipped unless the model is available).
+
+### A second reciter: Husary, 339 single-ayah clips (2026-10-14)
+
+`tools/prototype/zipformer_clips.py`: EveryAyah recordings of Husary (a different voice and a slow murattal
+style, research use only, see `LICENSES.md`), surahs 1, 2 (part), 10 (part), 60-64 and 105-114, one clip per ayah, 175 minutes in
+all, 4,744 words judged. Tuned profile, expected units of that one ayah.
+
+| Result | Value |
+|---|---|
+| Flagged words (wrong or skipped) | **5 of 4,744 = 0.1%** |
+| All events | 51 = 1.1% (5 wrong, 45 repeated, 1 added) |
+| Clips with an event | 38 of 339 |
+
+The 45 "repeated" events are not false alarms: listening to what the model heard, the reciter really says
+some phrases twice at the breath points of long ayahs (for example 10:24 and 2:177 contain a doubled
+phrase). Changing the repeat cost or the repeat ratio leaves these events unchanged, which fits: they match
+too well to be noise. Together with the 49-minute recitation of surah 5 this gives two voices and two styles
+below the 2% target; learners' recitation and phone microphones are still unmeasured.
