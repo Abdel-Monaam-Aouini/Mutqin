@@ -113,6 +113,10 @@ add_executable(mutqin_c_header_test test_c_header.c)
 target_link_libraries(mutqin_c_header_test PRIVATE Mutqin::Core)
 add_test(NAME CHeader.CompilesAndRunsAsC COMMAND mutqin_c_header_test)
 
+# the number of functions the header declares (each starts a line with MQ_API)
+file(STRINGS ${PROJECT_SOURCE_DIR}/core/include/mutqin.h mutqin_api_lines REGEX "^MQ_API ")
+list(LENGTH mutqin_api_lines MUTQIN_API_FUNCTION_COUNT)
+
 if(MUTQIN_BUILD_SHARED)
     add_executable(mutqin_c_header_test_shared test_c_header.c)
     target_link_libraries(mutqin_c_header_test_shared PRIVATE mutqin_shared)
@@ -120,6 +124,7 @@ if(MUTQIN_BUILD_SHARED)
     if(UNIX AND NOT APPLE)
         # only the C API may be exported by the shared library
         add_test(NAME CHeader.SharedLibraryExportsOnlyTheCApi
-            COMMAND ${CMAKE_COMMAND} -DLIB=$<TARGET_FILE:mutqin_shared> -P ${CMAKE_CURRENT_SOURCE_DIR}/check_exports.cmake)
+            COMMAND ${CMAKE_COMMAND} -DLIB=$<TARGET_FILE:mutqin_shared> -DEXPECTED=${MUTQIN_API_FUNCTION_COUNT}
+                    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_exports.cmake)
     endif()
 endif()

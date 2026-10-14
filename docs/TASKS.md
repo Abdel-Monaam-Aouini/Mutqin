@@ -41,7 +41,8 @@ Work one task at a time, run the tests, then tick it here.
 - [ ] 3.5 (DEFERRED to Phase 3b) Android demo app (Oboe + JNI)
 - [ ] 3.6 (DEFERRED to Phase 3b) iOS demo app (AVAudioEngine + Swift bridge)
 - [ ] 3.5a (DEFERRED, first step of Phase 3b) Mobile readiness of the core, before any app code.
-  Done (core side, native builds only): resampler for any input rate, item/position/reset in the C API,
+  Done (core side): cross-compiles for Android with NDK r27 (arm64-v8a 0.64 MB and armeabi-v7a 0.39 MB stripped, API 21,
+  `-Werror`, with and without the sherpa-onnx backend; links against its real Android libraries); and, native builds: resampler for any input rate, item/position/reset in the C API,
   engine from memory, install rules, shared library exporting only the C API, C-compatibility test,
   threading contract and memory bounds. Still open: cross-compile `core/` for Android (NDK, arm64-v8a and
   x86_64; about 1 GB of tools, ask the owner first) and iOS (arm64 device and simulator, needs macOS and

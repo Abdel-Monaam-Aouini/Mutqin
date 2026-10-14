@@ -1,4 +1,4 @@
-# Fails if the shared library exports anything other than mq_* functions (and linker boilerplate).
+# Fails if the shared library exports anything other than the mq_* functions of mutqin.h (EXPECTED of them).
 execute_process(COMMAND nm -D --defined-only ${LIB} OUTPUT_VARIABLE symbols RESULT_VARIABLE rc)
 if(NOT rc EQUAL 0)
     message(FATAL_ERROR "nm failed on ${LIB}")
@@ -15,7 +15,7 @@ foreach(line IN LISTS lines)
         endif()
     endif()
 endforeach()
-if(NOT exported EQUAL 20)
-    message(FATAL_ERROR "expected 20 exported mq_ functions, found ${exported}")
+if(NOT exported EQUAL EXPECTED)
+    message(FATAL_ERROR "expected ${EXPECTED} exported mq_ functions (those of mutqin.h), found ${exported}")
 endif()
 message(STATUS "shared library exports exactly the ${exported} functions of mutqin.h")

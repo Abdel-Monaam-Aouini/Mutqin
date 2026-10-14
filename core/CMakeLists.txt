@@ -33,8 +33,9 @@ target_compile_definitions(MutqinCore PRIVATE
 option(MUTQIN_WITH_SHERPA "Build the sherpa-onnx recognition backend" OFF)
 set(SHERPA_ONNX_DIR "" CACHE PATH "Extracted sherpa-onnx release (with include/ and lib/)")
 if(MUTQIN_WITH_SHERPA)
-    find_path(SHERPA_INCLUDE_DIR sherpa-onnx/c-api/c-api.h HINTS "${SHERPA_ONNX_DIR}/include" REQUIRED)
-    find_library(SHERPA_C_API NAMES sherpa-onnx-c-api HINTS "${SHERPA_ONNX_DIR}/lib" REQUIRED)
+    # NO_CMAKE_FIND_ROOT_PATH: cross-compiling toolchains (Android NDK) otherwise search only their own sysroot
+    find_path(SHERPA_INCLUDE_DIR sherpa-onnx/c-api/c-api.h HINTS "${SHERPA_ONNX_DIR}/include" NO_CMAKE_FIND_ROOT_PATH REQUIRED)
+    find_library(SHERPA_C_API NAMES sherpa-onnx-c-api HINTS "${SHERPA_ONNX_DIR}/lib" NO_CMAKE_FIND_ROOT_PATH REQUIRED)
     target_include_directories(MutqinCore SYSTEM PRIVATE "${SHERPA_INCLUDE_DIR}")
     target_compile_definitions(MutqinCore PUBLIC MUTQIN_HAVE_SHERPA=1)
     target_link_libraries(MutqinCore PUBLIC "${SHERPA_C_API}")

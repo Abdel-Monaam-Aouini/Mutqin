@@ -100,7 +100,7 @@ preference), and letter-level and tajweed events with character spans.
 
 - Static library `MutqinCore` and the header `mutqin.h` are installed by `cmake --install` (`make install`).
 - `-DMUTQIN_BUILD_SHARED=ON` (`make shared`) also builds `libmutqin` (`.so`, `.dylib`, `.dll`). Only the
-  20 functions of `mutqin.h` are exported: `MQ_API` marks them, and a linker version script
+  functions of `mutqin.h` are exported: `MQ_API` marks them, and a linker version script
   (`core/mutqin.map`, `core/mutqin.exp` on Apple) hides the C++ internals. A test checks the exports and
   that the library works from plain C (`core/tests/test_c_header.c`, built as C11 with `-Werror`).
 - Android: build the shared library with the NDK toolchain
