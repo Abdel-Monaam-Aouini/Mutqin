@@ -52,8 +52,8 @@ C++ namespace **`mutqin`**.
   code inside `core/`**; microphone capture lives in `cli/` (and later in the apps).
 - Expose the core only through the **C API** in `core/include/mutqin.h` (stable ABI, so JNI and
   Swift bindings can be added later without changing the core).
-- `mutqin-cli` is a thin client of the C API: reads a 16 kHz mono WAV or live microphone input,
-  plus a surah and ayah range, and prints detected events and mistakes.
+- `mutqin-cli` is a thin client of the C API: reads a WAV (any rate, resampled inside the core) or live
+  microphone input, plus a surah and ayah range, and prints detected events and mistakes.
 - Android (Kotlin, JNI, Oboe) and iOS (Swift, AVAudioEngine) are **deferred**. Do not create
   code in `android/` or `ios/` until told.
 - Inference: **sherpa-onnx / ONNX Runtime** (int8 quantized models). No network calls at
@@ -71,12 +71,77 @@ C++ namespace **`mutqin`**.
   commit (README, "Checks before a commit"). Tool versions are pinned in `tools/requirements-dev.txt`;
   formatting is `ruff format` (Python) and `clang-format` (C++), so never hand-format.
 
+## Decisions already made by the owner (do not reopen unless asked)
+
+- **Mutqin stays free.** Never add ads, payments, subscriptions, tracking or analytics. Audio never
+  leaves the device; no network calls at run time.
+- **Licenses.** The code is **Apache-2.0** (`LICENSE`, `NOTICE`). The recognition model is *not* part of
+  the repository and is *not* Apache: Muno459/zipformer_p-quran is NPL-1.1 (free apps only, text in
+  `licenses/NPL-1.1-zipformer.txt`). Its section 7 (share-alike) makes anything produced from the model,
+  such as `expected_units.tsv`, a Derivative that must stay under NPL-1.1, so **never commit model files,
+  derived tables, recordings, or anything under `models/` or `data/`**. Whenever a dependency, dataset,
+  font or model is added or changed, update `docs/LICENSES.md` (and `NOTICE` if it ships or is linked).
+- **Recognition model.** Zipformer through the optional sherpa-onnx backend, comparing the model's own
+  canonical units (`tools/zipformer/expected_units.py`) instead of mapping them onto our 31 phonemes.
+  Tuned profile: `edge_free=2` (at most a third of a word missing at its edges), runs of one character cut
+  to 2 (madd length ignored), `add_min_tokens=3`. Our phonemizer and `TAJWEED_SPEC.md` stay for the
+  harakat/tajweed phases. Whisper and wav2vec2 phonetics were measured and rejected.
+- **No own model training for now** (no GPU). Do not propose GPU rentals, more audio downloads or new
+  models unless asked. Training audio from EveryAyah has no stated license: research use only, never
+  published.
+- **Public repository.** README and docs are written for outside readers: no mention of AI tools in
+  README or docs, no secrets, no personal paths. The assistant files (`AGENTS.md`, `CLAUDE.md`,
+  `.claude/`) stay as they are.
+- **Mobile is deferred** (task 3.5a in `docs/TASKS.md`). Ignore the Android NDK and Xcode for now; keep the
+  core ready for the apps (below) and write no code in `android/` or `ios/`.
+
+## Core and C API conventions (the apps depend on them)
+
+- Plain C API, `int` return codes, error text in a caller buffer, no exceptions across the boundary,
+  opaque handles. **ABI-stable structs: add fields only at the end.** Document every new function in
+  `core/include/mutqin.h` and `docs/ARCHITECTURE.md`.
+- **Threading contract:** one session is used by one thread at a time; an engine is read-only and may be
+  shared; push audio from a worker thread, never from a real-time audio callback; the core starts no
+  threads. **Memory is bounded** (`MQ_MAX_EXPECTED_PHONEMES`, the heard-phoneme cap, `MQ_ERR_LIMIT`).
+- Recognition backends sit behind `AcousticModel` / `TokenRecognizer`. The sherpa-onnx backend
+  (`MUTQIN_WITH_SHERPA`) and the CLI microphone (`MUTQIN_CLI_MIC`) stay **optional**: the default build and
+  CI must pass without any model.
+- While audio streams, the word being spoken is not judged (no transient false events); a mistake is
+  reported about 1-2 s after it is spoken. Keep that behaviour when changing the aligner.
+- Any C++ port keeps a Python-vs-C++ parity test; when the aligner behaviour or parameters change, update
+  both sides (`tools/prototype/aligner.py`, `dump_align.py` profiles, `core/src/align/`).
+
+## Measure, record, be honest
+
+- Every measured result goes into `docs/EVAL_RESULTS.md` with its method and caveats (one reciter, simulated
+  or real, synthetic mistakes). Never state a number that was not measured; report failures plainly.
+- Targets (`docs/PLAN.md`): false alarms < 2% of words, mistake recall > 90%, real-time factor < 0.3.
+- Real-model checks use `tools/prototype/zipformer_*.py` and `make check-wav`; the gated model is not in CI.
+
+## Checks and working habits
+
+- Use the `Makefile` (`make help`): `make check` before every commit; `make live`, `make record`,
+  `make check-wav` to try the real model.
+- Run lint and format checks in the foreground and read their output before committing (a commit once
+  failed CI because the output was missed). After changing a pinned dependency, reconfigure from a clean
+  build directory (stale `libgtest.a` broke a build once).
+- Pinned C++ downloads (GoogleTest, miniaudio, sherpa-onnx) are updated by hand: change the version and the
+  SHA-256 together, re-read the license, update `docs/LICENSES.md`. The weekly `cpp-deps` workflow reports new
+  releases; Dependabot handles GitHub Actions and Python packages.
+- Put scratch files, test recordings and temporary builds in the session scratchpad, not in the repository.
+  Ask the owner before downloads of 100 MB or more or any external service.
+- Commands for the owner to run in their terminal must work in **fish** (use `set -x VAR value`, avoid
+  bash-only syntax) and use explicit paths.
+- If every CI job fails within seconds with a billing message, it is the GitHub account's billing limit,
+  not the code.
+- Never push with `--force` (or rewrite history) without the owner's explicit permission.
+
 ## How to work
 
 - Work on **one task from `docs/TASKS.md` at a time**, in order.
 - Before coding: state the plan in 2-3 lines and list the files you will create or change.
-- After coding: run the tests, report results, tick the task in `docs/TASKS.md`, suggest a
-  commit message, then stop and wait for "next".
+- After coding: run the checks (`make check`), report results, tick the task in `docs/TASKS.md`, commit
+  and push, then continue with the next task. Stop only when blocked on the owner.
 - If something in the docs is contradictory or missing, ask instead of assuming.
 - If a download fails because of network restrictions, give the user the exact command.
 - Commit messages follow Conventional Commits (commitlint `config-conventional` rules):
