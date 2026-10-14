@@ -117,6 +117,7 @@ Events look like `[ 12.3 s] skipped 1:2:3` (surah 1, ayah 2, word 3). Convert re
 | [`docs/TAJWEED_SPEC.md`](docs/TAJWEED_SPEC.md) | rule engine specification (Hafs 'an 'Asim) |
 | [`docs/DATA_AND_MODEL.md`](docs/DATA_AND_MODEL.md) | datasets, models, evaluation approach |
 | [`docs/EVAL_RESULTS.md`](docs/EVAL_RESULTS.md) | evaluation results and model comparisons |
+| [`docs/APP_SPEC.md`](docs/APP_SPEC.md) | draft specification of the Android and iOS apps (for review) |
 | [`docs/TRAINING.md`](docs/TRAINING.md) | the (paused) own-model training pipeline |
 | [`docs/TASKS.md`](docs/TASKS.md) | task checklist, phase by phase |
 | [`docs/LICENSES.md`](docs/LICENSES.md) | every third-party source, dataset and model with its license |
