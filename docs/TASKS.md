@@ -46,10 +46,10 @@ Work one task at a time, run the tests, then tick it here.
   android`); the tests, the plain-C test and the real model run on the Android 15 x86_64 emulator with results
   identical to the desktop (`EVAL_RESULTS.md`). Also done: resampler for any input rate, session items/position/
   reset/strictness, engine from memory, install rules, shared library exporting only the C API, threading
-  contract with an internal lock (ThreadSanitizer-checked), bounded memory. Still open: a run on a real ARM phone
-  and on an old Android version (speed, memory, battery, Arabic text); iOS (device and simulator, needs macOS and
+  contract with an internal lock (ThreadSanitizer-checked), bounded memory. Run on a real mid-range phone (Galaxy A15: tests and real model,
+  RTF 0.14, 194 MB). Still open: an old Android version and phone (speed, memory, Arabic text), battery and heat; iOS (device and simulator, needs macOS and
   Xcode; xcframework; sherpa-onnx's iOS build)
-- [ ] 3.7 Desktop benchmarks (RTF, latency); phone benchmarks deferred to Phase 3b — front end, aligner and a stand-in model measured on desktop (docs/EVAL_RESULTS.md); the real model and latency to an event are pending
+- [ ] 3.7 Desktop benchmarks (RTF, latency); phone benchmarks deferred to Phase 3b — desktop done; first phone run done (Galaxy A15: RTF 0.14, 194 MB; `EVAL_RESULTS.md`); battery, heat and old phones open
 - [x] 3.8 `mutqin-cli`: WAV (16 kHz mono) and live microphone input, surah + ayah range, prints events and mistakes — expected phonemes, WAV, live microphone (--mic), posterior replay, --model for the real model
 
 ## Phase 4–6

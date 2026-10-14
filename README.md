@@ -43,7 +43,8 @@ processing time divided by audio time, lower is faster:
 | Aligner, 167 s recitation (700+ words), pushed every 250 ms | 0.77 s total | 0.0046 |
 | sherpa-onnx + Zipformer (int8, 4 threads), 49 min of audio | 90 s | 0.031 |
 
-Phone benchmarks come with the mobile apps.
+The Android build (NDK, arm64-v8a, armeabi-v7a, x86_64) is 0.64 MB (arm64) with the real model on top; the model and
+runtime make up the rest of the install size. Battery and heat are not measured yet.
 
 ## Quick start
 

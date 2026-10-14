@@ -21,8 +21,9 @@ public:
 
 private:
     int input_rate_;
-    double ratio_;               // input samples per output sample
-    int half_width_;             // taps on each side of the centre, in input samples
+    double ratio_;              // input samples per output sample
+    int half_width_;            // taps on each side of the centre, in input samples
+    std::vector<float> table_;  // the filter, sampled finely (see kTableResolution), for linear interpolation
     std::vector<float> buffer_;  // input not yet consumed
     long long base_ = 0;         // absolute index (padding included) of buffer_[0]
     long long out_index_ = 0;    // number of output samples produced so far

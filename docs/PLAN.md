@@ -99,8 +99,9 @@ Steps, in order:
    engine from memory, install rules, a shared library that exports only the C API, a plain-C header test,
    threading contract with an internal lock (checked with ThreadSanitizer), bounded memory. Android cross-compiling is done (NDK r27.1,
    arm64-v8a, armeabi-v7a, x86_64; the real model runs on an emulator with results identical to the desktop).
-   Open: iOS (device and simulator, needs macOS and Xcode; xcframework; no prebuilt iOS archive of sherpa-onnx
-   was found), and a real ARM phone and an old Android version (speed, memory, battery, heat, Arabic text).
+   Run on a real mid-range phone (Galaxy A15): real-time factor 0.14, 194 MB. Open: iOS (needs
+   macOS and Xcode; xcframework; no prebuilt iOS archive of sherpa-onnx was found), an old Android version and an
+   old phone (speed, memory, Arabic text), battery and heat.
 2. **Decisions** are taken (`APP_SPEC.md`, section 12). Remaining before app code: the font rendering test,
    store accounts and identifiers (the strictness level API is done).
 3. **Android prototype** (Jetpack Compose): record, push on a worker thread, highlight the current word, show
@@ -176,7 +177,7 @@ for now; opt-in sharing of saved takes for beta testing; no required disclaimer 
 | 5 | Font: render the real text with Amiri (Quran variant) and Scheherazade New on a device, pick one, add its license to the app | device test |
 | 6 | Model delivery for release (store asset delivery or a one-time download with SHA-256 check); development builds place the files by hand | later |
 | 7 | Store accounts (Google Play, Apple Developer Program), developer name, identifiers (`app.mutqin` proposed), final name and icon (draft in `docs/branding/`) | owner |
-| 8 | ~~Android NDK~~ available and used; Xcode (macOS) for iOS, and phones for measurements, **including old devices** (speed, memory and Arabic text rendering near Android 5 and iOS 13) | owner (tools, devices) |
+| 8 | ~~Android NDK~~ and a mid-range phone available and used; Xcode (macOS) for iOS, and **old devices** and battery/heat measurements (speed, memory and Arabic text rendering near Android 5 and iOS 13) | owner (tools, devices) |
 | 9 | Before the repository is made public: the commit history shows the author's e-mail address, the assistant files (`CLAUDE.md`, `AGENTS.md`, `.claude/`) stay visible by choice, a few example units appear in `EVAL_RESULTS.md`, and GitHub Actions billing currently blocks CI (free for public repositories) | owner |
 | 10 | Training audio from EveryAyah has no stated license: research use only, nothing trained on it is published | owner, if training resumes |
 | 11 | Letter- and tajweed-level feedback (Phases 4-5) after the mobile apps, or in parallel; improving the 1-2 s latency | owner |
@@ -188,6 +189,6 @@ for now; opt-in sharing of saved takes for beta testing; no required disclaimer 
 | False alarm rate on correct recitation | < 2% (most important) | 0.9% of words flagged (surah 5, one reciter, 49 min); 0.1% (339 clips, second reciter) |
 | Word-error recall | > 90% | skipped 100%, wrong 97%, repeated 99%, added 94% (mistakes injected into real model output) |
 | Latency (speech → event) | < 300 ms (desktop CPU now; on phone in Phase 3b) | 1-2 s |
-| Real-time factor | < 0.3 (desktop CPU now; on phone in Phase 3b) | 0.03 (49 min in 90 s, 4 threads, desktop CPU) |
-| Model size | < 100 MB | 73 MB model; about 100 MB with data and libraries |
+| Real-time factor | < 0.3 (desktop CPU now; on phone in Phase 3b) | 0.03 on a desktop CPU (4 threads); **0.14 on a mid-range phone** (Galaxy A15, 2 threads) |
+| Model size | < 100 MB | 73 MB model; about 100 MB with data and libraries; 194 MB of memory in use on the phone |
 | Battery | < 8% per 30 min session (Phase 3b, mobile only) | not measured |

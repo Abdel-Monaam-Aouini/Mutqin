@@ -283,3 +283,29 @@ Run on the Android emulator (Android 15, API 35, x86_64, 4 cores, hardware virtu
 The emulator runs on this desktop CPU, so the timing says nothing about phones. Not done yet: a run on a
 real ARM phone (speed, memory, battery), a run on an old Android version (the emulator is API 35; API 21 is only
 the build target), and iOS.
+
+### A real phone: Samsung Galaxy A15 (2026-10-14)
+
+Samsung SM-A155F: MediaTek Helio G99 (8 cores), 7.5 GB RAM, Android 16 (API 36), arm64-v8a. A mid-range phone,
+USB-connected, running the Android arm64 build (NDK r27.1) of `mutqin-cli` with the real model (int8) and the
+sherpa-onnx backend, from `/data/local/tmp`; 5:1-8, first 100 s of the surah 5 recording.
+
+| Check | Result |
+|---|---|
+| plain-C header test | passes |
+| unit tests (59 that need no Python; Quran text pushed to the phone) | 59 of 59 pass |
+| events on the 16 kHz clip | `repeated 5:2:14`, `wrong 5:3:25`: the same as on the desktop and the emulator |
+| 100 s of audio, 2 / 4 / 8 model threads, start-up and model load included | 14.1 s / 16.4 s / 14.4 s |
+| **real-time factor** (2 threads) | **0.14**, against the target of 0.3 |
+| peak memory of the process | **194 MB** (205 MB with a 44.1 kHz file) |
+| same clip as 44.1 kHz (resampled on the phone) | 16.2 s (2 threads), same events |
+
+More threads do not help on this phone (the 8 cores are a mix of fast and slow ones), so 2 threads is the sensible
+default there. Not measured: battery and heat over a 30-minute session, a microphone session with the phone's
+own audio path, other phones, and old devices. The timings are for pushing the file as fast as possible; the
+1-2 s delay to a reported mistake in live use does not depend on the compute speed as long as the factor is
+below 1.
+
+Finding from this run: the first resampler spent a sine and a cosine per filter tap and cost about 10 s per 100 s of
+44.1 kHz audio on the phone (real-time factor about 0.1). It now uses a precomputed filter table and costs about
+2 s (0.02); on the desktop it is 0.004 (`mutqin_bench`).

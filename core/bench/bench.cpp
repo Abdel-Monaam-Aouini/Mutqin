@@ -6,6 +6,7 @@
 #include <random>
 #include <vector>
 
+#include "audio/resampler.h"
 #include "features/logmel.h"
 #include "vad/energy_vad.h"
 
@@ -44,6 +45,18 @@ int main(int argc, char** argv) {
         const double s = Seconds(t);
         std::printf("energy VAD:       %.1f s of audio, %zu active blocks in %.4f s, real-time factor %.5f\n",
                     audio_seconds, active, s, s / audio_seconds);
+    }
+    for (const int rate : {44100, 48000}) {
+        mutqin::Resampler resampler(rate);
+        std::vector<float> in(static_cast<size_t>(audio_seconds * rate)), out;
+        for (float& s : in)
+            s = noise(rng);
+        const auto t = std::chrono::steady_clock::now();
+        for (size_t at = 0; at < in.size(); at += 4410)
+            resampler.Accept(in.data() + at, std::min<size_t>(4410, in.size() - at), &out);
+        const double s = Seconds(t);
+        std::printf("resampler %5d Hz: %.1f s of audio -> %zu samples in %.3f s, real-time factor %.4f\n",
+                    rate, audio_seconds, out.size(), s, s / audio_seconds);
     }
     return 0;
 }

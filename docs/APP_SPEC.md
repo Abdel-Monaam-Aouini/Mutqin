@@ -165,11 +165,11 @@ Minimum Android 5.0 (API 21) and iOS 13; target the latest stable releases. What
 - **CPU types.** Ship `arm64-v8a` and `armeabi-v7a` (32-bit phones) for Android; iOS devices are 64-bit.
   Each adds roughly 20-35 MB of runtime libraries, delivered per CPU type by the store.
 - **Speed.** Old CPUs may run the model slower than real time. At first start the app measures the real-time
-  factor on a short built-in sample. Above about 0.8 it switches to "check after you finish" (the audio is
+  factor on a short built-in sample (a mid-range phone measured 0.14, so only genuinely slow devices need the fallback). Above about 0.8 it switches to "check after you finish" (the audio is
   pushed when the user stops, the result comes some seconds later); between 0.3 and 0.8 it warns that marks
   will lag. The thread count for the model follows the number of cores.
 - **Memory.** The model needs about 73 MB on disk plus ONNX Runtime working memory; on phones with little RAM
-  the app checks available memory before starting and explains if it cannot run. To be measured on real old devices.
+  the app checks available memory before starting and explains if it cannot run. Measured on a mid-range phone (Galaxy A15): 194 MB peak for the whole process; old devices still to be measured.
 - **Arabic text.** Old Android and iOS versions shape Arabic and the small Quranic marks less reliably: the
   bundled Uthmani font must be rendered and checked on the oldest supported systems, not only on new ones
   (section 12, item 6). If a mark cannot be rendered correctly on a very old version, that version's minimum is
