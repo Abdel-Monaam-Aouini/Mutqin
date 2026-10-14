@@ -280,6 +280,14 @@ jobs:
             git clone --depth 1 https://huggingface.co/Muno459/zipformer_p-quran models/zipformer_p-quran
           GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
             git -C models/zipformer_p-quran lfs pull
+      - name: Generate model-derived expected units
+        run: |
+          if [ -s data/quran/quran-uthmani.txt ] && \
+             [ -s models/zipformer_p-quran/ordered_quran_phonemes.json ]; then
+            python3 -I tools/zipformer/expected_units.py
+          else
+            echo "::notice::Quran text or model source data is unavailable; expected units were not generated"
+          fi
       - name: Choose whether the app gets the Quran text
         run: |
           flags=""
