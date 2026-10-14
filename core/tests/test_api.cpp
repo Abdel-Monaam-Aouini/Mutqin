@@ -49,3 +49,43 @@ TEST(Api, ExpectedPhonemesOfARange) {
     mq_session_destroy(session);
     mq_engine_destroy(engine);
 }
+
+#include <fstream>
+#include <iterator>
+
+namespace {
+std::string Slurp(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+}
+}  // namespace
+
+TEST(Api, EngineFromMemoryEqualsEngineFromFolder) {
+    const std::string uthmani = Slurp(kDataDir + "/quran-uthmani.txt");
+    const std::string simple = Slurp(kDataDir + "/quran-simple-clean.txt");
+    const std::string sums = Slurp(kDataDir + "/checksums.txt");
+    if (uthmani.empty() || simple.empty() || sums.empty())
+        GTEST_SKIP() << "data/quran missing: run tools/quran_text/download.py";
+    char err[256];
+    mq_engine* engine = nullptr;
+    ASSERT_EQ(mq_engine_create_from_memory(uthmani.data(), uthmani.size(), simple.data(), simple.size(),
+                                           sums.data(), sums.size(), &engine, err, sizeof err),
+              MQ_OK)
+        << err;
+    mq_session* session = nullptr;
+    ASSERT_EQ(mq_session_create(engine, 1, 1, 7, &session, err, sizeof err), MQ_OK) << err;
+    EXPECT_GT(mq_session_phoneme_count(session), 20u);
+    mq_session_destroy(session);
+    mq_engine_destroy(engine);
+
+    std::string tampered = uthmani;
+    tampered[tampered.size() / 2] ^= 1;  // flip one bit: the checksum must catch it
+    EXPECT_EQ(mq_engine_create_from_memory(tampered.data(), tampered.size(), simple.data(), simple.size(),
+                                           sums.data(), sums.size(), &engine, err, sizeof err),
+              MQ_ERR_DATA);
+    EXPECT_NE(std::string(err).find("checksum mismatch"), std::string::npos) << err;
+    EXPECT_EQ(engine, nullptr);
+    EXPECT_EQ(mq_engine_create_from_memory(nullptr, 0, simple.data(), simple.size(), sums.data(), sums.size(),
+                                           &engine, err, sizeof err),
+              MQ_ERR_ARGUMENT);
+}

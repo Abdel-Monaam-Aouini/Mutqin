@@ -35,10 +35,19 @@ struct Surah {
     std::vector<Ayah> ayahs;
 };
 
+// The contents of the three data files, for loading without a folder (app assets, tests).
+struct QuranSources {
+    std::string uthmani;    // quran-uthmani.txt
+    std::string simple;     // quran-simple-clean.txt
+    std::string checksums;  // checksums.txt
+};
+
 class Quran {
 public:
     // Verifies checksums and loads `data_dir`. On failure returns false and sets *error.
     static bool Load(const std::string& data_dir, Quran* out, std::string* error);
+    // Same checks on file contents that are already in memory.
+    static bool LoadFromText(const QuranSources& sources, Quran* out, std::string* error);
 
     const std::vector<Surah>& surahs() const { return surahs_; }
     size_t ayah_count() const;

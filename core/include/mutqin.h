@@ -93,6 +93,11 @@ typedef struct mq_event {
 /* Loads and verifies the Quran text in data_dir (data/quran). On failure *out is NULL and
  * err (if not NULL) receives a message of at most err_len bytes. */
 int mq_engine_create(const char* data_dir, mq_engine** out, char* err, size_t err_len);
+/* The same from the contents of quran-uthmani.txt, quran-simple-clean.txt and checksums.txt held in
+ * memory (for example read from app assets), so no folder is needed. The checksums are verified. */
+int mq_engine_create_from_memory(const char* uthmani, size_t uthmani_len, const char* simple,
+                                 size_t simple_len, const char* checksums, size_t checksums_len,
+                                 mq_engine** out, char* err, size_t err_len);
 void mq_engine_destroy(mq_engine* engine);
 
 /* Ayahs ayah_first..ayah_last (inclusive) of a surah. */

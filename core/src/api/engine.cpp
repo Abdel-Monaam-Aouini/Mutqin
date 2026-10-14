@@ -113,6 +113,36 @@ int mq_engine_create(const char* data_dir, mq_engine** out, char* err, size_t er
     }
 }
 
+int mq_engine_create_from_memory(const char* uthmani, size_t uthmani_len, const char* simple,
+                                 size_t simple_len, const char* checksums, size_t checksums_len,
+                                 mq_engine** out, char* err, size_t err_len) {
+    if (out == nullptr)
+        return MQ_ERR_ARGUMENT;
+    *out = nullptr;
+    if (uthmani == nullptr || simple == nullptr || checksums == nullptr) {
+        SetError(err, err_len, "a data pointer is null");
+        return MQ_ERR_ARGUMENT;
+    }
+    try {
+        mutqin::QuranSources sources;
+        sources.uthmani.assign(uthmani, uthmani_len);
+        sources.simple.assign(simple, simple_len);
+        sources.checksums.assign(checksums, checksums_len);
+        auto engine = new mq_engine();
+        std::string error;
+        if (!mutqin::Quran::LoadFromText(sources, &engine->quran, &error)) {
+            delete engine;
+            SetError(err, err_len, error);
+            return MQ_ERR_DATA;
+        }
+        *out = engine;
+        return MQ_OK;
+    } catch (const std::exception& e) {
+        SetError(err, err_len, e.what());
+        return MQ_ERR_INTERNAL;
+    }
+}
+
 void mq_engine_destroy(mq_engine* engine) {
     delete engine;
 }

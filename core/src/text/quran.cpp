@@ -101,10 +101,7 @@ bool MatchDataLine(const std::string& line, AyahKey* key, std::string* text) {
     return true;
 }
 
-Lines ParseLines(const std::string& dir, const std::string& name) {
-    std::string raw;
-    if (!ReadFile(dir + "/" + name, &raw))
-        throw DataError(name + ": cannot read file");
+Lines ParseLines(const std::string& raw, const std::string& name) {
     if (raw.compare(0, 3, "\xEF\xBB\xBF") == 0)
         throw DataError(name + ": unexpected BOM");
     std::vector<uint32_t> scratch;
@@ -133,11 +130,8 @@ Lines ParseLines(const std::string& dir, const std::string& name) {
     return result;
 }
 
-std::map<std::string, std::string> ReadChecksums(const std::string& path) {
-    std::string raw;
+std::map<std::string, std::string> ParseChecksums(const std::string& raw) {
     std::map<std::string, std::string> result;
-    if (!ReadFile(path, &raw))
-        return result;
     for (const std::string& line : Split(raw, '\n')) {
         if (line.find_first_not_of(" \t\r") == std::string::npos)
             continue;
@@ -153,19 +147,18 @@ std::map<std::string, std::string> ReadChecksums(const std::string& path) {
     return result;
 }
 
-void VerifyChecksums(const std::string& dir) {
-    auto recorded = ReadChecksums(dir + "/" + kChecksumsFile);
+void VerifyChecksums(const QuranSources& sources) {
+    auto recorded = ParseChecksums(sources.checksums);
     if (recorded.empty())
         throw DataError(std::string(kChecksumsFile) + " missing or empty");
-    for (const char* name : {kUthmaniFile, kSimpleFile}) {
-        auto it = recorded.find(name);
+    const std::pair<const char*, const std::string*> files[] = {{kUthmaniFile, &sources.uthmani},
+                                                                {kSimpleFile, &sources.simple}};
+    for (const auto& file : files) {
+        auto it = recorded.find(file.first);
         if (it == recorded.end())
-            throw DataError(std::string(name) + ": no checksum recorded");
-        std::string data;
-        if (!ReadFile(dir + "/" + name, &data))
-            throw DataError(std::string(name) + ": file missing");
-        if (Sha256Hex(data) != it->second) {
-            throw DataError(std::string(name) + ": checksum mismatch (file modified)");
+            throw DataError(std::string(file.first) + ": no checksum recorded");
+        if (Sha256Hex(*file.second) != it->second) {
+            throw DataError(std::string(file.first) + ": checksum mismatch (file modified)");
         }
     }
 }
@@ -273,10 +266,25 @@ bool IsMarkOnly(const std::string& token) {
 }
 
 bool Quran::Load(const std::string& data_dir, Quran* out, std::string* error) {
+    QuranSources sources;
+    ReadFile(data_dir + "/" + kChecksumsFile, &sources.checksums);  // missing: reported by LoadFromText
+    const std::pair<const char*, std::string*> files[] = {{kUthmaniFile, &sources.uthmani},
+                                                          {kSimpleFile, &sources.simple}};
+    for (const auto& file : files) {
+        if (!ReadFile(data_dir + "/" + file.first, file.second)) {
+            if (error)
+                *error = std::string(file.first) + ": file missing";
+            return false;
+        }
+    }
+    return LoadFromText(sources, out, error);
+}
+
+bool Quran::LoadFromText(const QuranSources& sources, Quran* out, std::string* error) {
     try {
-        VerifyChecksums(data_dir);
-        Lines uthmani = ParseLines(data_dir, kUthmaniFile);
-        Lines simple = ParseLines(data_dir, kSimpleFile);
+        VerifyChecksums(sources);
+        Lines uthmani = ParseLines(sources.uthmani, kUthmaniFile);
+        Lines simple = ParseLines(sources.simple, kSimpleFile);
 
         if (uthmani.size() != simple.size())
             throw DataError("files list different ayahs");
