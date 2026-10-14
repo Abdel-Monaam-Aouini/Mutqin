@@ -6,12 +6,16 @@
 #   SECONDS       length of `make record`
 #   SHERPA_DIR    where `make sherpa` puts sherpa-onnx (default ~/sherpa-onnx)
 #   LEVEL         strictness: relaxed | standard | strict (default standard)
+#   NDK, ABI      for `make android`: the NDK folder (default: ANDROID_NDK_HOME or the first one in ~/Android/Sdk/ndk)
+#                 and arm64-v8a | armeabi-v7a | x86_64
 #   MODEL         the model manifest (default models/zipformer_p-quran/mutqin_model.txt)
 
 SURAH      ?= 1
 AYAH       ?= 1-7
 WAV        ?= take.wav
 SECONDS    ?= 60
+NDK        ?= $(or $(ANDROID_NDK_HOME),$(firstword $(wildcard $(HOME)/Android/Sdk/ndk/*)))
+ABI        ?= arm64-v8a
 SHERPA_VER ?= v1.13.8
 SHERPA_DIR ?= $(HOME)/sherpa-onnx
 SHERPA_PKG := sherpa-onnx-$(SHERPA_VER)-linux-x64-shared-no-tts
@@ -25,7 +29,7 @@ JOBS       ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo
 
 .DEFAULT_GOAL := help
 .PHONY: help venv build test test-py format lint check data units sherpa build-live model-check \
-        live check-wav record demo bench shared install clean
+        live check-wav record demo bench shared install android clean
 
 help: ## show this list
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -70,11 +74,19 @@ shared: ## build the shared library libmutqin (C API only) into build-shared/
 	cmake --build build-shared -j $(JOBS)
 	ctest --test-dir build-shared -R CHeader --output-on-failure
 
+android: ## cross-compile libmutqin for Android with the NDK (NDK=, ABI=), API 21, into build-android-ABI/
+	@test -f "$(NDK)/build/cmake/android.toolchain.cmake" || { echo "no Android NDK found: set NDK=/path/to/ndk"; exit 1; }
+	cmake -S . -B build-android-$(ABI) -DCMAKE_TOOLCHAIN_FILE=$(NDK)/build/cmake/android.toolchain.cmake \
+		-DANDROID_ABI=$(ABI) -DANDROID_PLATFORM=android-21 -DCMAKE_BUILD_TYPE=Release \
+		-DMUTQIN_BUILD_SHARED=ON -DMUTQIN_BUILD_TESTS=OFF -DMUTQIN_CLI_MIC=OFF -DMUTQIN_WERROR=ON
+	cmake --build build-android-$(ABI) -j $(JOBS) --target mutqin_shared
+	@ls -l build-android-$(ABI)/core/libmutqin.so
+
 install: shared ## install header, libraries and the CLI under PREFIX (default /usr/local)
 	cmake --install build-shared --prefix $(or $(PREFIX),/usr/local)
 
 clean: ## remove build directories
-	rm -rf build build-rel build-live build-shared
+	rm -rf build build-rel build-live build-shared build-android-*
 
 # ---------------------------------------------------------------- data and model
 

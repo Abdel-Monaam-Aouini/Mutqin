@@ -97,10 +97,10 @@ Steps, in order:
 
 1. **Core readiness** (task 3.5a). Done: resampler for any input rate, session items/position/reset,
    engine from memory, install rules, a shared library that exports only the C API, a plain-C header test,
-   threading contract with an internal lock (checked with ThreadSanitizer), bounded memory. Open: cross-compile
-   for Android (NDK, arm64-v8a and x86_64; about 1 GB of tools, ask first) and iOS (device and simulator,
-   needs macOS and Xcode; xcframework); check that sherpa-onnx's Android and iOS builds work with our
-   backend (Android archives exist; no prebuilt iOS archive was found); measure speed, memory, battery and heat.
+   threading contract with an internal lock (checked with ThreadSanitizer), bounded memory. Android cross-compiling is done (NDK r27.1,
+   arm64-v8a, armeabi-v7a, x86_64; the real model runs on an emulator with results identical to the desktop).
+   Open: iOS (device and simulator, needs macOS and Xcode; xcframework; no prebuilt iOS archive of sherpa-onnx
+   was found), and a real ARM phone and an old Android version (speed, memory, battery, heat, Arabic text).
 2. **Decisions** are taken (`APP_SPEC.md`, section 12). Remaining before app code: the font rendering test,
    store accounts and identifiers (the strictness level API is done).
 3. **Android prototype** (Jetpack Compose): record, push on a worker thread, highlight the current word, show
@@ -176,7 +176,7 @@ for now; opt-in sharing of saved takes for beta testing; no required disclaimer 
 | 5 | Font: render the real text with Amiri (Quran variant) and Scheherazade New on a device, pick one, add its license to the app | device test |
 | 6 | Model delivery for release (store asset delivery or a one-time download with SHA-256 check); development builds place the files by hand | later |
 | 7 | Store accounts (Google Play, Apple Developer Program), developer name, identifiers (`app.mutqin` proposed), final name and icon (draft in `docs/branding/`) | owner |
-| 8 | Android NDK / Xcode for cross-compiling, and phones for measurements, **including old devices** (speed, memory and Arabic text rendering near Android 5 and iOS 13) | owner (tools, devices) |
+| 8 | ~~Android NDK~~ available and used; Xcode (macOS) for iOS, and phones for measurements, **including old devices** (speed, memory and Arabic text rendering near Android 5 and iOS 13) | owner (tools, devices) |
 | 9 | Before the repository is made public: the commit history shows the author's e-mail address, the assistant files (`CLAUDE.md`, `AGENTS.md`, `.claude/`) stay visible by choice, a few example units appear in `EVAL_RESULTS.md`, and GitHub Actions billing currently blocks CI (free for public repositories) | owner |
 | 10 | Training audio from EveryAyah has no stated license: research use only, nothing trained on it is published | owner, if training resumes |
 | 11 | Letter- and tajweed-level feedback (Phases 4-5) after the mobile apps, or in parallel; improving the 1-2 s latency | owner |

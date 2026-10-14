@@ -1,6 +1,8 @@
 include(GoogleTest)
 
-set(MUTQIN_DATA_DIR "${PROJECT_SOURCE_DIR}/data/quran")
+# Where the tests read the Quran text; a cross-compiled run (Android) points it at a path on the device.
+set(MUTQIN_TEST_DATA_DIR "${PROJECT_SOURCE_DIR}/data/quran" CACHE PATH "Quran text directory used by the tests")
+set(MUTQIN_DATA_DIR "${MUTQIN_TEST_DATA_DIR}")
 
 add_executable(mutqin_tests
     test_version.cpp

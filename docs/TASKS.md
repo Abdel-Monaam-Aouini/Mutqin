@@ -41,13 +41,14 @@ Work one task at a time, run the tests, then tick it here.
 - [ ] 3.5 (DEFERRED to Phase 3b) Android demo app (Oboe + JNI)
 - [ ] 3.6 (DEFERRED to Phase 3b) iOS demo app (AVAudioEngine + Swift bridge)
 - [ ] 3.5a (DEFERRED, first step of Phase 3b) Mobile readiness of the core, before any app code.
-  Done (core side): cross-compiles for Android with NDK r27 (arm64-v8a 0.64 MB and armeabi-v7a 0.39 MB stripped, API 21,
-  `-Werror`, with and without the sherpa-onnx backend; links against its real Android libraries); and, native builds: resampler for any input rate, item/position/reset in the C API,
-  engine from memory, install rules, shared library exporting only the C API, C-compatibility test,
-  threading contract and memory bounds. Still open: cross-compile `core/` for Android (NDK, arm64-v8a and
-  x86_64; about 1 GB of tools, ask the owner first) and iOS (arm64 device and simulator, needs macOS and
-  Xcode; xcframework); check sherpa-onnx's Android/iOS builds work with our backend; measure speed, memory
-  and battery on a phone
+  Done: the core cross-compiles for Android with NDK r27.1 (arm64-v8a 0.64 MB and armeabi-v7a 0.39 MB stripped,
+  API 21, `-Werror`, with and without the sherpa-onnx backend, linked against its real Android libraries; `make
+  android`); the tests, the plain-C test and the real model run on the Android 15 x86_64 emulator with results
+  identical to the desktop (`EVAL_RESULTS.md`). Also done: resampler for any input rate, session items/position/
+  reset/strictness, engine from memory, install rules, shared library exporting only the C API, threading
+  contract with an internal lock (ThreadSanitizer-checked), bounded memory. Still open: a run on a real ARM phone
+  and on an old Android version (speed, memory, battery, Arabic text); iOS (device and simulator, needs macOS and
+  Xcode; xcframework; sherpa-onnx's iOS build)
 - [ ] 3.7 Desktop benchmarks (RTF, latency); phone benchmarks deferred to Phase 3b — front end, aligner and a stand-in model measured on desktop (docs/EVAL_RESULTS.md); the real model and latency to an event are pending
 - [x] 3.8 `mutqin-cli`: WAV (16 kHz mono) and live microphone input, surah + ayah range, prints events and mistakes — expected phonemes, WAV, live microphone (--mic), posterior replay, --model for the real model
 

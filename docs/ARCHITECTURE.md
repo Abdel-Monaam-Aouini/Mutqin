@@ -105,7 +105,10 @@ preference), and letter-level and tajweed events with character spans.
   that the library works from plain C (`core/tests/test_c_header.c`, built as C11 with `-Werror`).
 - Android: build the shared library with the NDK toolchain
   (`-DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a`) and load
-  it from Kotlin through JNI. iOS: build the static library for the device and the simulator and combine
+  it from Kotlin through JNI (`make android ABI=arm64-v8a`; done and run on an emulator, see `EVAL_RESULTS.md`).
+  The sherpa-onnx Android release provides `libsherpa-onnx-c-api.so` and `libonnxruntime.so` per CPU type; pass a
+  folder with `include/` and `lib/` as `SHERPA_ONNX_DIR` (the CMake lookup ignores the toolchain's find root for it).
+  iOS: build the static library for the device and the simulator and combine
   them with `xcodebuild -create-xcframework`. Neither has been done yet (task 3.5a in `TASKS.md`).
 - Data an app ships and copies out of its assets on first run: the model (a real file path is needed by
   sherpa-onnx), `tokens.txt`, `expected_units.tsv`, `mutqin_model.txt`. The Quran text can be handed over

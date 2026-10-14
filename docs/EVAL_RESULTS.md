@@ -257,3 +257,29 @@ offered. The same profiles in Python (`STRICTNESS_PROFILES`) and C++ (`Strictnes
 each other by the aligner parity test. Through the C++ core on the first 100 s of the recording: the clean audio
 gives 1 / 2 / 4 events at relaxed / standard / strict, and a replaced word is missed at relaxed and found at the
 other two. Levels apply to the Zipformer's units only; the built-in phonemizer text has one profile.
+
+### Android build and run (2026-10-14)
+
+NDK r27.1 (r28.2 was also installed, not used), Android API 21 as the minimum, Release, `-Werror`:
+
+| Build | Result |
+|---|---|
+| `libmutqin.so` arm64-v8a | builds; 0.64 MB stripped |
+| `libmutqin.so` armeabi-v7a (32-bit) | builds; 0.39 MB stripped |
+| both with the sherpa-onnx backend, linked to its real Android libraries (v1.13.8) | build; the library depends only on `libsherpa-onnx-c-api.so`, which needs `libonnxruntime.so` and system libraries (`libandroid`, `liblog`); no C++ runtime library to ship |
+| exports | exactly the 21 functions of `mutqin.h`, nothing else |
+
+Run on the Android emulator (Android 15, API 35, x86_64, 4 cores, hardware virtualization), built for x86_64:
+
+| Check | Result |
+|---|---|
+| plain-C header test | passes |
+| unit tests (all that need no Python, with the Quran text pushed to the device) | 59 of 59 pass |
+| real model, `s5_100s.wav` (16 kHz) | `repeated 5:2:14` at 39.1 s and `wrong 5:3:25` at 100 s: the same events and times as on the desktop |
+| same audio as a 44.1 kHz file (resampled on the device) | the same events, times within 0.1 s |
+| the clip with word 5:1:6 cut out | `skipped 5:1:6` at 10.3 s, as on the desktop |
+| time for 100 s of audio, model load included, 2 threads | 9-12 s wall clock |
+
+The emulator runs on this desktop CPU, so the timing says nothing about phones. Not done yet: a run on a
+real ARM phone (speed, memory, battery), a run on an old Android version (the emulator is API 35; API 21 is only
+the build target), and iOS.
