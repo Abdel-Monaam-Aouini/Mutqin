@@ -84,7 +84,8 @@ mq_session_set_input_rate(session, hz);                 /* default 16000; other 
 mq_session_push_audio(session, samples, n);             /* needs a model, else MQ_ERR_NO_MODEL */
 mq_session_finish_audio(session);                       /* judge the last word too */
 mq_session_load_model(session, manifest, err, len);     /* recognition model (optional sherpa-onnx backend) */
-mq_session_item / mq_session_position(...)              /* item -> Tanzil words; the item being recited now */
+mq_session_item / mq_session_item_text / mq_session_position(...) /* item -> Tanzil words and their Uthmani text; the item being recited now */
+mq_engine_ayah_count(engine, surah);                    /* for a range picker */
 mq_session_set_strictness(session, level);              /* MQ_STRICTNESS_RELAXED / STANDARD / STRICT, any time */
 mq_session_reset(session);                              /* new attempt on the same range */
 mq_session_word_count / mq_session_word_status(...)     /* MQ_WORD_OK / WRONG / SKIPPED */

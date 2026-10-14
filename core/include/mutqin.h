@@ -123,6 +123,9 @@ MQ_API int mq_engine_create_from_memory(const char* uthmani, size_t uthmani_len,
                                         mq_engine** out, char* err, size_t err_len);
 MQ_API void mq_engine_destroy(mq_engine* engine);
 
+/* Number of ayahs of a surah (1-114), or -1 for an unknown surah. For a range picker. */
+MQ_API int mq_engine_ayah_count(const mq_engine* engine, int surah);
+
 /* Ayahs ayah_first..ayah_last (inclusive) of a surah. */
 MQ_API int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ayah_last,
                              mq_session** out, char* err, size_t err_len);
@@ -165,6 +168,13 @@ typedef struct mq_item {
     int word_last;
 } mq_item;
 MQ_API int mq_session_item(const mq_session* session, size_t item_index, mq_item* out);
+
+/* The Uthmani text of an item, exactly as in the verified Tanzil text (UTF-8, the words separated by a
+ * space, standalone waqf signs after their word). The basmala items (ayah 0) give the surah's basmala
+ * words. Like snprintf: returns the length in bytes without the terminating NUL; out is NUL-terminated and
+ * cut if out_len is too small; out may be NULL to ask for the length. Returns a negative value on error.
+ * The engine must outlive the session. */
+MQ_API int mq_session_item_text(const mq_session* session, size_t item_index, char* out, size_t out_len);
 
 /* Index of the item being recited now (the last one heard), or -1 before anything was recognised. For
  * highlighting the current word. */

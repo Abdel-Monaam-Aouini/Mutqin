@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <string>
 
 #include "mutqin.h"
+#include "text/quran.h"
 
 namespace {
 const std::string kDataDir = MUTQIN_DATA_DIR;
@@ -88,4 +90,43 @@ TEST(Api, EngineFromMemoryEqualsEngineFromFolder) {
     EXPECT_EQ(mq_engine_create_from_memory(nullptr, 0, simple.data(), simple.size(), sums.data(), sums.size(),
                                            &engine, err, sizeof err),
               MQ_ERR_ARGUMENT);
+}
+
+TEST(Api, AyahCountsAndItemTextComeFromTheVerifiedText) {
+    mq_engine* engine = nullptr;
+    char err[256];
+    if (mq_engine_create(kDataDir.c_str(), &engine, err, sizeof err) != MQ_OK)
+        GTEST_SKIP() << "data/quran missing: run tools/quran_text/download.py";
+    EXPECT_EQ(mq_engine_ayah_count(engine, 1), 7);
+    EXPECT_EQ(mq_engine_ayah_count(engine, 2), 286);
+    EXPECT_EQ(mq_engine_ayah_count(engine, 114), 6);
+    EXPECT_EQ(mq_engine_ayah_count(engine, 0), -1);
+    EXPECT_EQ(mq_engine_ayah_count(engine, 115), -1);
+    EXPECT_EQ(mq_engine_ayah_count(nullptr, 1), -1);
+
+    mq_session* session = nullptr;
+    ASSERT_EQ(mq_session_create(engine, 1, 2, 2, &session, err, sizeof err), MQ_OK) << err;
+    // the text of an item is the loader's text of its word (this test types no Quran text)
+    mutqin::Quran quran;
+    std::string error;
+    ASSERT_TRUE(mutqin::Quran::Load(kDataDir, &quran, &error)) << error;
+    const mutqin::Ayah* ayah = quran.FindAyah(1, 2);
+    ASSERT_NE(ayah, nullptr);
+    const int need = mq_session_item_text(session, 0, nullptr, 0);
+    ASSERT_GT(need, 0);
+    std::string text(static_cast<size_t>(need) + 1, '\0');
+    EXPECT_EQ(mq_session_item_text(session, 0, text.data(), text.size()), need);
+    text.resize(static_cast<size_t>(need));
+    std::string expected = ayah->words[0].text;
+    for (const std::string& mark : ayah->words[0].marks)
+        expected += " " + mark;
+    EXPECT_EQ(text, expected);
+
+    char tiny[4];  // cut, still NUL-terminated, and the full length is reported
+    EXPECT_EQ(mq_session_item_text(session, 0, tiny, sizeof tiny), need);
+    EXPECT_EQ(std::strlen(tiny), 3u);
+    EXPECT_EQ(mq_session_item_text(session, 9999, nullptr, 0), MQ_ERR_ARGUMENT);
+    EXPECT_EQ(mq_session_item_text(nullptr, 0, nullptr, 0), MQ_ERR_ARGUMENT);
+    mq_session_destroy(session);
+    mq_engine_destroy(engine);
 }

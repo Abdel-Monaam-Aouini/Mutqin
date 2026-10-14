@@ -25,6 +25,7 @@ struct mq_engine {
 };
 
 struct mq_session {
+    const mq_engine* engine = nullptr;  // for the text of the items; must outlive the session
     mutqin::PhonemizeResult result;
     std::vector<std::string> rules;  // joined rule tags, one per item
     std::vector<mutqin::WordRef> words;
@@ -162,6 +163,12 @@ int mq_engine_create_from_memory(const char* uthmani, size_t uthmani_len, const 
     }
 }
 
+int mq_engine_ayah_count(const mq_engine* engine, int surah) {
+    if (engine == nullptr || surah < 1 || surah > static_cast<int>(engine->quran.surahs().size()))
+        return -1;
+    return static_cast<int>(engine->quran.surahs()[static_cast<size_t>(surah - 1)].ayahs.size());
+}
+
 void mq_engine_destroy(mq_engine* engine) {
     delete engine;
 }
@@ -203,6 +210,7 @@ int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ay
                                    [&](const mutqin::PhonemeItem& it) { return it.ayah > ayah_last; }),
                     items.end());
         session->words = mutqin::BuildWordReadings(items, ayah_words);
+        session->engine = engine;
         session->surah = surah;
         session->ayah_first = ayah_first;
         session->ayah_last = ayah_last;
@@ -450,6 +458,45 @@ int mq_session_item(const mq_session* session, size_t item_index, mq_item* out) 
     out->word = std::get<2>(w.key);
     out->word_last = w.last_word;
     return MQ_OK;
+}
+
+int mq_session_item_text(const mq_session* session, size_t item_index, char* out, size_t out_len) {
+    SessionLock lock(session);
+    if (session == nullptr || session->engine == nullptr || item_index >= session->words.size())
+        return MQ_ERR_ARGUMENT;
+    const mutqin::WordRef& item = session->words[item_index];
+    const int surah_number = std::get<0>(item.key), ayah_number = std::get<1>(item.key);
+    const int first = std::get<2>(item.key), last = item.last_word;
+    const auto& surahs = session->engine->quran.surahs();
+    if (surah_number < 1 || surah_number > static_cast<int>(surahs.size()))
+        return MQ_ERR_INTERNAL;
+    const mutqin::Surah& surah = surahs[static_cast<size_t>(surah_number - 1)];
+    std::string text;
+    auto append = [&text](const std::string& piece) {
+        if (!text.empty())
+            text += ' ';
+        text += piece;
+    };
+    if (ayah_number == 0) {  // the basmala preface
+        for (int w = first; w <= last && w <= static_cast<int>(surah.basmala.size()); ++w)
+            append(surah.basmala[static_cast<size_t>(w - 1)]);
+    } else {
+        const mutqin::Ayah* ayah = session->engine->quran.FindAyah(surah_number, ayah_number);
+        if (ayah == nullptr)
+            return MQ_ERR_INTERNAL;
+        for (int w = first; w <= last && w <= static_cast<int>(ayah->words.size()); ++w) {
+            const mutqin::Word& word = ayah->words[static_cast<size_t>(w - 1)];
+            append(word.text);
+            for (const std::string& mark : word.marks)
+                append(mark);
+        }
+    }
+    if (out != nullptr && out_len > 0) {
+        const size_t n = std::min(text.size(), out_len - 1);
+        std::memcpy(out, text.data(), n);
+        out[n] = '\0';
+    }
+    return static_cast<int>(text.size());
 }
 
 int mq_session_position(const mq_session* session) {
