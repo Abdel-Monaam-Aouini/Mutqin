@@ -1,10 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [master]
   pull_request:
-  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -256,58 +253,14 @@ jobs:
       - name: Download Quran text (only if the owner accepted the Tanzil terms)
         if: steps.quran-cache.outputs.cache-hit != 'true' && vars.TANZIL_TERMS_ACCEPTED == 'true'
         run: python3 -I tools/quran_text/download.py --agree-tanzil-terms
-      - name: Download the gated recognition model (trusted runs only)
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        env:
-          HF_USERNAME: ${{ secrets.HF_USERNAME }}
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          if [ -z "$HF_USERNAME" ] || [ -z "$HF_TOKEN" ]; then
-            echo "::notice::HF_USERNAME/HF_TOKEN are not configured; Android APKs will not include the recognition model"
-            exit 0
-          fi
-          askpass=$(mktemp)
-          trap 'rm -f "$askpass"' EXIT
-          cat > "$askpass" <<'EOF'
-          #!/bin/sh
-          case "$1" in
-            *Username*) printf '%s\n' "$HF_USERNAME" ;;
-            *) printf '%s\n' "$HF_TOKEN" ;;
-          esac
-          EOF
-          chmod 700 "$askpass"
-          GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
-            git clone --depth 1 https://huggingface.co/Muno459/zipformer_p-quran models/zipformer_p-quran
-          GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
-            git -C models/zipformer_p-quran lfs pull
-      - name: Generate model-derived expected units
-        run: |
-          if [ -s data/quran/quran-uthmani.txt ] && \
-             [ -s models/zipformer_p-quran/ordered_quran_phonemes.json ]; then
-            python3 -I tools/zipformer/expected_units.py
-          else
-            echo "::notice::Quran text or model source data is unavailable; expected units were not generated"
-          fi
       - name: Choose whether the app gets the Quran text
         run: |
-          flags=""
           if [ -f data/quran/quran-uthmani.txt ]; then
-            :
+            echo "GRADLE_FLAGS=" >> "$GITHUB_ENV"
           else
             echo "::warning::Quran text not available (set the TANZIL_TERMS_ACCEPTED Actions variable); the app is built without it"
-            flags="-PnoQuranAssets"
+            echo "GRADLE_FLAGS=-PnoQuranAssets" >> "$GITHUB_ENV"
           fi
-          if [ -f data/quran/quran-uthmani.txt ] && \
-             [ -s models/zipformer_p-quran/quran_phoneme_zipformer.int8.onnx ] && \
-             [ -s models/zipformer_p-quran/tokens.txt ] && \
-             [ -s models/zipformer_p-quran/expected_units.tsv ] && \
-             [ -s models/zipformer_p-quran/LICENSE ]; then
-            flags="$flags -PbundleModel=true"
-            echo "ANDROID_MODEL_BUNDLED=true" >> "$GITHUB_ENV"
-          else
-            echo "ANDROID_MODEL_BUNDLED=false" >> "$GITHUB_ENV"
-          fi
-          echo "GRADLE_FLAGS=$flags" >> "$GITHUB_ENV"
       - name: Android lint
         run: |
           # shellcheck disable=SC2153 # GRADLE_FLAGS is written to GITHUB_ENV by the previous step.
@@ -318,12 +271,4 @@ jobs:
           # shellcheck disable=SC2153 # GRADLE_FLAGS is written to GITHUB_ENV by the previous step.
           read -r -a gradle_flags <<< "$GRADLE_FLAGS"
           cd android && ./gradlew --no-daemon "${gradle_flags[@]}" :app:assembleDebug :app:assembleRelease
-      - name: Verify the recognition model is embedded
-        if: env.ANDROID_MODEL_BUNDLED == 'true'
-        run: |
-          unzip -l android/app/build/outputs/apk/release/app-release.apk | grep -F \
-            -e "assets/model/LICENSE" \
-            -e "assets/model/expected_units.tsv" \
-            -e "assets/model/quran_phoneme_zipformer.int8.onnx" \
-            -e "assets/model/tokens.txt"
       # APKs are deliberately not uploaded: they contain Tanzil text, which is not ours to redistribute.

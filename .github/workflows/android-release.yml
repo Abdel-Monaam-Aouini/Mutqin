@@ -1,0 +1,104 @@
+name: Android release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+  NDK_VERSION: 27.1.12297006
+
+jobs:
+  release:
+    name: model-embedded Android release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-home-cache-cleanup: true
+      - name: Android SDK components (platform, NDK, CMake)
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "ndk;${NDK_VERSION}" "cmake;3.22.1"
+      - name: sherpa-onnx Android libraries (checksum-verified)
+        run: android/scripts/fetch_sherpa.sh
+      - name: Restore Quran text cache
+        id: quran-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            data/quran/quran-uthmani.txt
+            data/quran/quran-simple-clean.txt
+          key: quran-text-${{ hashFiles('data/quran/checksums.txt') }}
+      - name: Download Quran text
+        if: steps.quran-cache.outputs.cache-hit != 'true'
+        run: |
+          if [ "${{ vars.TANZIL_TERMS_ACCEPTED }}" != "true" ]; then
+            echo "::error::Set the TANZIL_TERMS_ACCEPTED Actions variable before running the release workflow"
+            exit 1
+          fi
+          python3 -I tools/quran_text/download.py --agree-tanzil-terms
+      - name: Verify Quran text is available
+        run: test -s data/quran/quran-uthmani.txt && test -s data/quran/quran-simple-clean.txt
+      - name: Download the gated recognition model
+        env:
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_USERNAME" ] || [ -z "$HF_TOKEN" ]; then
+            echo "::error::Configure HF_USERNAME and HF_TOKEN repository secrets before running the release workflow"
+            exit 1
+          fi
+          askpass=$(mktemp)
+          trap 'rm -f "$askpass"' EXIT
+          cat > "$askpass" <<'EOF'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' "$HF_USERNAME" ;;
+            *) printf '%s\n' "$HF_TOKEN" ;;
+          esac
+          EOF
+          chmod 700 "$askpass"
+          GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+            git clone --depth 1 https://huggingface.co/Muno459/zipformer_p-quran models/zipformer_p-quran
+          GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+            git -C models/zipformer_p-quran lfs pull
+      - name: Generate model-derived expected units
+        run: python3 -I tools/zipformer/expected_units.py
+      - name: Verify model files
+        run: |
+          for file in \
+            models/zipformer_p-quran/quran_phoneme_zipformer.int8.onnx \
+            models/zipformer_p-quran/tokens.txt \
+            models/zipformer_p-quran/expected_units.tsv \
+            models/zipformer_p-quran/LICENSE; do
+            test -s "$file" || { echo "::error::missing model file: $file"; exit 1; }
+          done
+      - name: Kotlin format (ktlint, MIT)
+        run: |
+          android/scripts/fetch_ktlint.sh
+          cd android && .tools/ktlint
+      - name: Android lint
+        run: cd android && ./gradlew --no-daemon :app:lintDebug
+      - name: Build model-embedded release APK
+        run: cd android && ./gradlew --no-daemon -PbundleModel=true :app:assembleRelease
+      - name: Verify model is embedded in the APK
+        run: |
+          unzip -l android/app/build/outputs/apk/release/app-release.apk | grep -F \
+            -e "assets/model/LICENSE" \
+            -e "assets/model/expected_units.tsv" \
+            -e "assets/model/quran_phoneme_zipformer.int8.onnx" \
+            -e "assets/model/tokens.txt"
+      # The APK is deliberately not uploaded: it contains Tanzil text, which is not ours to redistribute.
