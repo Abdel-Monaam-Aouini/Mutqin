@@ -35,6 +35,7 @@ class Params:
     add_inside_min: int = 3  # same, for a run in the middle of a word (noise rarely does this)
     max_jump_words: int = 3
     pause_frames: int = 8  # a gap this long between tokens is a pause (a stop is possible there)
+    edge_free: int = 0  # leading / trailing expected units that may be missing without cost (word joins)
 
 
 @dataclass(frozen=True)
@@ -52,10 +53,14 @@ class AlignResult:
     ops: list = field(default_factory=list)  # the alignment, for debugging
 
 
-def edit_distance_wild(heard: list[Token], expected: tuple[str, ...], low_conf: float) -> int:
+def edit_distance_wild(
+    heard: list[Token], expected: tuple[str, ...], low_conf: float, edge_free: int = 0
+) -> int:
     """Edit distance between the tokens heard for a word and its expected phonemes, where a
-    low-confidence heard token matches anything (it may just be noise)."""
-    prev = list(range(len(expected) + 1))
+    low-confidence heard token matches anything (it may just be noise). Up to `edge_free` expected
+    units may be missing at the start and at the end for free (the neighbour word took them)."""
+    free = min(edge_free, len(expected))
+    prev = [0 if j <= free else j for j in range(len(expected) + 1)]
     for i, tok in enumerate(heard, 1):
         wild = tok.confidence < low_conf
         cur = [i]
@@ -63,7 +68,7 @@ def edit_distance_wild(heard: list[Token], expected: tuple[str, ...], low_conf: 
             same = wild or tok.symbol == sym
             cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (0 if same else 1)))
         prev = cur
-    return prev[-1]
+    return min(prev[len(expected) - t] for t in range(free + 1))
 
 
 def lcs_wild(heard: list[Token], expected: tuple[str, ...], low_conf: float) -> int:
@@ -232,7 +237,7 @@ def align_tokens(heard: list[Token], words: list[WordPhonemes], params: Params |
         length = len(wp.cont)
         pause_before, pause_after = _pauses(heard, aligned_at[w], params.pause_frames)
         distance, expected_len = min(
-            (edit_distance_wild(aligned[w], alt, params.low_conf), len(alt))
+            (edit_distance_wild(aligned[w], alt, params.low_conf, params.edge_free), len(alt))
             for alt in wp.readings(pause_before, pause_after)
             if alt
         )

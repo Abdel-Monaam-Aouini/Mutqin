@@ -159,3 +159,23 @@ missing or attached to the previous word (expected `يَ اااا ءَ ييُ ه
 recognition errors. Not yet measured: recall on injected mistakes, other reciters, learners' recitation,
 phone microphones. The reciter's madd lengths differ from the model's fixed canonical lengths (4 counts),
 so long-vowel units can differ by length without being a mistake.
+
+### Tuning on the real model's output (2026-10-14)
+
+`tools/prototype/zipformer_tune.py` reuses the real units heard on the 49-minute recording. False alarms: the
+recording is tiled into windows of 50 groups and only interior words are scored (a window cuts the audio
+mid-word at both ends). Recall: one mistake is injected into the real heard units of a window (skipped: the
+word's units removed; wrong: replaced by another word's units; repeated: the previous two words heard
+again; added: an unrelated word's units inserted), 100 trials per kind, found if reported within one word.
+
+| Settings | Flagged words (clean) | All events (clean) | Skipped | Wrong (kind / any) | Repeated | Added (kind / any) |
+|---|---|---|---|---|---|---|
+| defaults of the simulation | 1.7% | 3.3% | 100% | 80% / 99% | 97% | 74% / 79% |
+| + up to 2 missing units at each word edge (`edge_free=2`) | 0.7% | 2.3% | 100% | 77% / 96% | 97% | 74% / 79% |
+| + long runs of one character cut to 2 (madd length ignored) | 0.6% | 2.2% | 100% | 77% / 96% | 99% | 73% / 78% |
+| + added word from 3 units (`add_min_tokens=3`) | **0.6%** | **2.2%** | 100% | 77% / 96% | 99% | **89% / 94%** |
+
+Chosen for the unit-based path: `edge_free=2`, run cap 2, `add_min_tokens=3`. Caveats: one reciter, one
+recitation style, professional audio; injected mistakes are synthetic (one per window, units only); learners,
+other reciters and phone microphones are not measured. "Events" counts every reported event including
+repeated / added; the 0.6% counts only wrong or skipped words.
