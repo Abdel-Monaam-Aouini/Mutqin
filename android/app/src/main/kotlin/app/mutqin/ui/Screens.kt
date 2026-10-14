@@ -30,9 +30,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -83,16 +83,45 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /** The screen's root: a surface in the theme colors that keeps clear of the status and navigation bars. */
 @Composable
-fun MutqinApp(state: UiState, vm: MainViewModel, onStart: () -> Unit) {
+fun MutqinApp(
+    state: UiState,
+    vm: MainViewModel,
+    onStart: () -> Unit,
+) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
         Box(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 20.dp)) {
             when (state.phase) {
-                Phase.Loading -> Centered { CircularProgressIndicator(); Spacer(Modifier.height(14.dp)); Text(stringResource(R.string.loading)) }
-                Phase.NeedModel -> NeedModelScreen(state, onCheck = vm::prepare)
-                Phase.Error -> ErrorScreen(state.error.orEmpty(), onRetry = vm::prepare)
-                Phase.Setup -> SetupScreen(state, vm, onStart)
-                Phase.Starting -> Centered { CircularProgressIndicator(); Spacer(Modifier.height(14.dp)); Text(stringResource(R.string.preparing_session)) }
-                Phase.Reciting, Phase.Result -> ReciteScreen(state, vm)
+                Phase.Loading -> {
+                    Centered {
+                        CircularProgressIndicator()
+                        Spacer(Modifier.height(14.dp))
+                        Text(stringResource(R.string.loading))
+                    }
+                }
+
+                Phase.NeedModel -> {
+                    NeedModelScreen(state, onCheck = vm::prepare)
+                }
+
+                Phase.Error -> {
+                    ErrorScreen(state.error.orEmpty(), onRetry = vm::prepare)
+                }
+
+                Phase.Setup -> {
+                    SetupScreen(state, vm, onStart)
+                }
+
+                Phase.Starting -> {
+                    Centered {
+                        CircularProgressIndicator()
+                        Spacer(Modifier.height(14.dp))
+                        Text(stringResource(R.string.preparing_session))
+                    }
+                }
+
+                Phase.Reciting, Phase.Result -> {
+                    ReciteScreen(state, vm)
+                }
             }
         }
     }
@@ -104,7 +133,10 @@ private fun Centered(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+private fun Card(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
         Column(Modifier.padding(18.dp)) { content() }
     }
@@ -112,11 +144,19 @@ private fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit)
 
 /** The exact error, selectable, with a button to copy it (for a bug report). */
 @Composable
-private fun ErrorScreen(error: String, onRetry: () -> Unit) {
+private fun ErrorScreen(
+    error: String,
+    onRetry: () -> Unit,
+) {
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().padding(vertical = 24.dp)) {
-        Text(stringResource(R.string.error_quran_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = LocalAttention.current)
+        Text(
+            stringResource(R.string.error_quran_title),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = LocalAttention.current,
+        )
         Spacer(Modifier.height(8.dp))
         Text(stringResource(R.string.error_quran_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(14.dp))
@@ -134,7 +174,10 @@ private fun ErrorScreen(error: String, onRetry: () -> Unit) {
         Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(
-                onClick = { clipboard.setText(AnnotatedString(error)); copied = true },
+                onClick = {
+                    clipboard.setText(AnnotatedString(error))
+                    copied = true
+                },
                 modifier = Modifier.weight(1f).height(56.dp),
                 shape = RoundedCornerShape(16.dp),
             ) { Text(stringResource(if (copied) R.string.error_copied else R.string.error_copy)) }
@@ -146,7 +189,10 @@ private fun ErrorScreen(error: String, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun NeedModelScreen(state: UiState, onCheck: () -> Unit) {
+private fun NeedModelScreen(
+    state: UiState,
+    onCheck: () -> Unit,
+) {
     Column(Modifier.fillMaxSize().padding(vertical = 24.dp), verticalArrangement = Arrangement.Center) {
         Text(stringResource(R.string.need_model_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(12.dp))
@@ -168,11 +214,20 @@ private fun NeedModelScreen(state: UiState, onCheck: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SetupScreen(state: UiState, vm: MainViewModel, onStart: () -> Unit) {
+private fun SetupScreen(
+    state: UiState,
+    vm: MainViewModel,
+    onStart: () -> Unit,
+) {
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(Modifier.padding(top = 12.dp, bottom = 4.dp)) {
-                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
                 Text(stringResource(R.string.app_tagline), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
@@ -181,7 +236,11 @@ private fun SetupScreen(state: UiState, vm: MainViewModel, onStart: () -> Unit) 
                 Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(state.surah.toString(), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.SemiBold)
-                        Text(stringResource(R.string.ayahs_in_surah, state.ayahCount), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.ayahs_in_surah, state.ayahCount),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     StepButton("−", state.surah > 1) { vm.setSurah(state.surah - 1) }
                     Spacer(Modifier.width(12.dp))
@@ -192,26 +251,46 @@ private fun SetupScreen(state: UiState, vm: MainViewModel, onStart: () -> Unit) 
             Card {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.range_summary, state.fromAyah, state.toAyah), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            stringResource(R.string.range_summary, state.fromAyah, state.toAyah),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
                     }
-                    TextButton(onClick = { vm.setFrom(1); vm.setTo(state.ayahCount) }) { Text(stringResource(R.string.whole_surah)) }
+                    TextButton(onClick = {
+                        vm.setFrom(1)
+                        vm.setTo(state.ayahCount)
+                    }) { Text(stringResource(R.string.whole_surah)) }
                 }
                 Spacer(Modifier.height(10.dp))
-                RangeRow(stringResource(R.string.ayah_from), state.fromAyah, state.fromAyah > 1, state.fromAyah < state.ayahCount,
-                    { vm.setFrom(state.fromAyah - 1) }, { vm.setFrom(state.fromAyah + 1) })
+                RangeRow(
+                    stringResource(R.string.ayah_from),
+                    state.fromAyah,
+                    state.fromAyah > 1,
+                    state.fromAyah < state.ayahCount,
+                    { vm.setFrom(state.fromAyah - 1) },
+                    { vm.setFrom(state.fromAyah + 1) },
+                )
                 Spacer(Modifier.height(8.dp))
-                RangeRow(stringResource(R.string.ayah_to), state.toAyah, state.toAyah > 1, state.toAyah < state.ayahCount,
-                    { vm.setTo(state.toAyah - 1) }, { vm.setTo(state.toAyah + 1) })
+                RangeRow(
+                    stringResource(R.string.ayah_to),
+                    state.toAyah,
+                    state.toAyah > 1,
+                    state.toAyah < state.ayahCount,
+                    { vm.setTo(state.toAyah - 1) },
+                    { vm.setTo(state.toAyah + 1) },
+                )
             }
 
             Card {
                 Text(stringResource(R.string.strictness), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
-                val levels = listOf(
-                    Triple(Strictness.RELAXED, R.string.strictness_relaxed, R.string.strictness_relaxed_hint),
-                    Triple(Strictness.STANDARD, R.string.strictness_standard, R.string.strictness_standard_hint),
-                    Triple(Strictness.STRICT, R.string.strictness_strict, R.string.strictness_strict_hint),
-                )
+                val levels =
+                    listOf(
+                        Triple(Strictness.RELAXED, R.string.strictness_relaxed, R.string.strictness_relaxed_hint),
+                        Triple(Strictness.STANDARD, R.string.strictness_standard, R.string.strictness_standard_hint),
+                        Triple(Strictness.STRICT, R.string.strictness_strict, R.string.strictness_strict_hint),
+                    )
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     levels.forEachIndexed { i, (level, label, _) ->
                         SegmentedButton(
@@ -222,7 +301,16 @@ private fun SetupScreen(state: UiState, vm: MainViewModel, onStart: () -> Unit) 
                     }
                 }
                 Spacer(Modifier.height(10.dp))
-                Text(stringResource(levels.first { it.first == state.strictness }.third), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(
+                        levels
+                            .first {
+                                it.first == state.strictness
+                            }.third,
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             state.message?.let {
@@ -246,18 +334,35 @@ private fun SetupScreen(state: UiState, vm: MainViewModel, onStart: () -> Unit) 
 }
 
 @Composable
-private fun RangeRow(label: String, value: Int, canMinus: Boolean, canPlus: Boolean, onMinus: () -> Unit, onPlus: () -> Unit) {
+private fun RangeRow(
+    label: String,
+    value: Int,
+    canMinus: Boolean,
+    canPlus: Boolean,
+    onMinus: () -> Unit,
+    onPlus: () -> Unit,
+) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
         StepButton("−", canMinus, onMinus)
-        Text(value.toString(), Modifier.width(56.dp), textAlign = TextAlign.Center, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text(
+            value.toString(),
+            Modifier.width(56.dp),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
         StepButton("+", canPlus, onPlus)
     }
 }
 
 /** A round − or + button; holding it repeats, so a surah number far away can be reached quickly. */
 @Composable
-private fun StepButton(label: String, enabled: Boolean, onStep: () -> Unit) {
+private fun StepButton(
+    label: String,
+    enabled: Boolean,
+    onStep: () -> Unit,
+) {
     val step by rememberUpdatedState(onStep)
     val accent = MaterialTheme.colorScheme.primary
     Box(
@@ -295,7 +400,10 @@ private fun StepButton(label: String, enabled: Boolean, onStep: () -> Unit) {
 // ----------------------------------------------------------------------------------------- recitation
 
 @Composable
-private fun ReciteScreen(state: UiState, vm: MainViewModel) {
+private fun ReciteScreen(
+    state: UiState,
+    vm: MainViewModel,
+) {
     val groups = remember(state.items) { state.items.groupBy { it.ayah }.toList() }
     val listState = rememberLazyListState()
     val currentGroup = groups.indexOfFirst { (_, words) -> words.any { it.state == ItemState.Current } }
@@ -319,16 +427,32 @@ private fun ReciteScreen(state: UiState, vm: MainViewModel) {
 }
 
 @Composable
-private fun TopBar(state: UiState, reciting: Boolean, onClose: () -> Unit) {
+private fun TopBar(
+    state: UiState,
+    reciting: Boolean,
+    onClose: () -> Unit,
+) {
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onClose),
+            Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable(onClick = onClose),
             contentAlignment = Alignment.Center,
         ) { Text("✕", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.range_title, stringResource(R.string.surah), state.surah), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(stringResource(R.string.range_summary, state.fromAyah, state.toAyah), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                stringResource(R.string.range_title, stringResource(R.string.surah), state.surah),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                stringResource(R.string.range_summary, state.fromAyah, state.toAyah),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         if (reciting) RecordingBadge(state.startedAt)
     }
@@ -336,10 +460,13 @@ private fun TopBar(state: UiState, reciting: Boolean, onClose: () -> Unit) {
 
 @Composable
 private fun RecordingBadge(startedAt: Long) {
-    val pulse = rememberInfiniteTransition(label = "pulse").animateFloat(
-        initialValue = 0.35f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "dot",
-    )
+    val pulse =
+        rememberInfiniteTransition(label = "pulse").animateFloat(
+            initialValue = 0.35f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
+            label = "dot",
+        )
     var now by remember { mutableLongStateOf(android.os.SystemClock.elapsedRealtime()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -352,14 +479,23 @@ private fun RecordingBadge(startedAt: Long) {
         Modifier.clip(RoundedCornerShape(50)).background(LocalAttention.current.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(10.dp).alpha(pulse.value).clip(CircleShape).background(LocalAttention.current))
+        Box(
+            Modifier
+                .size(10.dp)
+                .alpha(pulse.value)
+                .clip(CircleShape)
+                .background(LocalAttention.current),
+        )
         Spacer(Modifier.width(8.dp))
         Text("%d:%02d".format(seconds / 60, seconds % 60), style = MaterialTheme.typography.labelLarge, color = LocalAttention.current)
     }
 }
 
 @Composable
-private fun ListeningPanel(state: UiState, onStop: () -> Unit) {
+private fun ListeningPanel(
+    state: UiState,
+    onStop: () -> Unit,
+) {
     // a long stretch of near silence means the phone cannot hear the reciter: say so
     var quietSince by remember { mutableLongStateOf(0L) }
     var quiet by remember { mutableStateOf(false) }
@@ -396,7 +532,11 @@ private fun ListeningPanel(state: UiState, onStop: () -> Unit) {
 }
 
 @Composable
-private fun ResultPanel(state: UiState, onBack: () -> Unit, onRetry: () -> Unit) {
+private fun ResultPanel(
+    state: UiState,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+) {
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
         Card {
             Text(stringResource(R.string.result_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -406,12 +546,13 @@ private fun ResultPanel(state: UiState, onBack: () -> Unit, onRetry: () -> Unit)
             } else {
                 Column(Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     state.findings.forEach { f ->
-                        val kind = when (f.kind) {
-                            EventKind.Wrong -> R.string.kind_wrong
-                            EventKind.Skipped -> R.string.kind_skipped
-                            EventKind.Repeated -> R.string.kind_repeated
-                            EventKind.Added -> R.string.kind_added
-                        }
+                        val kind =
+                            when (f.kind) {
+                                EventKind.Wrong -> R.string.kind_wrong
+                                EventKind.Skipped -> R.string.kind_skipped
+                                EventKind.Repeated -> R.string.kind_repeated
+                                EventKind.Added -> R.string.kind_added
+                            }
                         val where = if (f.ayah == 0) stringResource(R.string.basmala) else stringResource(R.string.where_format, f.ayah, f.word)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             MarkSample(f.kind)
@@ -424,8 +565,16 @@ private fun ResultPanel(state: UiState, onBack: () -> Unit, onRetry: () -> Unit)
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f).height(56.dp), shape = RoundedCornerShape(16.dp)) { Text(stringResource(R.string.back)) }
-            Button(onClick = onRetry, modifier = Modifier.weight(1f).height(56.dp), shape = RoundedCornerShape(16.dp)) { Text(stringResource(R.string.try_again)) }
+            OutlinedButton(
+                onClick = onBack,
+                modifier = Modifier.weight(1f).height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+            ) { Text(stringResource(R.string.back)) }
+            Button(
+                onClick = onRetry,
+                modifier = Modifier.weight(1f).height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+            ) { Text(stringResource(R.string.try_again)) }
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -440,12 +589,25 @@ private fun MarkSample(kind: EventKind) {
             val y = size.height / 2
             val stroke = 2.5.dp.toPx()
             when (kind) {
-                EventKind.Wrong -> drawLine(attention, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke)
-                EventKind.Skipped -> drawLine(attention, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
+                EventKind.Wrong -> {
+                    drawLine(attention, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke)
+                }
+
+                EventKind.Skipped -> {
+                    drawLine(
+                        attention,
+                        Offset(0f, y),
+                        Offset(size.width, y),
+                        strokeWidth = stroke,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)),
+                    )
+                }
+
                 EventKind.Repeated -> {
                     drawLine(attention, Offset(0f, y - 3.dp.toPx()), Offset(size.width, y - 3.dp.toPx()), strokeWidth = stroke / 1.5f)
                     drawLine(attention, Offset(0f, y + 3.dp.toPx()), Offset(size.width, y + 3.dp.toPx()), strokeWidth = stroke / 1.5f)
                 }
+
                 EventKind.Added -> {
                     drawLine(attention, Offset(size.width / 2 - 6.dp.toPx(), y + 4.dp.toPx()), Offset(size.width / 2, y - 4.dp.toPx()), strokeWidth = stroke)
                     drawLine(attention, Offset(size.width / 2, y - 4.dp.toPx()), Offset(size.width / 2 + 6.dp.toPx(), y + 4.dp.toPx()), strokeWidth = stroke)
@@ -457,7 +619,10 @@ private fun MarkSample(kind: EventKind) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AyahBlock(ayah: Int, words: List<UiItem>) {
+private fun AyahBlock(
+    ayah: Int,
+    words: List<UiItem>,
+) {
     FlowRow(
         Modifier.fillMaxWidth().padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -494,31 +659,43 @@ private fun WordText(item: UiItem) {
     val attention = LocalAttention.current
     val accent = MaterialTheme.colorScheme.primary
     var baseline by remember { mutableFloatStateOf(0f) }
-    val modifier = Modifier
-        .then(if (item.state == ItemState.Current) Modifier.clip(RoundedCornerShape(10.dp)).background(accent.copy(alpha = 0.18f)) else Modifier)
-        .padding(horizontal = 3.dp)
-        .drawBehind {
-            val y = (baseline + 9.dp.toPx()).coerceAtMost(size.height - 1.dp.toPx())
-            val stroke = 2.dp.toPx()
-            when {
-                item.state == ItemState.Wrong ->
-                    drawLine(attention, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke)
-                item.state == ItemState.Skipped ->
-                    drawLine(attention, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 7f)))
-                item.repeated -> {
-                    drawLine(attention, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke / 1.5f)
-                    drawLine(attention, Offset(0f, y + 5.dp.toPx()), Offset(size.width, y + 5.dp.toPx()), strokeWidth = stroke / 1.5f)
+    val modifier =
+        Modifier
+            .then(if (item.state == ItemState.Current) Modifier.clip(RoundedCornerShape(10.dp)).background(accent.copy(alpha = 0.18f)) else Modifier)
+            .padding(horizontal = 3.dp)
+            .drawBehind {
+                val y = (baseline + 9.dp.toPx()).coerceAtMost(size.height - 1.dp.toPx())
+                val stroke = 2.dp.toPx()
+                when {
+                    item.state == ItemState.Wrong -> {
+                        drawLine(attention, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke)
+                    }
+
+                    item.state == ItemState.Skipped -> {
+                        drawLine(
+                            attention,
+                            Offset(0f, y),
+                            Offset(size.width, y),
+                            strokeWidth = stroke,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 7f)),
+                        )
+                    }
+
+                    item.repeated -> {
+                        drawLine(attention, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke / 1.5f)
+                        drawLine(attention, Offset(0f, y + 5.dp.toPx()), Offset(size.width, y + 5.dp.toPx()), strokeWidth = stroke / 1.5f)
+                    }
                 }
             }
-        }
     Text(
-        item.text, modifier,
-        fontSize = 30.sp, lineHeight = 50.sp,
+        item.text,
+        modifier,
+        fontSize = 30.sp,
+        lineHeight = 50.sp,
         color = MaterialTheme.colorScheme.onBackground,
         onTextLayout = { baseline = it.getLineBaseline(0) },
     )
     if (item.addedAfter) Text("‸", fontSize = 30.sp, color = attention) // a small caret between the words
 }
 
-private fun arabicDigits(n: Int): String =
-    n.toString().map { '٠' + (it - '0') }.joinToString("")
+private fun arabicDigits(n: Int): String = n.toString().map { '٠' + (it - '0') }.joinToString("")

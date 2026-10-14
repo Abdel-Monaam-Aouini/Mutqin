@@ -20,6 +20,7 @@ NDK        ?= $(or $(ANDROID_NDK_HOME),$(firstword $(wildcard $(HOME)/Android/Sd
 ABI        ?= arm64-v8a
 ADB        ?= $(or $(shell command -v adb 2>/dev/null),$(HOME)/Android/Sdk/platform-tools/adb)
 ANDROID_JAVA_HOME ?= /usr/lib/jvm/java-21-openjdk-amd64
+KTLINT     := android/.tools/ktlint
 APP_ID     := app.mutqin
 APK        := android/app/build/outputs/apk/debug/app-debug.apk
 APP_FILES  := /sdcard/Android/data/$(APP_ID)/files
@@ -36,7 +37,7 @@ JOBS       ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo
 
 .DEFAULT_GOAL := help
 .PHONY: help venv build test test-py format lint check data units sherpa build-live model-check \
-        live check-wav record demo bench shared install android android-app android-run android-model android-replay android-log clean
+        live check-wav record demo bench shared install android android-app android-run android-model android-replay android-log android-format android-lint android-check clean
 
 help: ## show this list
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -114,6 +115,18 @@ android-replay: ## replay a WAV through the app on the phone instead of the micr
 		--ei level $(if $(filter relaxed,$(LEVEL)),0,$(if $(filter strict,$(LEVEL)),2,1))
 	@echo "waiting for the result (Ctrl-C to stop watching)..."; \
 	$(ADB) logcat -s Mutqin:I | sed -n '/REPLAY done/q;p'
+
+android-format: ## format the Kotlin code of the app with ktlint (fetches ktlint on first use)
+	android/scripts/fetch_ktlint.sh
+	cd android && ../$(KTLINT) -F
+
+android-lint: ## Kotlin format check (ktlint) and Android lint, as in CI; fetches sherpa-onnx and ktlint on first use
+	android/scripts/fetch_ktlint.sh
+	cd android && ../$(KTLINT)
+	android/scripts/fetch_sherpa.sh
+	cd android && JAVA_HOME=$(ANDROID_JAVA_HOME) ./gradlew --no-daemon -q :app:lintDebug
+
+android-check: android-lint android-app ## everything CI does for the app: format, lint, debug build
 
 android-log: ## show the app's log lines from the connected phone
 	$(ADB) logcat -s Mutqin:V

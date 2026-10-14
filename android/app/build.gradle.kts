@@ -26,7 +26,10 @@ android {
     }
 
     // ONNX Runtime and the sherpa-onnx C library (android/scripts/fetch_sherpa.sh)
-    sourceSets.getByName("main").jniLibs.directories.add("sherpa/jniLibs")
+    sourceSets
+        .getByName("main")
+        .jniLibs.directories
+        .add("sherpa/jniLibs")
 
     buildFeatures {
         compose = true
@@ -66,8 +69,10 @@ dependencies {
 
 // The verified Quran text is not in the repository (Tanzil terms); it is copied from data/quran/ into the
 // app's assets at build time (run tools/quran_text/download.py first).
+// -PnoQuranAssets skips the copy (CI jobs that only lint or compile, and have no Tanzil text).
 val quranSource = rootProject.file("../data/quran")
 tasks.register<Copy>("copyQuran") {
+    onlyIf { !providers.gradleProperty("noQuranAssets").isPresent }
     from(quranSource) { include("quran-uthmani.txt", "quran-simple-clean.txt", "checksums.txt") }
     into(layout.projectDirectory.dir("src/main/assets/quran"))
     doFirst {

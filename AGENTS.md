@@ -70,7 +70,7 @@ C++ namespace **`mutqin`**.
   or locks in the audio callback).
 - CI (GitHub Actions) runs build, tests, lint and format checks; run the same checks locally before a
   commit (README, "Checks before a commit"). Tool versions are pinned in `tools/requirements-dev.txt`;
-  formatting is `ruff format` (Python) and `clang-format` (C++), so never hand-format.
+  formatting is `ruff format` (Python), `clang-format` (C++) and `ktlint` (Kotlin, `make android-format`), so never hand-format.
 
 ## Decisions already made by the owner (do not reopen unless asked)
 

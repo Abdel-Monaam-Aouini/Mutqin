@@ -26,3 +26,21 @@ updates:
     groups:
       python:
         patterns: ["*"]
+
+  # The Android app. Compose BOM, activity-compose, lifecycle and core-ktx are held back on purpose: newer
+  # releases need minSdk 23 and the app supports Android 5 (API 21), see docs/APP_SPEC.md section 9a.
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      android:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "androidx.compose:compose-bom"
+      - dependency-name: "androidx.activity:activity-compose"
+      - dependency-name: "androidx.core:core-ktx"
+      - dependency-name: "androidx.lifecycle:*"

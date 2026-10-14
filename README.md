@@ -145,11 +145,12 @@ python3 -m venv .venv   # or: uv venv .venv
 git ls-files '*.h' '*.cpp' | xargs .venv/bin/clang-format -i
 cmake -S . -B build -DMUTQIN_WERROR=ON && cmake --build build && ctest --test-dir build --output-on-failure
 .venv/bin/python -I -m pytest -q
+make android-check                                        # Android app: ktlint, lint, debug build (needs the SDK)
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) runs the same on every push and pull request: format and lint, Python
 tests, and build + test on Linux (gcc, clang, AddressSanitizer + UBSan), macOS and Windows, plus the sherpa-onnx
-backend on Linux. Dependabot updates the GitHub Actions and Python packages; a weekly job reports newer releases
+backend on Linux. an `android` job checks the app (ktlint, Android lint, debug and R8 release builds). Dependabot updates the GitHub Actions, Python and Gradle packages; a weekly job reports newer releases
 of the pinned C++ dependencies (GoogleTest, miniaudio, sherpa-onnx).
 
 **Quran text in CI.** `data/quran/*.txt` is not in the repository. The jobs download it from Tanzil only if the

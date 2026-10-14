@@ -57,3 +57,12 @@ lifecycle 2.9.2 and core-ktx 1.16.0 are pinned for the same reason. All are Apac
 Most of it is ONNX Runtime and the sherpa-onnx library; the core is under 1 MB. A phone downloads only its own
 CPU type from the store, so the install is smaller than the universal APK. The release build is signed with the
 debug key for trying it on a phone; a store release needs the project's own key.
+
+## Checks
+
+`make android-check` (from the repository root) runs what CI runs for the app: the Kotlin format check with
+[ktlint](https://github.com/pinterest/ktlint) (MIT, version pinned and checksum-verified by
+`scripts/fetch_ktlint.sh`, rules in `.editorconfig`), Android lint, and the debug build. `make android-format`
+fixes style problems. Lint warnings about newer library versions are expected: the Compose, activity,
+lifecycle and core-ktx versions are pinned on purpose so that Android 5 (API 21) stays supported.
+Without the Tanzil text in `data/quran/`, add `-PnoQuranAssets` to the Gradle command to compile and lint anyway.

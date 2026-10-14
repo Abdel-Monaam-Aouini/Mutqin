@@ -25,9 +25,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             MutqinTheme {
                 val state by vm.state.collectAsState()
-                val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                    if (granted) vm.start()
-                }
+                val askMic =
+                    rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                        if (granted) vm.start()
+                    }
                 MutqinApp(state, vm) {
                     if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                         vm.start()

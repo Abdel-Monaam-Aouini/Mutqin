@@ -5,7 +5,10 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /** A decoded WAV file: mono samples in [-1, 1] and the sample rate. Used by the debug replay only. */
-class WavData(val samples: FloatArray, val sampleRate: Int)
+class WavData(
+    val samples: FloatArray,
+    val sampleRate: Int,
+)
 
 /** Minimal WAV reader: 16-bit PCM or 32-bit float, mono or stereo (averaged). */
 object WavReader {

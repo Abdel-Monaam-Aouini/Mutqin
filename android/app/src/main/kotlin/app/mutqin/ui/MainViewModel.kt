@@ -37,7 +37,11 @@ data class UiItem(
     val addedAfter: Boolean,
 )
 
-data class Finding(val kind: EventKind, val ayah: Int, val word: Int)
+data class Finding(
+    val kind: EventKind,
+    val ayah: Int,
+    val word: Int,
+)
 
 data class UiState(
     val phase: Phase = Phase.Loading,
@@ -58,7 +62,9 @@ data class UiState(
     val startedAt: Long = 0L,
 )
 
-class MainViewModel(app: Application) : AndroidViewModel(app) {
+class MainViewModel(
+    app: Application,
+) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
 
@@ -94,6 +100,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 if (engine == null) {
                     val assets = getApplication<Application>().assets
+
                     fun asset(name: String): ByteArray {
                         stage = "reading the Quran text from the app (assets/quran/$name)"
                         return assets.open("quran/$name").use { it.readBytes() }
@@ -121,18 +128,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** The error as it is, with where it happened: for the error screen, and to copy into a bug report. */
-    private fun exactError(stage: String, e: Throwable): String = buildString {
-        append("While ").append(stage).append(":\n")
-        append(e.javaClass.name)
-        e.message?.let { append(": ").append(it) }
-        if (e is MutqinException) append("\n(core error code ").append(e.code).append(")")
-        var cause = e.cause
-        while (cause != null) {
-            append("\ncaused by ").append(cause.javaClass.name)
-            cause.message?.let { append(": ").append(it) }
-            cause = cause.cause
+    private fun exactError(
+        stage: String,
+        e: Throwable,
+    ): String =
+        buildString {
+            append("While ").append(stage).append(":\n")
+            append(e.javaClass.name)
+            e.message?.let { append(": ").append(it) }
+            if (e is MutqinException) append("\n(core error code ").append(e.code).append(")")
+            var cause = e.cause
+            while (cause != null) {
+                append("\ncaused by ").append(cause.javaClass.name)
+                cause.message?.let { append(": ").append(it) }
+                cause = cause.cause
+            }
         }
-    }
 
     fun setSurah(surah: Int) {
         val e = engine ?: return
@@ -143,15 +154,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(surah = s, ayahCount = count, fromAyah = 1, toAyah = to, message = null) }
     }
 
-    fun setFrom(ayah: Int) = _state.update {
-        val from = ayah.coerceIn(1, it.ayahCount)
-        it.copy(fromAyah = from, toAyah = maxOf(it.toAyah, from), message = null)
-    }
+    fun setFrom(ayah: Int) =
+        _state.update {
+            val from = ayah.coerceIn(1, it.ayahCount)
+            it.copy(fromAyah = from, toAyah = maxOf(it.toAyah, from), message = null)
+        }
 
-    fun setTo(ayah: Int) = _state.update {
-        val to = ayah.coerceIn(1, it.ayahCount)
-        it.copy(toAyah = to, fromAyah = minOf(it.fromAyah, to), message = null)
-    }
+    fun setTo(ayah: Int) =
+        _state.update {
+            val to = ayah.coerceIn(1, it.ayahCount)
+            it.copy(toAyah = to, fromAyah = minOf(it.fromAyah, to), message = null)
+        }
 
     fun setStrictness(level: Int) = _state.update { it.copy(strictness = level) }
 
@@ -190,17 +203,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val s = openSession()
-                val mic = MicRecorder { samples, n ->
-                    var sum = 0.0
-                    for (i in 0 until n) sum += samples[i] * samples[i]
-                    val db = 20.0 * kotlin.math.log10(kotlin.math.sqrt(sum / n) + 1e-9)
-                    rawLevel = ((db + 60.0) / 50.0).coerceIn(0.0, 1.0).toFloat() // -60 dBFS is silent, -10 dBFS loud
-                    try {
-                        s.pushAudio(samples, n)
-                    } catch (e: MutqinException) {
-                        Log.w(TAG, "push failed: ${e.message}")
+                val mic =
+                    MicRecorder { samples, n ->
+                        var sum = 0.0
+                        for (i in 0 until n) sum += samples[i] * samples[i]
+                        val db = 20.0 * kotlin.math.log10(kotlin.math.sqrt(sum / n) + 1e-9)
+                        rawLevel = ((db + 60.0) / 50.0).coerceIn(0.0, 1.0).toFloat() // -60 dBFS is silent, -10 dBFS loud
+                        try {
+                            s.pushAudio(samples, n)
+                        } catch (e: MutqinException) {
+                            Log.w(TAG, "push failed: ${e.message}")
+                        }
                     }
-                }
                 if (!mic.open()) error("cannot open the microphone")
                 s.setInputRate(mic.sampleRate)
                 recorder = mic
@@ -257,33 +271,41 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun startPolling(s: Session) {
         pollJob?.cancel()
-        pollJob = viewModelScope.launch(Dispatchers.IO) {
-            while (true) {
-                refresh(s, finished = false)
-                _state.update { it.copy(level = rawLevel) }
-                delay(150)
+        pollJob =
+            viewModelScope.launch(Dispatchers.IO) {
+                while (true) {
+                    refresh(s, finished = false)
+                    _state.update { it.copy(level = rawLevel) }
+                    delay(150)
+                }
             }
-        }
     }
 
     /** Builds the screen's items from what the core says now (marks can be taken back, so always from the state). */
-    private fun refresh(s: Session, finished: Boolean) {
+    private fun refresh(
+        s: Session,
+        finished: Boolean,
+    ) {
         val position = s.position()
         val events = s.events()
         val repeated = events.filter { it.kind == EventKind.Repeated }.map { it.itemIndex }.toSet()
         val added = events.filter { it.kind == EventKind.Added }.map { it.itemIndex }.toSet()
-        val items = meta.mapIndexed { i, item ->
-            val state = when (s.status(i)) {
-                WordStatus.Wrong -> ItemState.Wrong
-                WordStatus.Skipped -> ItemState.Skipped
-                WordStatus.Ok -> ItemState.Ok
-                WordStatus.NotJudged -> if (!finished && i == position) ItemState.Current else ItemState.Upcoming
+        val items =
+            meta.mapIndexed { i, item ->
+                val state =
+                    when (s.status(i)) {
+                        WordStatus.Wrong -> ItemState.Wrong
+                        WordStatus.Skipped -> ItemState.Skipped
+                        WordStatus.Ok -> ItemState.Ok
+                        WordStatus.NotJudged -> if (!finished && i == position) ItemState.Current else ItemState.Upcoming
+                    }
+                UiItem(i, item.ayah, item.word, item.text, state, i in repeated, i in added)
             }
-            UiItem(i, item.ayah, item.word, item.text, state, i in repeated, i in added)
-        }
-        val findings = events.mapNotNull { e ->
-            meta.getOrNull(e.itemIndex)?.let { Finding(e.kind, it.ayah, it.word) }
-        }.sortedWith(compareBy({ it.ayah }, { it.word }))
+        val findings =
+            events
+                .mapNotNull { e ->
+                    meta.getOrNull(e.itemIndex)?.let { Finding(e.kind, it.ayah, it.word) }
+                }.sortedWith(compareBy({ it.ayah }, { it.word }))
         _state.update { if (it.items == items && it.findings == findings) it else it.copy(items = items, findings = findings) }
     }
 
@@ -291,7 +313,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * Debug aid for automated checks: pushes a WAV file from the app's external files folder (as fast as possible)
      * instead of the microphone and writes the verdict to logcat (tag Mutqin).
      */
-    fun debugReplay(wavName: String, surah: Int, from: Int, to: Int, level: Int) {
+    fun debugReplay(
+        wavName: String,
+        surah: Int,
+        from: Int,
+        to: Int,
+        level: Int,
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             val e = engine
             while (e == null || _state.value.phase == Phase.Loading) delay(100)
@@ -325,8 +353,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val done = System.nanoTime()
                 _state.update { it.copy(phase = Phase.Result) }
                 val st = _state.value
-                Log.i(TAG, "REPLAY ${wav.samples.size / wav.sampleRate.toDouble()} s of audio at ${wav.sampleRate} Hz; " +
-                    "load ${(loaded - t0) / 1_000_000} ms, process ${(done - loaded) / 1_000_000} ms")
+                Log.i(
+                    TAG,
+                    "REPLAY ${wav.samples.size / wav.sampleRate.toDouble()} s of audio at ${wav.sampleRate} Hz; " +
+                        "load ${(loaded - t0) / 1_000_000} ms, process ${(done - loaded) / 1_000_000} ms",
+                )
                 if (st.findings.isEmpty()) Log.i(TAG, "REPLAY no mistakes found")
                 for (f in st.findings) Log.i(TAG, "REPLAY ${f.kind.name.lowercase()} ${st.surah}:${f.ayah}:${f.word}")
                 Log.i(TAG, "REPLAY done")
@@ -338,8 +369,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun describe(e: Exception): String =
-        if (e is MutqinException && e.isLimit) "range"
-        else exactError("starting the recitation", e)
+        if (e is MutqinException && e.isLimit) {
+            "range"
+        } else {
+            exactError("starting the recitation", e)
+        }
 
     override fun onCleared() {
         pollJob?.cancel()

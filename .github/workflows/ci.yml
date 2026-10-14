@@ -219,3 +219,53 @@ jobs:
             echo "::warning::Quran text not available (set TANZIL_TERMS_ACCEPTED); the sherpa test is skipped"
           fi
           ctest --test-dir build --output-on-failure -R Sherpa
+
+  android:
+    name: android app (ktlint, lint, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      NDK_VERSION: 27.1.12297006
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-home-cache-cleanup: true
+      - name: Kotlin format (ktlint, MIT)
+        run: |
+          android/scripts/fetch_ktlint.sh
+          cd android && .tools/ktlint
+      - name: Android SDK components (platform, NDK, CMake)
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "ndk;${NDK_VERSION}" "cmake;3.22.1"
+      - name: sherpa-onnx Android libraries (checksum-verified)
+        run: android/scripts/fetch_sherpa.sh
+      - name: Restore Quran text cache
+        id: quran-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            data/quran/quran-uthmani.txt
+            data/quran/quran-simple-clean.txt
+          key: quran-text-${{ hashFiles('data/quran/checksums.txt') }}
+      - name: Download Quran text (only if the owner accepted the Tanzil terms)
+        if: steps.quran-cache.outputs.cache-hit != 'true' && vars.TANZIL_TERMS_ACCEPTED == 'true'
+        run: python3 -I tools/quran_text/download.py --agree-tanzil-terms
+      - name: Choose whether the app gets the Quran text
+        run: |
+          if [ -f data/quran/quran-uthmani.txt ]; then
+            echo "GRADLE_FLAGS=" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Quran text not available (set the TANZIL_TERMS_ACCEPTED Actions variable); the app is built without it"
+            echo "GRADLE_FLAGS=-PnoQuranAssets" >> "$GITHUB_ENV"
+          fi
+      - name: Android lint
+        run: cd android && ./gradlew --no-daemon $GRADLE_FLAGS :app:lintDebug
+      - name: Build debug and release (R8) apps
+        run: cd android && ./gradlew --no-daemon $GRADLE_FLAGS :app:assembleDebug :app:assembleRelease
+      # The APKs are deliberately not uploaded: they contain the Tanzil text, which is not ours to redistribute.
