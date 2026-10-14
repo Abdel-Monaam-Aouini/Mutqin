@@ -92,6 +92,41 @@ def test_repeated_word():
     assert [(e.kind, e.index) for e in result.events] == [("repeated", 1)]
 
 
+def _ayahs(sizes: list[int]) -> list[WordPhonemes]:
+    """Words of consecutive ayahs (1, 2, ...) with symbols that differ from word to word."""
+    words = []
+    for ayah, size in enumerate(sizes, 1):
+        for w in range(1, size + 1):
+            tag = f"{ayah}x{w}"
+            words.append(wp(*(f"{tag}p{i}" for i in range(4)), key=(1, ayah, w)))
+    return words
+
+
+def test_a_whole_ayah_recited_again_and_again_is_not_reported():
+    words = _ayahs([5, 6, 4])
+    ayah2 = " ".join(" ".join(w.cont) for w in words[5:11])
+    rest = " ".join(" ".join(w.cont) for w in words[11:])
+    first = " ".join(" ".join(w.cont) for w in words[:5])
+    for times in (2, 5):
+        result = align_tokens(toks(" ".join([first] + [ayah2] * times + [rest])), words)
+        assert result.events == []
+        assert set(result.statuses.values()) == {"ok"}
+
+
+def test_the_last_two_ayahs_recited_again_are_not_reported():
+    words = _ayahs([4, 4, 4])
+    text = lambda a, b: " ".join(" ".join(w.cont) for w in words[a:b])  # noqa: E731
+    result = align_tokens(toks(" ".join([text(0, 8), text(4, 8), text(4, 8), text(8, 12)])), words)
+    assert result.events == []
+
+
+def test_repeating_part_of_an_ayah_is_still_reported():
+    words = _ayahs([6, 6])
+    text = lambda a, b: " ".join(" ".join(w.cont) for w in words[a:b])  # noqa: E731
+    result = align_tokens(toks(" ".join([text(0, 4), text(2, 6), text(6, 12)])), words)
+    assert [e.kind for e in result.events] == ["repeated"]
+
+
 def test_wrong_word():
     result = align_tokens(toks("b a t i f o r g h s a l u n i d a"), WORDS)
     assert [(e.kind, e.index) for e in result.events] == [("wrong", 1)]

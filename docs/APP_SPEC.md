@@ -67,6 +67,10 @@ Behaviour that the app must respect:
   optional basmala before ayah 1 is accepted and reported as ayah 0 (do not show it as a mistake if missing).
 - Pauses, hesitations and restarts of a word are tolerated; repeating words is reported as "repeated", which
   the user may do on purpose (the mark is informational, not an error count).
+  Reciting a whole ayah again from its start (or the last two or three ayahs together), as one does when
+  practising, is not reported at all: the aligner has restart arcs from the end of an ayah back to its start.
+  Only the first reading of each word is judged. Measured effect on false alarms and recall: not yet re-run
+  (the saved 49-minute recording is not available here); tests are synthetic.
 - Hifz mode reveals a word when its item becomes judged; wrong and skipped words are revealed with their mark.
 
 ## 5. Visual design (decided: professional, few colors)

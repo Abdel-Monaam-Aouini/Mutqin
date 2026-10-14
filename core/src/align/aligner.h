@@ -24,6 +24,7 @@ struct HeardToken {
 struct WordReading {
     std::vector<std::string> cont;
     std::array<std::vector<std::string>, 4> contexts;
+    int ayah = 0;  // number of the ayah the word belongs to (words of one ayah are consecutive)
 };
 
 struct AlignParams {
@@ -37,6 +38,8 @@ struct AlignParams {
     int add_min_tokens = 4;
     int add_inside_min = 3;
     int max_jump_words = 3;
+    double restart_cost = 1.0;  // a whole ayah recited again from its start (practice): not reported
+    int max_restart_ayahs = 3;  // the restart may go back to the start of this many ayahs
     int pause_frames = 8;
     int edge_free =
         0;  // leading / trailing expected units (at most 1/3 of a word) that may be missing at no cost

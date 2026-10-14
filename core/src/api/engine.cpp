@@ -442,6 +442,7 @@ int mq_session_load_model(mq_session* session, const char* manifest_path, char* 
             for (const mutqin::UnitGroup& g : groups) {
                 mutqin::WordRef w;
                 w.key = mutqin::WordKey(g.surah, g.ayah, g.first_word);
+                w.reading.ayah = g.ayah;
                 w.last_word = g.last_word;
                 for (const std::string& u : g.units)
                     w.reading.cont.push_back(mutqin::CollapseRuns(u, config.collapse_runs));
