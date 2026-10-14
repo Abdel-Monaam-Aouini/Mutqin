@@ -63,6 +63,11 @@ internal object MutqinNative {
         out: IntArray,
     )
 
+    external fun sessionItemRules(
+        session: Long,
+        index: Int,
+    ): String
+
     external fun sessionItemText(
         session: Long,
         index: Int,

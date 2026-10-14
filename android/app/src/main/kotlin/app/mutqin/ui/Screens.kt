@@ -67,7 +67,9 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -75,9 +77,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.mutqin.AppLanguage
 import app.mutqin.R
 import app.mutqin.core.EventKind
 import app.mutqin.core.Strictness
+import app.mutqin.core.TajweedRule
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -86,41 +90,46 @@ import kotlinx.coroutines.withTimeoutOrNull
 fun MutqinApp(
     state: UiState,
     vm: MainViewModel,
+    language: AppLanguage,
+    onLanguageSelected: (AppLanguage) -> Unit,
     onStart: () -> Unit,
 ) {
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
-        Box(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 20.dp)) {
-            when (state.phase) {
-                Phase.Loading -> {
-                    Centered {
-                        CircularProgressIndicator()
-                        Spacer(Modifier.height(14.dp))
-                        Text(stringResource(R.string.loading))
+    val layoutDirection = if (language == AppLanguage.ARABIC) LayoutDirection.Rtl else LayoutDirection.Ltr
+    CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
+            Box(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 20.dp)) {
+                when (state.phase) {
+                    Phase.Loading -> {
+                        Centered {
+                            CircularProgressIndicator()
+                            Spacer(Modifier.height(14.dp))
+                            Text(stringResource(R.string.loading))
+                        }
                     }
-                }
 
-                Phase.NeedModel -> {
-                    NeedModelScreen(state, onCheck = vm::prepare)
-                }
-
-                Phase.Error -> {
-                    ErrorScreen(state.error.orEmpty(), onRetry = vm::prepare)
-                }
-
-                Phase.Setup -> {
-                    SetupScreen(state, vm, onStart)
-                }
-
-                Phase.Starting -> {
-                    Centered {
-                        CircularProgressIndicator()
-                        Spacer(Modifier.height(14.dp))
-                        Text(stringResource(R.string.preparing_session))
+                    Phase.NeedModel -> {
+                        NeedModelScreen(state, onCheck = vm::prepare)
                     }
-                }
 
-                Phase.Reciting, Phase.Result -> {
-                    ReciteScreen(state, vm)
+                    Phase.Error -> {
+                        ErrorScreen(state.error.orEmpty(), onRetry = vm::prepare)
+                    }
+
+                    Phase.Setup -> {
+                        SetupScreen(state, vm, language, onLanguageSelected, onStart)
+                    }
+
+                    Phase.Starting -> {
+                        Centered {
+                            CircularProgressIndicator()
+                            Spacer(Modifier.height(14.dp))
+                            Text(stringResource(R.string.preparing_session))
+                        }
+                    }
+
+                    Phase.Reciting, Phase.Result -> {
+                        ReciteScreen(state, vm)
+                    }
                 }
             }
         }
@@ -217,8 +226,11 @@ private fun NeedModelScreen(
 private fun SetupScreen(
     state: UiState,
     vm: MainViewModel,
+    language: AppLanguage,
+    onLanguageSelected: (AppLanguage) -> Unit,
     onStart: () -> Unit,
 ) {
+    val surahNames = stringArrayResource(R.array.surah_names)
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(Modifier.padding(top = 12.dp, bottom = 4.dp)) {
@@ -232,10 +244,34 @@ private fun SetupScreen(
             }
 
             Card {
+                Text(stringResource(R.string.language), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                val languages =
+                    listOf(
+                        AppLanguage.ENGLISH to R.string.language_english,
+                        AppLanguage.ARABIC to R.string.language_arabic,
+                    )
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    languages.forEachIndexed { index, (option, label) ->
+                        SegmentedButton(
+                            selected = language == option,
+                            onClick = { onLanguageSelected(option) },
+                            shape = SegmentedButtonDefaults.itemShape(index, languages.size),
+                        ) { Text(stringResource(label)) }
+                    }
+                }
+            }
+
+            Card {
                 Text(stringResource(R.string.surah), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(state.surah.toString(), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            surahNames[state.surah - 1],
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
                         Text(
                             stringResource(R.string.ayahs_in_surah, state.ayahCount),
                             style = MaterialTheme.typography.bodyMedium,
@@ -432,6 +468,7 @@ private fun TopBar(
     reciting: Boolean,
     onClose: () -> Unit,
 ) {
+    val surahNames = stringArrayResource(R.array.surah_names)
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
@@ -444,7 +481,7 @@ private fun TopBar(
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                stringResource(R.string.range_title, stringResource(R.string.surah), state.surah),
+                stringResource(R.string.range_title, surahNames[state.surah - 1], state.surah),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -509,6 +546,10 @@ private fun ListeningPanel(
             quiet = now - quietSince > 4000
         }
     }
+    val currentRules = state.items.firstOrNull { it.state == ItemState.Current }?.tajweedRules.orEmpty()
+    val ruleLabels = currentRules.mapNotNull { rule ->
+        tajweedLabelResource(rule)?.let { resource -> stringResource(resource) }
+    }
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
         LinearProgressIndicator(
             progress = { state.level },
@@ -523,6 +564,14 @@ private fun ListeningPanel(
             style = MaterialTheme.typography.bodyMedium,
             color = if (quiet) LocalAttention.current else MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (ruleLabels.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.tajweed_expected, ruleLabels.joinToString(" · ")),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
         Spacer(Modifier.height(12.dp))
         Button(onClick = onStop, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(18.dp)) {
             Text(stringResource(R.string.stop), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
@@ -544,23 +593,11 @@ private fun ResultPanel(
             if (state.findings.isEmpty()) {
                 Text(stringResource(R.string.nothing_found), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                Column(Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    state.findings.forEach { f ->
-                        val kind =
-                            when (f.kind) {
-                                EventKind.Wrong -> R.string.kind_wrong
-                                EventKind.Skipped -> R.string.kind_skipped
-                                EventKind.Repeated -> R.string.kind_repeated
-                                EventKind.Added -> R.string.kind_added
-                            }
-                        val where = if (f.ayah == 0) stringResource(R.string.basmala) else stringResource(R.string.where_format, f.ayah, f.word)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            MarkSample(f.kind)
-                            Spacer(Modifier.width(10.dp))
-                            Text("${stringResource(kind)} · $where", style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                }
+                Text(
+                    pluralStringResource(R.plurals.differences_found, state.findings.size, state.findings.size),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -658,6 +695,12 @@ private fun AyahMarker(ayah: Int) {
 private fun WordText(item: UiItem) {
     val attention = LocalAttention.current
     val accent = MaterialTheme.colorScheme.primary
+    val wordColor =
+        when (item.state) {
+            ItemState.Ok -> accent
+            ItemState.Wrong, ItemState.Skipped -> attention
+            else -> MaterialTheme.colorScheme.onBackground
+        }
     var baseline by remember { mutableFloatStateOf(0f) }
     val modifier =
         Modifier
@@ -692,10 +735,39 @@ private fun WordText(item: UiItem) {
         modifier,
         fontSize = 30.sp,
         lineHeight = 50.sp,
-        color = MaterialTheme.colorScheme.onBackground,
+        color = wordColor,
         onTextLayout = { baseline = it.getLineBaseline(0) },
     )
     if (item.addedAfter) Text("‸", fontSize = 30.sp, color = attention) // a small caret between the words
 }
+
+private fun tajweedLabelResource(rule: TajweedRule): Int? =
+    when (rule.tag) {
+        "qalqalah_sughra" -> R.string.rule_qalqalah_sughra
+        "qalqalah_kubra" -> R.string.rule_qalqalah_kubra
+        "idgham_ghunnah" -> R.string.rule_idgham_ghunnah
+        "idgham_no_ghunnah" -> R.string.rule_idgham_no_ghunnah
+        "idgham_mithlayn_saghir" -> R.string.rule_idgham_mithlayn
+        "ikhfa" -> R.string.rule_ikhfa
+        "ikhfa_shafawi" -> R.string.rule_ikhfa_shafawi
+        "iqlab" -> R.string.rule_iqlab
+        "izhar_halqi" -> R.string.rule_izhar_halqi
+        "izhar_mutlaq" -> R.string.rule_izhar_mutlaq
+        "izhar_shafawi" -> R.string.rule_izhar_shafawi
+        "ghunnah" -> R.string.rule_ghunnah
+        "madd_tabi_i" -> R.string.rule_madd_tabi_i
+        "madd_muttasil" -> R.string.rule_madd_muttasil
+        "madd_munfasil" -> R.string.rule_madd_munfasil
+        "madd_lazim" -> R.string.rule_madd_lazim
+        "madd_arid_lissukun" -> R.string.rule_madd_arid
+        "madd_leen" -> R.string.rule_madd_leen
+        "madd_silah_sughra" -> R.string.rule_madd_silah_sughra
+        "madd_silah_kubra" -> R.string.rule_madd_silah_kubra
+        "madd_iwad" -> R.string.rule_madd_iwad
+        "tafkhim" -> R.string.rule_tafkhim
+        "tarqiq" -> R.string.rule_tarqiq
+        "hamzat_wasl" -> R.string.rule_hamzat_wasl
+        else -> null
+    }
 
 private fun arabicDigits(n: Int): String = n.toString().map { '٠' + (it - '0') }.joinToString("")

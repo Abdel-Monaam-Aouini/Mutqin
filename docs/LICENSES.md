@@ -9,6 +9,7 @@ the license text was read from the upstream source, not from memory.
 | Item | Used for | License | Verified from | Notes |
 |------|----------|---------|---------------|-------|
 | Tanzil Quran text, v1.1 (Uthmani + Simple Clean) | Verified Quran text in `data/quran/` | Creative Commons Attribution 3.0, plus Tanzil Terms of Use | https://tanzil.net/docs/Text_License (read 2026-10-13) | See below |
+| Tanzil Quran metadata, v1.0 (`quran-data.xml`) | Localized surah names in the Android picker and recitation header | Creative Commons Attribution (CC BY) | https://tanzil.net/docs/Quran_Metadata (read 2026-10-14) | Only the Arabic and transliterated surah names are reproduced; credit Tanzil Project and link tanzil.net in the app credits |
 | Mutqin itself (this repository) | The project code | Apache-2.0 (`LICENSE`, `NOTICE`), chosen by the owner 2026-10-14 | official text from apache.org/licenses/LICENSE-2.0.txt | The Zipformer model and other third-party items below keep their own licenses and are not part of the repository |
 | GoogleTest v1.18.0 | C++ tests only (fetched by CMake, never linked into MutqinCore or the CLI) | BSD-3-Clause | `LICENSE` in the fetched source | |
 | sherpa-onnx v1.13.8 (k2-fsa/sherpa-onnx; bundles ONNX Runtime, MIT) | Optional recognition backend (`-DMUTQIN_WITH_SHERPA=ON`), linked through its C API; release archive downloaded by the developer, not committed | Apache-2.0 (GitHub API license field, read 2026-10-13) | approved by the owner 2026-10-13 ("work on sherpa-onnx backend"); default builds and CI do not use it |

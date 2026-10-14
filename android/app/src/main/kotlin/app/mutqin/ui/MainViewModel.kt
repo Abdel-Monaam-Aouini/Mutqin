@@ -11,6 +11,7 @@ import app.mutqin.core.Item
 import app.mutqin.core.MutqinException
 import app.mutqin.core.Session
 import app.mutqin.core.Strictness
+import app.mutqin.core.TajweedRule
 import app.mutqin.core.WordStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -37,6 +38,7 @@ data class UiItem(
     val state: ItemState,
     val repeated: Boolean,
     val addedAfter: Boolean,
+    val tajweedRules: List<TajweedRule>,
 )
 
 data class Finding(
@@ -327,7 +329,7 @@ class MainViewModel(
                         WordStatus.Ok -> ItemState.Ok
                         WordStatus.NotJudged -> if (!finished && i == position) ItemState.Current else ItemState.Upcoming
                     }
-                UiItem(i, item.ayah, item.word, item.text, state, i in repeated, i in added)
+                UiItem(i, item.ayah, item.word, item.text, state, i in repeated, i in added, item.tajweedRules)
             }
         val findings =
             events

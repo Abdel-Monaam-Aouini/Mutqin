@@ -126,7 +126,35 @@ TEST(Api, AyahCountsAndItemTextComeFromTheVerifiedText) {
     EXPECT_EQ(mq_session_item_text(session, 0, tiny, sizeof tiny), need);
     EXPECT_EQ(std::strlen(tiny), 3u);
     EXPECT_EQ(mq_session_item_text(session, 9999, nullptr, 0), MQ_ERR_ARGUMENT);
+    EXPECT_EQ(mq_session_item_rules(session, 9999, nullptr, 0), MQ_ERR_ARGUMENT);
     EXPECT_EQ(mq_session_item_text(nullptr, 0, nullptr, 0), MQ_ERR_ARGUMENT);
+    EXPECT_EQ(mq_session_item_rules(nullptr, 0, nullptr, 0), MQ_ERR_ARGUMENT);
+    mq_session_destroy(session);
+    mq_engine_destroy(engine);
+}
+
+TEST(Api, ItemRulesAreExpectedGuidance) {
+    mq_engine* engine = nullptr;
+    char err[256];
+    if (mq_engine_create(kDataDir.c_str(), &engine, err, sizeof err) != MQ_OK)
+        GTEST_SKIP() << "data/quran missing: run tools/quran_text/download.py";
+    mq_session* session = nullptr;
+    ASSERT_EQ(mq_session_create(engine, 1, 1, 7, &session, err, sizeof err), MQ_OK) << err;
+
+    bool found_rule = false;
+    for (size_t i = 0; i < mq_session_word_count(session); ++i) {
+        const int need = mq_session_item_rules(session, i, nullptr, 0);
+        ASSERT_GE(need, 0);
+        if (need == 0)
+            continue;
+        std::string rules(static_cast<size_t>(need) + 1, '\0');
+        ASSERT_EQ(mq_session_item_rules(session, i, rules.data(), rules.size()), need);
+        EXPECT_EQ(rules.back(), '\0');
+        rules.resize(static_cast<size_t>(need));
+        EXPECT_FALSE(rules.empty());
+        found_rule = true;
+    }
+    EXPECT_TRUE(found_rule);
     mq_session_destroy(session);
     mq_engine_destroy(engine);
 }
