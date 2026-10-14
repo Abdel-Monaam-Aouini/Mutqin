@@ -52,6 +52,20 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // The gated recognition model is not committed to the repository. A developer who has a local
+    // copy can opt into putting it in a shareable APK with -PbundleModel=true; normal CI/debug
+    // builds stay small and continue to use the adb model-install path.
+    sourceSets
+        .getByName("main")
+        .assets.directories
+        .add(
+            layout.buildDirectory
+                .dir("generated/model-assets")
+                .get()
+                .asFile
+                .absolutePath,
+        )
 }
 
 dependencies {
@@ -71,6 +85,9 @@ dependencies {
 // app's assets at build time (run tools/quran_text/download.py first).
 // -PnoQuranAssets skips the copy (CI jobs that only lint or compile, and have no Tanzil text).
 val quranSource = rootProject.file("../data/quran")
+val modelSource = rootProject.file("../models/zipformer_p-quran")
+val modelAssetsDir = layout.buildDirectory.dir("generated/model-assets")
+val bundleModel = providers.gradleProperty("bundleModel").map { it == "1" || it.equals("true", ignoreCase = true) }.orElse(false)
 tasks.register<Copy>("copyQuran") {
     onlyIf { !providers.gradleProperty("noQuranAssets").isPresent }
     from(quranSource) { include("quran-uthmani.txt", "quran-simple-clean.txt", "checksums.txt") }
@@ -81,4 +98,28 @@ tasks.register<Copy>("copyQuran") {
         }
     }
 }
-tasks.named("preBuild") { dependsOn("copyQuran") }
+
+// Keep this as a generated directory so a non-bundled build cannot accidentally reuse a model
+// copied by an earlier local build. The model files are ignored by Git and must be obtained under
+// the model's NPL-1.1 terms before using this option.
+tasks.register<Sync>("bundleLocalModel") {
+    if (bundleModel.get()) {
+        from(modelSource) {
+            include("quran_phoneme_zipformer.int8.onnx", "tokens.txt", "expected_units.tsv", "LICENSE")
+        }
+    }
+    into(modelAssetsDir.map { it.dir("model") })
+    doFirst {
+        if (bundleModel.get()) {
+            val required = listOf("quran_phoneme_zipformer.int8.onnx", "tokens.txt", "expected_units.tsv", "LICENSE")
+            val missing = required.filter { !modelSource.resolve(it).isFile }
+            require(missing.isEmpty()) {
+                "bundleModel=true but the local recognition model is incomplete; missing: ${missing.joinToString()}"
+            }
+        }
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn("copyQuran", "bundleLocalModel")
+}

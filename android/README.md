@@ -25,6 +25,7 @@ Needs: JDK 21, the Android SDK with API 37 and NDK 27.1 (CMake 3.22), the Quran 
 
 ```
 make android-app      # downloads the sherpa-onnx Android libraries (checksummed) on first use, builds the debug APK
+make android-bundle   # builds a shareable release APK with your local model embedded
 make android-run      # installs it on the connected phone and starts it
 make android-model    # copies the model files into the app's folder on the phone (start the app once first)
 make android-log      # the app's log lines
@@ -32,7 +33,9 @@ make android-log      # the app's log lines
 
 `android/local.properties` (not committed) points to your SDK; see `local.properties.example`. The Quran text is
 copied into the app's assets at build time and the model is not part of the app (it is delivered separately, see
-the spec), so neither is in the repository.
+the spec), so neither is in the repository. `make android-bundle` is the exception for a handoff build: it
+embeds the model from the local `models/zipformer_p-quran/` checkout and the app extracts it on first launch.
+The model remains ignored by Git. The command fails if the four required files, including `LICENSE`, are not present.
 
 Debug builds also accept, for automated checks:
 
