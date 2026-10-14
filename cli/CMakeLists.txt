@@ -34,3 +34,5 @@ if(MUTQIN_HAVE_MIC)
     target_compile_definitions(mutqin-cli PRIVATE MUTQIN_HAVE_MIC=1)
     target_link_libraries(mutqin-cli PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
 endif()
+
+install(TARGETS mutqin-cli RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

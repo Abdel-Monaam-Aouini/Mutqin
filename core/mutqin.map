@@ -1,0 +1,7 @@
+/* Linker version script for libmutqin.so (GNU ld, lld, Android NDK): export only the C API. */
+{
+  global:
+    mq_*;
+  local:
+    *;
+};

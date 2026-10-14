@@ -6,6 +6,22 @@
 
 #include <stddef.h>
 
+/* Symbol export for the shared library. Define MQ_BUILD_SHARED when building it, MQ_USE_SHARED when
+ * linking an application against it on Windows; static builds need neither. */
+#if defined(_WIN32) || defined(__CYGWIN__)
+#if defined(MQ_BUILD_SHARED)
+#define MQ_API __declspec(dllexport)
+#elif defined(MQ_USE_SHARED)
+#define MQ_API __declspec(dllimport)
+#else
+#define MQ_API
+#endif
+#elif defined(__GNUC__) || defined(__clang__)
+#define MQ_API __attribute__((visibility("default")))
+#else
+#define MQ_API
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,7 +34,7 @@ extern "C" {
 #define MQ_ERR_LIMIT (-5)    /* range or session too long: memory is bounded, see "Limits" below */
 
 /* Library version as a static, NUL-terminated string, e.g. "0.1.0". */
-const char* mq_version(void);
+MQ_API const char* mq_version(void);
 
 /* Verified Quran text plus the phonemizer. Cheap to share between sessions. */
 typedef struct mq_engine mq_engine;
@@ -92,46 +108,47 @@ typedef struct mq_event {
 
 /* Loads and verifies the Quran text in data_dir (data/quran). On failure *out is NULL and
  * err (if not NULL) receives a message of at most err_len bytes. */
-int mq_engine_create(const char* data_dir, mq_engine** out, char* err, size_t err_len);
+MQ_API int mq_engine_create(const char* data_dir, mq_engine** out, char* err, size_t err_len);
 /* The same from the contents of quran-uthmani.txt, quran-simple-clean.txt and checksums.txt held in
  * memory (for example read from app assets), so no folder is needed. The checksums are verified. */
-int mq_engine_create_from_memory(const char* uthmani, size_t uthmani_len, const char* simple,
-                                 size_t simple_len, const char* checksums, size_t checksums_len,
-                                 mq_engine** out, char* err, size_t err_len);
-void mq_engine_destroy(mq_engine* engine);
+MQ_API int mq_engine_create_from_memory(const char* uthmani, size_t uthmani_len, const char* simple,
+                                        size_t simple_len, const char* checksums, size_t checksums_len,
+                                        mq_engine** out, char* err, size_t err_len);
+MQ_API void mq_engine_destroy(mq_engine* engine);
 
 /* Ayahs ayah_first..ayah_last (inclusive) of a surah. */
-int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ayah_last, mq_session** out,
-                      char* err, size_t err_len);
-void mq_session_destroy(mq_session* session);
+MQ_API int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ayah_last,
+                             mq_session** out, char* err, size_t err_len);
+MQ_API void mq_session_destroy(mq_session* session);
 
-size_t mq_session_phoneme_count(const mq_session* session);
-int mq_session_phoneme(const mq_session* session, size_t index, mq_phoneme* out);
+MQ_API size_t mq_session_phoneme_count(const mq_session* session);
+MQ_API int mq_session_phoneme(const mq_session* session, size_t index, mq_phoneme* out);
 
 /* Feeds num_frames rows of MQ_VOCAB_SIZE probabilities (row-major, each row sums to about 1).
  * The core decodes and aligns everything heard so far. Not real-time safe yet. */
-int mq_session_push_posteriors(mq_session* session, const float* probs, size_t num_frames);
+MQ_API int mq_session_push_posteriors(mq_session* session, const float* probs, size_t num_frames);
 
 /* Sample rate of the audio that is pushed (default 16000). Other rates between 8000 and 192000 Hz are
  * resampled to 16 kHz inside; the audio must be mono. Call it before the first push (it restarts the
  * conversion). */
-int mq_session_set_input_rate(mq_session* session, int sample_rate_hz);
+MQ_API int mq_session_set_input_rate(mq_session* session, int sample_rate_hz);
 
 /* Feeds mono float samples in [-1, 1] at the input rate (any chunk size). Features and the recognition model
  * run inside; returns MQ_ERR_NO_MODEL if the session has no model. Not real-time safe yet. */
-int mq_session_push_audio(mq_session* session, const float* samples, size_t num_samples);
+MQ_API int mq_session_push_audio(mq_session* session, const float* samples, size_t num_samples);
 
 /* Signals the end of the audio so the last words are decoded (token recognizers only). */
-int mq_session_finish_audio(mq_session* session);
+MQ_API int mq_session_finish_audio(mq_session* session);
 
 /* Loads a recognition model from a manifest file (key=value lines: model=, tokens=, token_map=,
  * threads=; paths relative to the manifest). Returns MQ_ERR_NO_MODEL with a message if this build
  * has no inference backend (-DMUTQIN_WITH_SHERPA=ON). */
-int mq_session_load_model(mq_session* session, const char* manifest_path, char* err, size_t err_len);
+MQ_API int mq_session_load_model(mq_session* session, const char* manifest_path, char* err, size_t err_len);
 
 /* Words of the range, in recitation order. */
-size_t mq_session_word_count(const mq_session* session);
-int mq_session_word_status(const mq_session* session, size_t word_index); /* MQ_WORD_*, -1 if bad index */
+MQ_API size_t mq_session_word_count(const mq_session* session);
+MQ_API int mq_session_word_status(const mq_session* session,
+                                  size_t word_index); /* MQ_WORD_*, -1 if bad index */
 
 /* The Tanzil words an item stands for. word is 1-based inside the ayah; ayah 0 is the basmala preface. */
 typedef struct mq_item {
@@ -140,22 +157,22 @@ typedef struct mq_item {
     int word;
     int word_last;
 } mq_item;
-int mq_session_item(const mq_session* session, size_t item_index, mq_item* out);
+MQ_API int mq_session_item(const mq_session* session, size_t item_index, mq_item* out);
 
 /* Index of the item being recited now (the last one heard), or -1 before anything was recognised. For
  * highlighting the current word. */
-int mq_session_position(const mq_session* session);
+MQ_API int mq_session_position(const mq_session* session);
 
 /* Starts a new attempt on the same range: forgets the audio, the recognition state and the events, keeps
  * the loaded model and the input rate. */
-int mq_session_reset(mq_session* session);
+MQ_API int mq_session_reset(mq_session* session);
 
 /* Snapshot of the current events (replaced by every push). While audio is being pushed the last word
  * heard so far is not judged yet (it is only partly in), so an event about a word appears about one
  * word after it was spoken; after mq_session_finish_audio every word is judged. Posteriors pushed with
  * mq_session_push_posteriors are not streaming and are judged at once. */
-size_t mq_session_event_count(const mq_session* session);
-int mq_session_event(const mq_session* session, size_t index, mq_event* out);
+MQ_API size_t mq_session_event_count(const mq_session* session);
+MQ_API int mq_session_event(const mq_session* session, size_t index, mq_event* out);
 
 #ifdef __cplusplus
 }

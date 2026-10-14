@@ -23,7 +23,7 @@ JOBS       ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo
 
 .DEFAULT_GOAL := help
 .PHONY: help venv build test test-py format lint check data units sherpa build-live model-check \
-        live check-wav record demo bench clean
+        live check-wav record demo bench shared install clean
 
 help: ## show this list
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -63,8 +63,16 @@ bench: ## micro-benchmark of the audio front end (Release build)
 	cmake --build build-rel -j $(JOBS)
 	./build-rel/mutqin_bench 120
 
+shared: ## build the shared library libmutqin (C API only) into build-shared/
+	cmake -S . -B build-shared -DCMAKE_BUILD_TYPE=Release -DMUTQIN_BUILD_SHARED=ON
+	cmake --build build-shared -j $(JOBS)
+	ctest --test-dir build-shared -R CHeader --output-on-failure
+
+install: shared ## install header, libraries and the CLI under PREFIX (default /usr/local)
+	cmake --install build-shared --prefix $(or $(PREFIX),/usr/local)
+
 clean: ## remove build directories
-	rm -rf build build-rel build-live
+	rm -rf build build-rel build-live build-shared
 
 # ---------------------------------------------------------------- data and model
 

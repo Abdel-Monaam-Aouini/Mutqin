@@ -1,0 +1,2 @@
+# Export list for libmutqin.dylib (Apple linker): only the C API.
+_mq_*

@@ -106,3 +106,19 @@ if(MUTQIN_WITH_SHERPA)
     set_target_properties(mutqin_sherpa_tests PROPERTIES BUILD_RPATH "${MUTQIN_SHERPA_LIB_DIR}")
     gtest_discover_tests(mutqin_sherpa_tests)
 endif()
+
+# The public header must be valid C and usable from C.
+add_executable(mutqin_c_header_test test_c_header.c)
+target_link_libraries(mutqin_c_header_test PRIVATE Mutqin::Core)
+add_test(NAME CHeader.CompilesAndRunsAsC COMMAND mutqin_c_header_test)
+
+if(MUTQIN_BUILD_SHARED)
+    add_executable(mutqin_c_header_test_shared test_c_header.c)
+    target_link_libraries(mutqin_c_header_test_shared PRIVATE mutqin_shared)
+    add_test(NAME CHeader.SharedLibraryWorksFromC COMMAND mutqin_c_header_test_shared)
+    if(UNIX AND NOT APPLE)
+        # only the C API may be exported by the shared library
+        add_test(NAME CHeader.SharedLibraryExportsOnlyTheCApi
+            COMMAND ${CMAKE_COMMAND} -DLIB=$<TARGET_FILE:mutqin_shared> -P ${CMAKE_CURRENT_SOURCE_DIR}/check_exports.cmake)
+    endif()
+endif()
