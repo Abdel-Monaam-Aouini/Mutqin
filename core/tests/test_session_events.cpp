@@ -334,3 +334,30 @@ TEST(SessionAudio, TheWordBeingSpokenIsJudgedOnlyAfterTheAudioIsFinished) {
     ASSERT_EQ(mq_session_finish_audio(f.session), MQ_OK);
     EXPECT_EQ(mq_session_word_status(f.session, last), MQ_WORD_OK);
 }
+
+TEST(SessionAudio, AudioAtAnotherSampleRateIsResampled) {
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    std::vector<size_t> order = AllWords(f.words.size());
+    order.erase(order.begin() + 8);
+    const std::vector<float> rows = f.Speak(order);
+    const size_t frames = rows.size() / MQ_VOCAB_SIZE;
+    SetSessionModel(f.session, std::make_unique<ScriptedModel>(rows));
+    EXPECT_EQ(mq_session_set_input_rate(f.session, 48000), MQ_OK);
+    EXPECT_EQ(mq_session_set_input_rate(f.session, 100), MQ_ERR_ARGUMENT);
+    EXPECT_EQ(mq_session_set_input_rate(nullptr, 48000), MQ_ERR_ARGUMENT);
+    EXPECT_EQ(mq_session_set_input_rate(f.session, 48000), MQ_OK);
+    // the same duration as in AudioFlowsThroughFeaturesModelAndAligner, but sampled at 48 kHz
+    const std::vector<float> audio(((frames * 4 + 2) * 160 + 400) * 3 + 2000, 0.01f);
+    for (size_t at = 0; at < audio.size(); at += 4800)
+        ASSERT_EQ(
+            mq_session_push_audio(f.session, audio.data() + at, std::min<size_t>(4800, audio.size() - at)),
+            MQ_OK);
+    ASSERT_EQ(mq_session_finish_audio(f.session), MQ_OK);
+    ASSERT_EQ(mq_session_event_count(f.session), 1u);
+    mq_event e{};
+    ASSERT_EQ(mq_session_event(f.session, 0, &e), MQ_OK);
+    EXPECT_EQ(e.kind, MQ_EVENT_SKIPPED);
+    EXPECT_EQ(e.word_index, 8u);
+}

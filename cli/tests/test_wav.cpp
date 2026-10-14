@@ -58,11 +58,12 @@ TEST(Wav, DownmixesStereo) {
     EXPECT_FLOAT_EQ(w.samples[1], 0.5f);
 }
 
-TEST(Wav, RejectsWrongRateAndGarbage) {
+TEST(Wav, KeepsTheSampleRateAndRejectsBadOnes) {
     Wav w;
     std::string err;
-    EXPECT_FALSE(ParseWav(MakeWav(44100, 1, {0, 0}), &w, &err));
-    EXPECT_NE(err.find("ffmpeg"), std::string::npos);
+    ASSERT_TRUE(ParseWav(MakeWav(44100, 1, {0, 100}), &w, &err)) << err;
+    EXPECT_EQ(w.sample_rate, 44100);
+    EXPECT_FALSE(ParseWav(MakeWav(4000, 1, {0, 0}), &w, &err));
     EXPECT_FALSE(ParseWav({1, 2, 3}, &w, &err));
     EXPECT_FALSE(ReadWavFile("/does/not/exist.wav", &w, &err));
 }

@@ -107,7 +107,12 @@ int mq_session_phoneme(const mq_session* session, size_t index, mq_phoneme* out)
  * The core decodes and aligns everything heard so far. Not real-time safe yet. */
 int mq_session_push_posteriors(mq_session* session, const float* probs, size_t num_frames);
 
-/* Feeds 16 kHz mono float samples in [-1, 1] (any chunk size). Features and the recognition model
+/* Sample rate of the audio that is pushed (default 16000). Other rates between 8000 and 192000 Hz are
+ * resampled to 16 kHz inside; the audio must be mono. Call it before the first push (it restarts the
+ * conversion). */
+int mq_session_set_input_rate(mq_session* session, int sample_rate_hz);
+
+/* Feeds mono float samples in [-1, 1] at the input rate (any chunk size). Features and the recognition model
  * run inside; returns MQ_ERR_NO_MODEL if the session has no model. Not real-time safe yet. */
 int mq_session_push_audio(mq_session* session, const float* samples, size_t num_samples);
 

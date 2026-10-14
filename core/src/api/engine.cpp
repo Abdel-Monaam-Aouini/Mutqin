@@ -11,6 +11,7 @@
 #include "align/aligner.h"
 #include "align/ctc.h"
 #include "api/session_internal.h"
+#include "audio/resampler.h"
 #include "features/logmel.h"
 #include "inference/sherpa_recognizer.h"
 #include "inference/units.h"
@@ -34,7 +35,9 @@ struct mq_session {
     std::unique_ptr<mutqin::TokenRecognizer> recognizer;
     int surah = 0, ayah_first = 0, ayah_last = 0;
     mutqin::AlignParams params;
-    bool streaming = false;  // audio is being pushed and not finished yet
+    bool streaming = false;                        // audio is being pushed and not finished yet
+    std::unique_ptr<mutqin::Resampler> resampler;  // null at 16 kHz
+    std::vector<float> converted;                  // resampled audio of the current push
 };
 
 namespace mutqin {
@@ -236,9 +239,33 @@ int mq_session_push_posteriors(mq_session* session, const float* probs, size_t n
     }
 }
 
+int mq_session_set_input_rate(mq_session* session, int sample_rate_hz) {
+    if (session == nullptr || sample_rate_hz < 8000 || sample_rate_hz > 192000)
+        return MQ_ERR_ARGUMENT;
+    try {
+        if (sample_rate_hz == 16000)
+            session->resampler.reset();
+        else
+            session->resampler = std::make_unique<mutqin::Resampler>(sample_rate_hz);
+        return MQ_OK;
+    } catch (const std::exception&) {
+        return MQ_ERR_INTERNAL;
+    }
+}
+
 int mq_session_push_audio(mq_session* session, const float* samples, size_t num_samples) {
     if (session == nullptr || (samples == nullptr && num_samples > 0))
         return MQ_ERR_ARGUMENT;
+    if (session->resampler) {
+        try {
+            session->converted.clear();
+            session->resampler->Accept(samples, num_samples, &session->converted);
+        } catch (const std::exception&) {
+            return MQ_ERR_INTERNAL;
+        }
+        samples = session->converted.data();
+        num_samples = session->converted.size();
+    }
     session->streaming = true;
     if (session->recognizer) {
         try {

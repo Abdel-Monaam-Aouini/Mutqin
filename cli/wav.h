@@ -1,4 +1,4 @@
-// Minimal WAV reader for the CLI: 16-bit PCM or 32-bit float, mono or stereo (downmixed), 16 kHz.
+// Minimal WAV reader for the CLI: 16-bit PCM or 32-bit float, mono or stereo (downmixed), 8-192 kHz.
 #ifndef MUTQIN_CLI_WAV_H
 #define MUTQIN_CLI_WAV_H
 
@@ -10,7 +10,7 @@
 namespace mutqin_cli {
 
 struct Wav {
-    int sample_rate = 0;
+    int sample_rate = 0;         // the core resamples to 16 kHz (mq_session_set_input_rate)
     std::vector<float> samples;  // mono, [-1, 1]
 };
 

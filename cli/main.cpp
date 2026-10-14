@@ -259,8 +259,10 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "error: %s\n", wav_error.c_str());
             status = 1;
         } else {
-            std::printf("%s: %.2f s of 16 kHz audio\n", wav_path.c_str(),
-                        static_cast<double>(wav.samples.size()) / 16000.0);
+            std::printf("%s: %.2f s of %d Hz audio\n", wav_path.c_str(),
+                        static_cast<double>(wav.samples.size()) / wav.sample_rate, wav.sample_rate);
+            if (mq_session_set_input_rate(session, wav.sample_rate) != MQ_OK)
+                std::fprintf(stderr, "warning: unsupported sample rate %d Hz\n", wav.sample_rate);
             std::set<std::string> seen;
             const size_t chunk = 1600;  // 100 ms, as a microphone would deliver it
             for (size_t at = 0; at < wav.samples.size() && status == 0; at += chunk) {
@@ -274,12 +276,13 @@ int main(int argc, char** argv) {
                     std::fprintf(stderr, "error: could not process the audio\n");
                     status = 1;
                 } else if (timeline) {
-                    ReportNewEvents(session, &seen, static_cast<double>(at + n) / 16000.0);
+                    ReportNewEvents(session, &seen, static_cast<double>(at + n) / wav.sample_rate);
                 }
             }
             if (status == 0 && mq_session_finish_audio(session) == MQ_OK) {
                 if (timeline)
-                    ReportNewEvents(session, &seen, static_cast<double>(wav.samples.size()) / 16000.0);
+                    ReportNewEvents(session, &seen,
+                                    static_cast<double>(wav.samples.size()) / wav.sample_rate);
                 std::printf("final result:\n");
                 PrintEvents(session);
             }

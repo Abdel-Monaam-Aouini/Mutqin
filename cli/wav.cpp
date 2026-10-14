@@ -59,9 +59,8 @@ bool ParseWav(const std::vector<uint8_t>& bytes, Wav* out, std::string* error) {
         *error = "need mono or stereo audio";
         return false;
     }
-    if (rate != 16000) {
-        *error = "need 16 kHz audio, got " + std::to_string(rate) +
-                 " Hz (convert with: ffmpeg -i in.wav -ac 1 -ar 16000 out.wav)";
+    if (rate < 8000 || rate > 192000) {
+        *error = "unsupported sample rate " + std::to_string(rate) + " Hz (need 8000 to 192000)";
         return false;
     }
     const size_t bytes_per_sample = bits / 8;

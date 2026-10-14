@@ -3,6 +3,7 @@ add_library(MutqinCore
     src/align/ctc.cpp
     src/api/engine.cpp
     src/api/version.cpp
+    src/audio/resampler.cpp
     src/features/logmel.cpp
     src/inference/sherpa_recognizer.cpp
     src/inference/units.cpp
