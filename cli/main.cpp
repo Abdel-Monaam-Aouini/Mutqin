@@ -78,17 +78,24 @@ void PrintEvents(const mq_session* session) {
         std::printf("no mistakes found\n");
 }
 
-// Prints the events that were not reported before, with the audio time at which they first appeared.
-void ReportNewEvents(const mq_session* session, std::set<std::string>* seen, double audio_seconds) {
+// Prints how the set of events changed since the last call, with the audio time: new ones, and the ones
+// that later audio took back ("cleared"), so a word whose verdict changes is not shown twice.
+void ReportChanges(const mq_session* session, std::set<std::string>* shown, double audio_seconds) {
+    std::set<std::string> now;
     const size_t events = mq_session_event_count(session);
     for (size_t i = 0; i < events; ++i) {
         mq_event e{};
         mq_session_event(session, i, &e);
-        const std::string id = std::string(KindName(e.kind)) + " " + std::to_string(e.surah) + ":" +
-                               std::to_string(e.ayah) + ":" + std::to_string(e.word);
-        if (seen->insert(id).second)
-            std::printf("[%6.1f s] %s\n", audio_seconds, id.c_str());
+        now.insert(std::string(KindName(e.kind)) + " " + std::to_string(e.surah) + ":" +
+                   std::to_string(e.ayah) + ":" + std::to_string(e.word));
     }
+    for (const std::string& id : *shown)
+        if (now.count(id) == 0)
+            std::printf("[%6.1f s] cleared %s\n", audio_seconds, id.c_str());
+    for (const std::string& id : now)
+        if (shown->count(id) == 0)
+            std::printf("[%6.1f s] %s\n", audio_seconds, id.c_str());
+    *shown = now;
 }
 
 #ifdef MUTQIN_HAVE_MIC
@@ -106,7 +113,7 @@ int RunMic(mq_session* session, int seconds) {
     std::fprintf(stderr, "listening%s... (Ctrl-C to stop)\n", seconds > 0 ? " for a limited time" : "");
     const auto started = std::chrono::steady_clock::now();
     std::vector<float> samples;
-    std::set<std::string> seen;
+    std::set<std::string> shown;
     size_t pushed = 0;
     while (!g_stop) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -124,11 +131,15 @@ int RunMic(mq_session* session, int seconds) {
                 return 1;
             }
             pushed += samples.size();
-            ReportNewEvents(session, &seen, static_cast<double>(pushed) / 16000.0);
+            ReportChanges(session, &shown, static_cast<double>(pushed) / 16000.0);
             std::fflush(stdout);
         }
         if (seconds > 0 && std::chrono::steady_clock::now() - started >= std::chrono::seconds(seconds))
             break;
+    }
+    if (mq_session_finish_audio(session) == MQ_OK) {  // judge the last word too
+        std::printf("final result:\n");
+        PrintEvents(session);
     }
     return 0;
 }
@@ -263,7 +274,7 @@ int main(int argc, char** argv) {
                         static_cast<double>(wav.samples.size()) / wav.sample_rate, wav.sample_rate);
             if (mq_session_set_input_rate(session, wav.sample_rate) != MQ_OK)
                 std::fprintf(stderr, "warning: unsupported sample rate %d Hz\n", wav.sample_rate);
-            std::set<std::string> seen;
+            std::set<std::string> shown;
             const size_t chunk = 1600;  // 100 ms, as a microphone would deliver it
             for (size_t at = 0; at < wav.samples.size() && status == 0; at += chunk) {
                 const size_t n = std::min(chunk, wav.samples.size() - at);
@@ -276,13 +287,12 @@ int main(int argc, char** argv) {
                     std::fprintf(stderr, "error: could not process the audio\n");
                     status = 1;
                 } else if (timeline) {
-                    ReportNewEvents(session, &seen, static_cast<double>(at + n) / wav.sample_rate);
+                    ReportChanges(session, &shown, static_cast<double>(at + n) / wav.sample_rate);
                 }
             }
             if (status == 0 && mq_session_finish_audio(session) == MQ_OK) {
                 if (timeline)
-                    ReportNewEvents(session, &seen,
-                                    static_cast<double>(wav.samples.size()) / wav.sample_rate);
+                    ReportChanges(session, &shown, static_cast<double>(wav.samples.size()) / wav.sample_rate);
                 std::printf("final result:\n");
                 PrintEvents(session);
             }

@@ -361,3 +361,28 @@ TEST(SessionAudio, AudioAtAnotherSampleRateIsResampled) {
     EXPECT_EQ(e.kind, MQ_EVENT_SKIPPED);
     EXPECT_EQ(e.word_index, 8u);
 }
+
+TEST(SessionPosition, ItemsPositionAndReset) {
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    mq_item item{};
+    ASSERT_EQ(mq_session_item(f.session, 0, &item), MQ_OK);
+    EXPECT_EQ(item.surah, 1);
+    EXPECT_EQ(item.ayah, 1);
+    EXPECT_EQ(item.word, 1);
+    EXPECT_EQ(mq_session_item(f.session, f.words.size(), &item), MQ_ERR_ARGUMENT);
+    EXPECT_EQ(mq_session_position(f.session), -1);
+
+    // the first 10 words heard: the position is the 10th item (index 9)
+    const std::vector<float> rows = f.Speak(std::vector<size_t>{0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+    ASSERT_EQ(mq_session_push_posteriors(f.session, rows.data(), rows.size() / MQ_VOCAB_SIZE), MQ_OK);
+    EXPECT_EQ(mq_session_position(f.session), 9);
+
+    ASSERT_EQ(mq_session_reset(f.session), MQ_OK);
+    EXPECT_EQ(mq_session_position(f.session), -1);
+    EXPECT_EQ(mq_session_event_count(f.session), 0u);
+    ASSERT_EQ(mq_session_push_posteriors(f.session, rows.data(), rows.size() / MQ_VOCAB_SIZE), MQ_OK);
+    EXPECT_EQ(mq_session_position(f.session), 9);  // a new attempt behaves like the first
+    EXPECT_EQ(mq_session_reset(nullptr), MQ_ERR_ARGUMENT);
+}

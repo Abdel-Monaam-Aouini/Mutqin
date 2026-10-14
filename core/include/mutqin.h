@@ -128,6 +128,23 @@ int mq_session_load_model(mq_session* session, const char* manifest_path, char* 
 size_t mq_session_word_count(const mq_session* session);
 int mq_session_word_status(const mq_session* session, size_t word_index); /* MQ_WORD_*, -1 if bad index */
 
+/* The Tanzil words an item stands for. word is 1-based inside the ayah; ayah 0 is the basmala preface. */
+typedef struct mq_item {
+    int surah;
+    int ayah;
+    int word;
+    int word_last;
+} mq_item;
+int mq_session_item(const mq_session* session, size_t item_index, mq_item* out);
+
+/* Index of the item being recited now (the last one heard), or -1 before anything was recognised. For
+ * highlighting the current word. */
+int mq_session_position(const mq_session* session);
+
+/* Starts a new attempt on the same range: forgets the audio, the recognition state and the events, keeps
+ * the loaded model and the input rate. */
+int mq_session_reset(mq_session* session);
+
 /* Snapshot of the current events (replaced by every push). While audio is being pushed the last word
  * heard so far is not judged yet (it is only partly in), so an event about a word appears about one
  * word after it was spoken; after mq_session_finish_audio every word is judged. Posteriors pushed with

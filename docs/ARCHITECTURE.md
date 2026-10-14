@@ -80,15 +80,20 @@ mq_engine_create(data_dir, &engine, err, err_len);      /* loads + verifies the 
 mq_session_create(engine, surah, ayah_first, ayah_last, &session, err, err_len);
 mq_session_phoneme_count / mq_session_phoneme(...)      /* expected phonemes with rule tags */
 mq_session_push_posteriors(session, probs, num_frames); /* MQ_VOCAB_SIZE floats per frame */
-mq_session_push_audio(session, samples, n);             /* 16 kHz mono; needs a model, else MQ_ERR_NO_MODEL */
+mq_session_set_input_rate(session, hz);                 /* default 16000; other rates (8-192 kHz, mono) are resampled inside */
+mq_session_push_audio(session, samples, n);             /* needs a model, else MQ_ERR_NO_MODEL */
+mq_session_finish_audio(session);                       /* judge the last word too */
+mq_session_load_model(session, manifest, err, len);     /* recognition model (optional sherpa-onnx backend) */
+mq_session_item / mq_session_position(...)              /* item -> Tanzil words; the item being recited now */
+mq_session_reset(session);                              /* new attempt on the same range */
 mq_session_word_count / mq_session_word_status(...)     /* MQ_WORD_OK / WRONG / SKIPPED */
 mq_session_event_count / mq_session_event(...)          /* skipped, wrong, repeated, added */
 ```
 
-Models plug in through `AcousticModel` (`core/src/inference/acoustic_model.h`); no real backend exists yet
-(tests use a scripted fake). Still planned: the sherpa-onnx backend and a way for the C API to select it,
-a configuration struct (model directory, confidence threshold, madd preference), harakah and
-tajweed events with character spans and timestamps, `mq_reset`.
+Recognition models plug in behind `AcousticModel` (CTC posteriors) or `TokenRecognizer` (tokens; the
+sherpa-onnx backend), see "Recognition backends". Still planned: loading the Quran text and the units
+table from memory, install rules and a shared library, a configuration struct (confidence threshold, madd
+preference), and letter-level and tajweed events with character spans.
 
 ## Recognition backends
 

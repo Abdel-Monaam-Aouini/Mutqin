@@ -382,6 +382,45 @@ int mq_session_load_model(mq_session* session, const char* manifest_path, char* 
 #endif
 }
 
+int mq_session_item(const mq_session* session, size_t item_index, mq_item* out) {
+    if (session == nullptr || out == nullptr || item_index >= session->words.size())
+        return MQ_ERR_ARGUMENT;
+    const mutqin::WordRef& w = session->words[item_index];
+    out->surah = std::get<0>(w.key);
+    out->ayah = std::get<1>(w.key);
+    out->word = std::get<2>(w.key);
+    out->word_last = w.last_word;
+    return MQ_OK;
+}
+
+int mq_session_position(const mq_session* session) {
+    if (session == nullptr || !session->aligned.has_span)
+        return -1;
+    return session->aligned.span_last;
+}
+
+int mq_session_reset(mq_session* session) {
+    if (session == nullptr)
+        return MQ_ERR_ARGUMENT;
+    try {
+        session->frames.clear();
+        session->aligned = mutqin::AlignResult();
+        session->aligner.reset();
+        session->logmel = mutqin::LogMel();
+        session->converted.clear();
+        session->streaming = false;
+        if (session->resampler)
+            session->resampler->Reset();
+        if (session->model)
+            session->model->Reset();
+        if (session->recognizer)
+            session->recognizer->Reset();
+        return MQ_OK;
+    } catch (const std::exception&) {
+        return MQ_ERR_INTERNAL;
+    }
+}
+
 size_t mq_session_word_count(const mq_session* session) {
     return session == nullptr ? 0 : session->words.size();
 }
