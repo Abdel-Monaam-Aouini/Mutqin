@@ -332,7 +332,7 @@ private fun ReciteScreen(
                     LazyColumn(
                         Modifier.fillMaxSize().onGloballyPositioned { listTop = it.positionInRoot().y },
                         state = listState,
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                     ) {
                         item { SurahBanner(stringArrayResource(R.array.surah_names)[state.surah - 1]) }
@@ -679,7 +679,7 @@ private fun ResultListSheet(
                         )
                     }
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                        Text(item.text, fontSize = 28.sp, lineHeight = 44.sp, color = LocalAttention.current)
+                        Text(item.text, fontSize = 24.sp, lineHeight = 38.sp, color = LocalAttention.current)
                     }
                 }
             }
@@ -737,7 +737,7 @@ private fun ResultPanel(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                            Text(item.text, fontSize = 26.sp, lineHeight = 40.sp, color = LocalAttention.current)
+                            Text(item.text, fontSize = 22.sp, lineHeight = 34.sp, color = LocalAttention.current)
                         }
                         Spacer(Modifier.height(2.dp))
                         MarkSample(kind)
@@ -811,7 +811,7 @@ private fun AyahPage(
     val basmala = ayahs.firstOrNull()?.first == 0
     FlowRow(
         Modifier.fillMaxWidth().padding(vertical = 1.dp),
-        horizontalArrangement = if (basmala) Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally) else Arrangement.spacedBy(8.dp),
+        horizontalArrangement = if (basmala) Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally) else Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
@@ -819,7 +819,7 @@ private fun AyahPage(
             if (ayah > 0 && words.isNotEmpty()) {
                 words.dropLast(1).forEach { WordText(it, hideUpcoming, onWordClick, onWordPlaced) }
                 // the ring stays with the last word instead of wrapping onto a line of its own
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     WordText(words.last(), hideUpcoming, onWordClick, onWordPlaced)
                     AyahMarker(ayah)
                 }
@@ -837,13 +837,13 @@ private fun AyahMarker(ayah: Int) {
     Box(
         Modifier
             .padding(horizontal = 2.dp)
-            .size(36.dp)
+            .size(31.dp)
             .clip(CircleShape)
             .background(gold.copy(alpha = 0.12f))
             .border(1.5.dp, gold, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Text(arabicDigits(ayah), fontSize = if (ayah > 99) 13.sp else 16.sp, color = MaterialTheme.colorScheme.onBackground)
+        Text(arabicDigits(ayah), fontSize = if (ayah > 99) 11.sp else 14.sp, color = MaterialTheme.colorScheme.onBackground)
     }
 }
 
@@ -864,7 +864,7 @@ private fun WordDetailSheet(
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                Text(detail.text, fontSize = 36.sp, lineHeight = 56.sp, color = attention, modifier = Modifier.fillMaxWidth())
+                Text(detail.text, fontSize = 31.sp, lineHeight = 48.sp, color = attention, modifier = Modifier.fillMaxWidth())
             }
             Eyebrow(
                 stringResource(if (detail.state == ItemState.Skipped) R.string.kind_skipped else R.string.kind_wrong) +
@@ -946,7 +946,7 @@ private fun WordText(
                 },
             ).padding(horizontal = 3.dp)
             .drawBehind {
-                val y = (baseline + 9.dp.toPx()).coerceAtMost(size.height - 1.dp.toPx())
+                val y = (baseline + 7.dp.toPx()).coerceAtMost(size.height - 1.dp.toPx())
                 val stroke = 2.dp.toPx()
                 when {
                     item.state == ItemState.Wrong -> {
@@ -965,14 +965,14 @@ private fun WordText(
 
                     item.repeated -> {
                         drawLine(attention, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke / 1.5f)
-                        drawLine(attention, Offset(0f, y + 5.dp.toPx()), Offset(size.width, y + 5.dp.toPx()), strokeWidth = stroke / 1.5f)
+                        drawLine(attention, Offset(0f, y + 4.dp.toPx()), Offset(size.width, y + 4.dp.toPx()), strokeWidth = stroke / 1.5f)
                     }
                 }
             }
     if (hideUpcoming && (item.state == ItemState.Upcoming || item.state == ItemState.Current)) {
         // memorization: the word is still hidden, only its length shows
-        val width = (item.text.count { it.isLetter() } * 13).coerceIn(34, 150).dp
-        Box(Modifier.height(56.dp).padding(horizontal = 3.dp), contentAlignment = Alignment.Center) {
+        val width = (item.text.count { it.isLetter() } * 11).coerceIn(30, 130).dp
+        Box(Modifier.height(44.dp).padding(horizontal = 3.dp), contentAlignment = Alignment.Center) {
             Box(
                 Modifier
                     .width(width)
@@ -993,13 +993,13 @@ private fun WordText(
         Text(
             item.text,
             modifier,
-            fontSize = 32.sp,
-            lineHeight = 56.sp,
+            fontSize = 27.sp,
+            lineHeight = 44.sp,
             color = wordColor,
             onTextLayout = { baseline = it.getLineBaseline(0) },
         )
     }
-    if (item.addedAfter) Text("‸", fontSize = 32.sp, color = attention) // a small caret between the words
+    if (item.addedAfter) Text("‸", fontSize = 27.sp, color = attention) // a small caret between the words
 }
 
 private fun tajweedLabelResource(rule: TajweedRule): Int? =
