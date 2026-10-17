@@ -94,4 +94,8 @@
     <string name="finish">Finish</string>
     <string name="save">Save</string>
     <string name="choose_surah">Choose a surah</string>
+    <string name="detail_expected">Expected</string>
+    <string name="detail_heard">You said</string>
+    <string name="detail_nothing">Nothing was heard for this word.</string>
+    <string name="detail_note">Marked units differ. The units are the model\'s own sounds, in the order they were heard.</string>
 </resources>

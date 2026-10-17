@@ -98,4 +98,8 @@
     <string name="finish">إنهاء</string>
     <string name="save">حفظ</string>
     <string name="choose_surah">اختر سورة</string>
+    <string name="detail_expected">المتوقع</string>
+    <string name="detail_heard">ما سُمع</string>
+    <string name="detail_nothing">لم يُسمع شيء لهذه الكلمة.</string>
+    <string name="detail_note">الوحدات المُعلَّمة مختلفة. الوحدات هي أصوات النموذج نفسه بترتيب سماعها.</string>
 </resources>

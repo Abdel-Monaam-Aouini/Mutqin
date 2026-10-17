@@ -52,6 +52,7 @@ The app asks the core every 100-200 ms (UI thread; allowed while the worker thre
 | `mq_session_position` | the item being recited now (highlight, scroll) |
 | `mq_session_item` | which Tanzil words an item covers: `word` to `word_last` (an item can join several words where the reading merges them; mark them together) |
 | `mq_session_item_rules` | expected tajweed guidance for the item (`qalqalah`, `idgham`, `ikhfa`, `iqlab`, `ghunnah`, `madd`, etc.); these are not observed pass/fail results |
+| `mq_session_item_units`, `mq_session_item_heard` | the expected units of an item and, for a wrong item, the units heard; the app shows both in a sheet when a flagged word is tapped, with the differing units marked (the units are the model's own sounds) |
 | `mq_session_word_status` | per item: not judged yet / ok / wrong / skipped |
 | `mq_session_event_count`, `mq_session_event` | skipped, wrong, repeated, added (with the item they refer to) |
 

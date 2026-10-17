@@ -42,6 +42,17 @@ data class UiItem(
     val tajweedRules: List<TajweedRule>,
 )
 
+/** What the core can say about one flagged word: the expected units and, for a wrong word, the units heard. */
+data class WordDetail(
+    val index: Int,
+    val ayah: Int,
+    val word: Int,
+    val text: String,
+    val state: ItemState,
+    val expected: List<String>,
+    val heard: List<String>,
+)
+
 data class Finding(
     val kind: EventKind,
     val ayah: Int,
@@ -67,6 +78,8 @@ data class UiState(
     val startedAt: Long = 0L,
     /** When listening was paused (uptime milliseconds), or 0 while it runs; the timer stands still meanwhile. */
     val pausedAt: Long = 0L,
+    /** The word whose detail is open (tapped on the recitation screen), if any. */
+    val detail: WordDetail? = null,
 ) {
     val paused: Boolean get() = pausedAt != 0L
 }
@@ -276,6 +289,23 @@ class MainViewModel(
             }
         }
 
+    /** Opens the detail of a flagged word. */
+    fun showDetail(item: UiItem) {
+        val s = session ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val detail =
+                try {
+                    WordDetail(item.index, item.ayah, item.word, item.text, item.state, s.expectedUnits(item.index), s.heardUnits(item.index))
+                } catch (e: MutqinException) {
+                    Log.w(TAG, "detail failed: ${e.message}")
+                    null
+                }
+            _state.update { it.copy(detail = detail) }
+        }
+    }
+
+    fun closeDetail() = _state.update { it.copy(detail = null) }
+
     /** Pauses listening: the microphone is released (the phone shows it is no longer in use); the session keeps its place. */
     fun pause() {
         if (_state.value.phase != Phase.Reciting || _state.value.paused) return
@@ -339,7 +369,7 @@ class MainViewModel(
         recorder?.stop()
         recorder = null
         closeSession()
-        _state.update { it.copy(phase = Phase.Setup, items = emptyList(), findings = emptyList(), level = 0f, pausedAt = 0L) }
+        _state.update { it.copy(phase = Phase.Setup, items = emptyList(), findings = emptyList(), level = 0f, pausedAt = 0L, detail = null) }
     }
 
     private fun closeSession() {

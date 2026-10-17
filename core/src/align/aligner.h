@@ -62,6 +62,8 @@ struct AlignResult {
     bool has_span = false;
     int span_first = 0, span_last = 0;
     std::map<int, int> first_heard;  // judged word index -> index of its first aligned heard token (C++ only)
+    std::map<int, std::vector<std::string>>
+        heard_units;  // "wrong" words: the units aligned to them (C++ only)
 };
 
 AlignResult AlignTokens(const std::vector<HeardToken>& heard, const std::vector<WordReading>& words,

@@ -85,6 +85,7 @@ mq_session_push_audio(session, samples, n);             /* needs a model, else M
 mq_session_finish_audio(session);                       /* judge the last word too */
 mq_session_load_model(session, manifest, err, len);     /* recognition model (optional sherpa-onnx backend) */
 mq_session_item / mq_session_item_text / mq_session_item_rules(...) /* item -> Tanzil words, Uthmani text and expected tajweed tags */
+mq_session_item_units / mq_session_item_heard(...) /* expected units of an item; units heard for a wrong item */
 mq_session_position(...)                          /* the item being recited now */
 mq_engine_ayah_count(engine, surah);                    /* for a range picker */
 mq_session_set_strictness(session, level);              /* MQ_STRICTNESS_RELAXED / STANDARD / STRICT, any time */
