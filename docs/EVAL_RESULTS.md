@@ -310,12 +310,30 @@ Finding from this run: the first resampler spent a sine and a cosine per filter 
 44.1 kHz audio on the phone (real-time factor about 0.1). It now uses a precomputed filter table and costs about
 2 s (0.02); on the desktop it is 0.004 (`mutqin_bench`).
 
-## Sliding window for long ranges (synthetic only)
+## Sliding window and stream cutting for long ranges
 
 A range of more than 3000 expected units is aligned through a window of about 2000 units that moves with the
-reciter (`docs/ARCHITECTURE.md`). Measured with synthetic posteriors built from the expected words of 2:1-60
-(5442 units, the window moves twice): the verdicts and events are identical to one alignment over the whole
-range, for a clean recitation, for words skipped early and late, and for a repeated word near the end; a change
-of the feedback level judges everything again (`core/tests/test_session_window.cpp`). Peak memory of that test
-process (Quran text, phonemizer and the 5442-unit session): 58 MB. Not measured yet: real recordings of a long
-recitation, speed and memory on a phone, and whole al-Baqarah (24500 units).
+reciter (`docs/ARCHITECTURE.md`). Synthetic check (`core/tests/test_session_window.cpp`, posteriors built from
+2:1-60, 5442 units, the window moves twice): the verdicts and events are identical to one alignment over the
+whole range, for a clean recitation, for words skipped early and late, and for a repeated word near the end.
+
+Real recording: the 49-minute recitation of the whole surah 5 (ayahs 1-120, one reciter, the recording of the
+first false-alarm measurement), through `mutqin-cli` with the real model, standard level, desktop CPU:
+
+| Run | Events | Time for 2942 s of audio | Peak memory of the CLI |
+|---|---|---|---|
+| One window over the whole surah (test build) | 58 | 6 min 04 s | 711 MB |
+| Sliding window | 58, identical to the line (every event and time) | 3 min 52 s | 452 MB |
+| Sliding window + stream cut at long pauses | 56 (see below) | 1 min 59 s | 451 MB |
+
+The sherpa-onnx stream returned every token since its start on each call, so a call got slower the longer the
+recitation was. The recognizer now hands over only the tail of the hypothesis (`TokenRecognizer::Accept`
+returns tokens from a given number on) and cuts the stream after 1.5 s of silence (the tokens before the cut
+are final; a cut is forced after 120 s). Time is now linear in the length of the audio: real-time factor 0.042
+for the first 5 minutes (12.6 s) and 0.041 for all 49 minutes (119.5 s). The memory of the CLI is mostly the
+audio of the file and the model, not the session.
+
+The cut changes the recognition slightly: of the 58 events two disappeared (wrong 5:49:18, skipped 5:75:1) and one
+changed kind (5:101:1, wrong to skipped). The recitation is a correct one, so every event is a false alarm: 56 of
+about 2430 words is 2.3% (it was 2.4%). One recording of one reciter; the cut thresholds were not tuned.
+Not measured yet: phone speed and memory with a long range, other reciters, and whole al-Baqarah (24500 units).

@@ -356,13 +356,21 @@ private fun SetupScreen(
             }
 
             Card {
-                Text(stringResource(R.string.practice_passage), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    stringResource(R.string.range_summary, state.fromAyah, state.toAyah),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.practice_passage), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            stringResource(R.string.range_summary, state.fromAyah, state.toAyah),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    TextButton(onClick = {
+                        vm.setFrom(1)
+                        vm.setTo(state.ayahCount)
+                    }) { Text(stringResource(R.string.whole_surah), fontWeight = FontWeight.SemiBold) }
+                }
                 Spacer(Modifier.height(8.dp))
                 RangeRow(
                     stringResource(R.string.ayah_from),

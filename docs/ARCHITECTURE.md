@@ -127,6 +127,8 @@ A model plugs into a session in one of two shapes (`core/src/inference/`):
 - `TokenRecognizer`: raw audio in, recognised phoneme tokens with timestamps out. The
   **sherpa-onnx backend** (`sherpa_recognizer.cpp`, Apache-2.0, optional) is this shape: its C API
   returns tokens and times but no probabilities, so every token has confidence 1.0.
+  A call returns only the tail of the hypothesis (from a given token number on); the backend cuts the
+  sherpa-onnx stream after 1.5 s of silence so that the cost of a call does not grow with the recitation.
 
 Build it with `-DMUTQIN_WITH_SHERPA=ON -DSHERPA_ONNX_DIR=<extracted sherpa-onnx release>`; without
 the switch `mq_session_load_model` explains that the backend is not built. A model is loaded from a
