@@ -52,7 +52,9 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -68,6 +70,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -114,12 +117,15 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.mutqin.AppLanguage
+import app.mutqin.HistoryEntry
 import app.mutqin.R
 import app.mutqin.core.EventKind
 import app.mutqin.core.Strictness
 import app.mutqin.core.TajweedRule
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
+import java.text.DateFormat
+import java.util.Date
 import java.util.Locale
 
 /** The screen's root: a surface in the theme colors that keeps clear of the status and navigation bars. */
@@ -149,11 +155,28 @@ fun MutqinApp(
                     }
 
                     Phase.Setup -> {
-                        var preferences by rememberSaveable { mutableStateOf(false) }
-                        if (preferences) {
-                            PreferencesScreen(state, vm, language, onLanguageSelected) { preferences = false }
-                        } else {
-                            SetupScreen(state, vm, onOpenPreferences = { preferences = true }, onStart = onStart)
+                        var sub by rememberSaveable { mutableStateOf(SetupPage.Home) }
+                        when (sub) {
+                            SetupPage.Preferences -> {
+                                PreferencesScreen(state, vm, language, onLanguageSelected) { sub = SetupPage.Home }
+                            }
+
+                            SetupPage.History -> {
+                                HistoryScreen(state, vm) { sub = SetupPage.Home }
+                            }
+
+                            SetupPage.Home -> {
+                                SetupScreen(
+                                    state,
+                                    vm,
+                                    onOpenPreferences = { sub = SetupPage.Preferences },
+                                    onOpenHistory = {
+                                        vm.loadHistory()
+                                        sub = SetupPage.History
+                                    },
+                                    onStart = onStart,
+                                )
+                            }
                         }
                     }
 
@@ -268,6 +291,8 @@ private fun NeedModelScreen(
 
 // ---------------------------------------------------------------------------------------------- setup
 
+private enum class SetupPage { Home, Preferences, History }
+
 /** The app icon drawn with the theme colors: a closed ring (itqan, mastery) around three sound bars. */
 @Composable
 private fun MutqinLogo(
@@ -293,6 +318,7 @@ private fun SetupScreen(
     state: UiState,
     vm: MainViewModel,
     onOpenPreferences: () -> Unit,
+    onOpenHistory: () -> Unit,
     onStart: () -> Unit,
 ) {
     val surahNames = stringArrayResource(R.array.surah_names)
@@ -314,6 +340,22 @@ private fun SetupScreen(
                 Icon(
                     Icons.Default.Settings,
                     contentDescription = stringResource(R.string.preferences),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            IconButton(
+                onClick = onOpenHistory,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = 8.dp)
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.secondaryContainer),
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.List,
+                    contentDescription = stringResource(R.string.history),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }
@@ -389,6 +431,18 @@ private fun SetupScreen(
                     { vm.setTo(state.toAyah - 1) },
                     { vm.setTo(state.toAyah + 1) },
                 )
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.memorization_mode), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            stringResource(R.string.memorization_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = state.memorization, onCheckedChange = vm::setMemorization)
+                }
             }
 
             state.message?.let {
@@ -472,6 +526,104 @@ private fun SurahSheet(
                 }
             }
         }
+    }
+}
+
+/** The attempts kept on this phone, newest first. */
+@Composable
+private fun HistoryScreen(
+    state: UiState,
+    vm: MainViewModel,
+    onClose: () -> Unit,
+) {
+    BackHandler(onBack = onClose)
+    val surahNames = stringArrayResource(R.array.surah_names)
+    var confirming by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.secondaryContainer),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = MaterialTheme.colorScheme.primary)
+            }
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.history), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        if (state.history.isEmpty()) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(
+                    stringResource(R.string.history_empty),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+            }
+        } else {
+            val format = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
+            LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                itemsIndexed(state.history) { _, entry ->
+                    Card {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                stringResource(R.string.range_title, surahNames.getOrElse(entry.surah - 1) { "" }, entry.surah),
+                                Modifier.weight(1f),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text("%d:%02d".format(entry.seconds / 60, entry.seconds % 60), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text(
+                            stringResource(R.string.range_summary, entry.fromAyah, entry.toAyah),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (entry.differences == 0) {
+                                    stringResource(R.string.history_clean)
+                                } else {
+                                    pluralStringResource(R.plurals.history_differences, entry.differences, entry.differences)
+                                },
+                                color = if (entry.differences == 0) MaterialTheme.colorScheme.primary else LocalAttention.current,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            if (entry.memorization) {
+                                Text("  ·  " + stringResource(R.string.history_memorization), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                format.format(Date(entry.time)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+            TextButton(onClick = { confirming = true }, Modifier.align(Alignment.CenterHorizontally)) {
+                Text(stringResource(R.string.history_clear), color = LocalAttention.current)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text(stringResource(R.string.history_clear_title)) },
+            text = { Text(stringResource(R.string.history_clear_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.clearHistory()
+                    confirming = false
+                }) { Text(stringResource(R.string.history_clear_confirm), color = LocalAttention.current) }
+            },
+            dismissButton = { TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 }
 
@@ -666,7 +818,7 @@ private fun ReciteScreen(
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                itemsIndexed(pages) { _, page -> AyahPage(page, onWordClick = vm::showDetail) }
+                itemsIndexed(pages) { _, page -> AyahPage(page, hideUpcoming = state.memorization && reciting, onWordClick = vm::showDetail) }
             }
         }
         if (reciting) {
@@ -990,6 +1142,7 @@ private const val AYAHS_PER_PAGE = 10
 @Composable
 private fun AyahPage(
     ayahs: List<Pair<Int, List<UiItem>>>,
+    hideUpcoming: Boolean,
     onWordClick: (UiItem) -> Unit,
 ) {
     FlowRow(
@@ -1000,14 +1153,14 @@ private fun AyahPage(
     ) {
         ayahs.forEach { (ayah, words) ->
             if (ayah > 0 && words.isNotEmpty()) {
-                words.dropLast(1).forEach { WordText(it, onWordClick) }
+                words.dropLast(1).forEach { WordText(it, hideUpcoming, onWordClick) }
                 // the ring stays with the last word instead of wrapping onto a line of its own
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    WordText(words.last(), onWordClick)
+                    WordText(words.last(), hideUpcoming, onWordClick)
                     AyahMarker(ayah)
                 }
             } else {
-                words.forEach { WordText(it, onWordClick) }
+                words.forEach { WordText(it, hideUpcoming, onWordClick) }
             }
         }
     }
@@ -1093,6 +1246,7 @@ private fun UnitsRow(
 @Composable
 private fun WordText(
     item: UiItem,
+    hideUpcoming: Boolean,
     onClick: (UiItem) -> Unit,
 ) {
     val attention = LocalAttention.current
@@ -1138,14 +1292,36 @@ private fun WordText(
                     }
                 }
             }
-    Text(
-        item.text,
-        modifier,
-        fontSize = 30.sp,
-        lineHeight = 50.sp,
-        color = wordColor,
-        onTextLayout = { baseline = it.getLineBaseline(0) },
-    )
+    if (hideUpcoming && (item.state == ItemState.Upcoming || item.state == ItemState.Current)) {
+        // memorization: the word is still hidden, only its length shows
+        val width = (item.text.count { it.isLetter() } * 13).coerceIn(34, 150).dp
+        Box(Modifier.height(50.dp).padding(horizontal = 3.dp), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .width(width)
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(
+                        if (item.state ==
+                            ItemState.Current
+                        ) {
+                            accent.copy(alpha = 0.45f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.22f)
+                        },
+                    ),
+            )
+        }
+    } else {
+        Text(
+            item.text,
+            modifier,
+            fontSize = 30.sp,
+            lineHeight = 50.sp,
+            color = wordColor,
+            onTextLayout = { baseline = it.getLineBaseline(0) },
+        )
+    }
     if (item.addedAfter) Text("‸", fontSize = 30.sp, color = attention) // a small caret between the words
 }
 

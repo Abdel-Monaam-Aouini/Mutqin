@@ -98,4 +98,19 @@
     <string name="detail_heard">You said</string>
     <string name="detail_nothing">Nothing was heard for this word.</string>
     <string name="detail_note">Marked units differ. The units are the model\'s own sounds, in the order they were heard.</string>
+    <string name="memorization_mode">Memorization mode</string>
+    <string name="memorization_hint">Hide the text until you recite it</string>
+    <string name="history">History</string>
+    <string name="history_empty">Your attempts will appear here. They stay on this phone.</string>
+    <string name="history_clear">Clear history</string>
+    <string name="history_clear_title">Clear the history?</string>
+    <string name="history_clear_body">All saved attempts will be deleted from this phone.</string>
+    <string name="history_clear_confirm">Clear</string>
+    <string name="cancel">Cancel</string>
+    <string name="history_clean">No differences</string>
+    <string name="history_memorization">Memorization</string>
+    <plurals name="history_differences">
+        <item quantity="one">%1$d difference</item>
+        <item quantity="other">%1$d differences</item>
+    </plurals>
 </resources>
