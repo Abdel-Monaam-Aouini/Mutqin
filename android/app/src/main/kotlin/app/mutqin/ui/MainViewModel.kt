@@ -71,6 +71,9 @@ data class UiState(
     val paused: Boolean get() = pausedAt != 0L
 }
 
+private const val ITEMS_BEHIND = 100 // above the 40 words the core keeps in its window behind the reciter
+private const val ITEMS_AHEAD = 3
+
 class MainViewModel(
     app: Application,
 ) : AndroidViewModel(app) {
@@ -78,6 +81,8 @@ class MainViewModel(
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private var engine: Engine? = null
+    private var shown: List<UiItem> = emptyList() // the last list, whose unchanged items are reused
+    private var shownPosition = -1
     private var session: Session? = null
     private var recorder: MicRecorder? = null
     private var meta: List<Item> = emptyList()
@@ -231,6 +236,8 @@ class MainViewModel(
         }
         session = s
         meta = (0 until s.itemCount()).map { s.item(it) }
+        shown = emptyList()
+        shownPosition = -1
         return s
     }
 
@@ -352,7 +359,11 @@ class MainViewModel(
             }
     }
 
-    /** Builds the screen's items from what the core says now (marks can be taken back, so always from the state). */
+    /**
+     * Builds the screen's items from what the core says now (marks can be taken back, so always from the state).
+     * A long range has thousands of items, so while listening only the items around the reciter are asked
+     * again: what lies far behind has been judged for good and what lies ahead is not judged yet.
+     */
     private fun refresh(
         s: Session,
         finished: Boolean,
@@ -361,23 +372,34 @@ class MainViewModel(
         val events = s.events()
         val repeated = events.filter { it.kind == EventKind.Repeated }.map { it.itemIndex }.toSet()
         val added = events.filter { it.kind == EventKind.Added }.map { it.itemIndex }.toSet()
-        val items =
-            meta.mapIndexed { i, item ->
-                val state =
-                    when (s.status(i)) {
-                        WordStatus.Wrong -> ItemState.Wrong
-                        WordStatus.Skipped -> ItemState.Skipped
-                        WordStatus.Ok -> ItemState.Ok
-                        WordStatus.NotJudged -> if (!finished && i == position) ItemState.Current else ItemState.Upcoming
-                    }
-                UiItem(i, item.ayah, item.word, item.text, state, i in repeated, i in added, item.tajweedRules)
+        val full = finished || shown.size != meta.size
+        val low = if (full) 0 else maxOf(0, minOf(position, shownPosition) - ITEMS_BEHIND)
+        val high = if (full) meta.size else minOf(meta.size, maxOf(position, shownPosition) + ITEMS_AHEAD)
+        val items = if (full) ArrayList<UiItem?>(meta.size) else ArrayList<UiItem?>(shown)
+        if (full) repeat(meta.size) { items.add(null) }
+        for (i in low until high) {
+            val item = meta[i]
+            val state =
+                when (s.status(i)) {
+                    WordStatus.Wrong -> ItemState.Wrong
+                    WordStatus.Skipped -> ItemState.Skipped
+                    WordStatus.Ok -> ItemState.Ok
+                    WordStatus.NotJudged -> if (!finished && i == position) ItemState.Current else ItemState.Upcoming
+                }
+            val old = items[i]
+            if (old == null || old.state != state || old.repeated != (i in repeated) || old.addedAfter != (i in added)) {
+                items[i] = UiItem(i, item.ayah, item.word, item.text, state, i in repeated, i in added, item.tajweedRules)
             }
+        }
+        val list = items.map { it ?: error("an item was never built") }
+        shown = list
+        shownPosition = position
         val findings =
             events
                 .mapNotNull { e ->
                     meta.getOrNull(e.itemIndex)?.let { Finding(e.kind, it.ayah, it.word) }
                 }.sortedWith(compareBy({ it.ayah }, { it.word }))
-        _state.update { if (it.items == items && it.findings == findings) it else it.copy(items = items, findings = findings) }
+        _state.update { if (it.items == list && it.findings == findings) it else it.copy(items = list, findings = findings) }
     }
 
     /**

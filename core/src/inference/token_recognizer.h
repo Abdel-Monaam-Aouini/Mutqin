@@ -16,12 +16,15 @@ class TokenRecognizer {
 public:
     virtual ~TokenRecognizer() = default;
 
-    // Feeds 16 kHz mono samples. *tokens is replaced by the COMPLETE hypothesis heard so far
-    // (start / end in 10 ms frames), which may still change at its end.
-    virtual void Accept(const float* samples, size_t count, std::vector<HeardToken>* tokens) = 0;
+    // Feeds 16 kHz mono samples. *tokens is replaced by the hypothesis from token number *from onward
+    // (start / end in 10 ms frames); the tokens before *from are final and were returned by earlier calls.
+    // The returned tail may still change at its end. Handing over only the tail keeps the cost of a call
+    // independent of the length of the recitation.
+    virtual void Accept(const float* samples, size_t count, std::vector<HeardToken>* tokens,
+                        size_t* from) = 0;
 
-    // Signals the end of the audio so the last frames are decoded.
-    virtual void Finish(std::vector<HeardToken>* tokens) = 0;
+    // Signals the end of the audio so the last frames are decoded (same result convention as Accept).
+    virtual void Finish(std::vector<HeardToken>* tokens, size_t* from) = 0;
 
     // Forgets all streaming state (start of a new recitation).
     virtual void Reset() = 0;

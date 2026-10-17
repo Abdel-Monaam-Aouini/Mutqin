@@ -111,20 +111,30 @@ public:
         SherpaOnnxDestroyOnlineRecognizer(recognizer_);
     }
 
-    void Accept(const float* samples, size_t count, std::vector<HeardToken>* tokens) override {
+    void Accept(const float* samples, size_t count, std::vector<HeardToken>* tokens, size_t* from) override {
         SherpaOnnxOnlineStreamAcceptWaveform(stream_, 16000, samples, static_cast<int32_t>(count));
-        Decode(tokens);
+        samples_fed_ += count;
+        Decode(tokens, from, /*allow_cut=*/true);
     }
 
-    void Finish(std::vector<HeardToken>* tokens) override {
+    void Finish(std::vector<HeardToken>* tokens, size_t* from) override {
         SherpaOnnxOnlineStreamInputFinished(stream_);
-        Decode(tokens);
+        Decode(tokens, from, /*allow_cut=*/false);
     }
 
-    void Reset() override { SherpaOnnxOnlineStreamReset(recognizer_, stream_); }
+    void Reset() override {
+        SherpaOnnxOnlineStreamReset(recognizer_, stream_);
+        committed_ = 0;
+        base_frames_ = 0;
+        samples_fed_ = 0;
+    }
 
 private:
-    void Decode(std::vector<HeardToken>* tokens) {
+    // The result of a sherpa-onnx stream holds every token since its start, and building it costs time in
+    // proportion, so a long recitation would get slower with every call. After a long pause the stream is
+    // therefore cut: what it heard becomes final, and a new stream continues (its times are shifted by the
+    // audio already behind it).
+    void Decode(std::vector<HeardToken>* tokens, size_t* from, bool allow_cut) {
         while (SherpaOnnxIsOnlineStreamReady(recognizer_, stream_))
             SherpaOnnxDecodeOnlineStream(recognizer_, stream_);
         const SherpaOnnxOnlineRecognizerResult* r = SherpaOnnxGetOnlineStreamResult(recognizer_, stream_);
@@ -152,7 +162,7 @@ private:
                     HeardToken t;
                     t.symbol = symbol;
                     t.confidence = 1.0;  // sherpa-onnx gives no per-token confidence
-                    t.start = start + offset;
+                    t.start = base_frames_ + start + offset;
                     t.end = t.start + 4;
                     tokens->push_back(t);
                     offset += 1;
@@ -160,6 +170,12 @@ private:
             }
         }
         SherpaOnnxDestroyOnlineRecognizerResult(r);
+        *from = committed_;
+        if (allow_cut && SherpaOnnxOnlineStreamIsEndpoint(recognizer_, stream_)) {
+            committed_ += tokens->size();
+            base_frames_ = static_cast<int>(samples_fed_ / 160);
+            SherpaOnnxOnlineStreamReset(recognizer_, stream_);
+        }
     }
 
     const SherpaOnnxOnlineRecognizer* recognizer_;
@@ -167,6 +183,9 @@ private:
     bool identity_;
     int collapse_;
     const SherpaOnnxOnlineStream* stream_;
+    size_t committed_ = 0;    // tokens of earlier (cut) streams
+    int base_frames_ = 0;     // 10 ms frames of audio before the current stream
+    size_t samples_fed_ = 0;  // all audio given so far
 };
 
 bool ReadFile(const std::string& path, std::string* out) {
@@ -203,7 +222,12 @@ std::unique_ptr<TokenRecognizer> CreateSherpaRecognizer(const SherpaConfig& conf
     c.model_config.num_threads = config.threads;
     c.model_config.provider = "cpu";
     c.decoding_method = "greedy_search";
-    c.enable_endpoint = 0;  // one continuous hypothesis for the whole recitation
+    // Endpoints only cut the stream (see SherpaRecognizer::Decode); a recitation is not split into
+    // utterances.
+    c.enable_endpoint = 1;
+    c.rule1_min_trailing_silence = 1.5f;
+    c.rule2_min_trailing_silence = 1.5f;
+    c.rule3_min_utterance_length = 120.0f;
 
     const SherpaOnnxOnlineRecognizer* recognizer = SherpaOnnxCreateOnlineRecognizer(&c);
     if (recognizer == nullptr) {

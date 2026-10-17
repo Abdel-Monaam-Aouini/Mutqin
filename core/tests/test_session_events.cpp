@@ -210,10 +210,14 @@ namespace {
 class ScriptedRecognizer : public TokenRecognizer {
 public:
     explicit ScriptedRecognizer(std::vector<HeardToken> all) : all_(std::move(all)) {}
-    void Accept(const float*, size_t, std::vector<HeardToken>* tokens) override {
+    void Accept(const float*, size_t, std::vector<HeardToken>* tokens, size_t* from) override {
         tokens->assign(all_.begin(), all_.begin() + static_cast<std::ptrdiff_t>(all_.size() / 2));
+        *from = 0;
     }
-    void Finish(std::vector<HeardToken>* tokens) override { *tokens = all_; }
+    void Finish(std::vector<HeardToken>* tokens, size_t* from) override {
+        *tokens = all_;
+        *from = 0;
+    }
     void Reset() override {}
 
 private:

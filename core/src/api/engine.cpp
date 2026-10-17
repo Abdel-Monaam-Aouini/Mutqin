@@ -43,8 +43,9 @@ struct mq_session {
     std::vector<float> converted;                  // resampled audio of the current push
     mutable std::mutex mutex;                      // serialises the calls on this session
     int strictness = MQ_STRICTNESS_STANDARD;
-    bool units_active = false;                   // expected units from the model: the levels apply
-    std::vector<mutqin::HeardToken> last_heard;  // for judging again after a level change
+    bool units_active = false;  // expected units from the model: the levels apply
+    std::vector<mutqin::HeardToken>
+        heard;  // the hypothesis so far (it can be judged again after a level change)
 
     // A long range is aligned through a sliding window of items [win_lo, win_hi): the aligner only holds
     // the words around the reciter's position, and what the window has left behind is final (done_*).
@@ -87,16 +88,15 @@ std::string Join(const std::vector<std::string>& parts) {
     return out;
 }
 
-std::string JoinUniqueRules(const mq_session* session, const mutqin::WordRef& word) {
-    const int surah = std::get<0>(word.key);
-    const int ayah = std::get<1>(word.key);
+std::string JoinUniqueRules(const std::vector<const mutqin::PhonemeItem*>& ayah_items,
+                            const mutqin::WordRef& word) {
     const int first = std::get<2>(word.key);
     const int last = word.last_word;
     std::vector<std::string> unique;
-    for (const mutqin::PhonemeItem& item : session->result.items) {
-        if (item.surah != surah || item.ayah != ayah || item.word < first || item.word > last)
+    for (const mutqin::PhonemeItem* item : ayah_items) {
+        if (item->word < first || item->word > last)
             continue;
-        for (const std::string& rule : item.rules) {
+        for (const std::string& rule : item->rules) {
             if (std::find(unique.begin(), unique.end(), rule) == unique.end())
                 unique.push_back(rule);
         }
@@ -105,10 +105,17 @@ std::string JoinUniqueRules(const mq_session* session, const mutqin::WordRef& wo
 }
 
 void RebuildItemRules(mq_session* session) {
+    // the items of each ayah once, so that a whole surah is not a words x items search
+    std::map<std::pair<int, int>, std::vector<const mutqin::PhonemeItem*>> by_ayah;
+    for (const mutqin::PhonemeItem& item : session->result.items)
+        by_ayah[{item.surah, item.ayah}].push_back(&item);
+    static const std::vector<const mutqin::PhonemeItem*> none;
     session->item_rules.clear();
     session->item_rules.reserve(session->words.size());
-    for (const mutqin::WordRef& word : session->words)
-        session->item_rules.push_back(JoinUniqueRules(session, word));
+    for (const mutqin::WordRef& word : session->words) {
+        const auto it = by_ayah.find({std::get<0>(word.key), std::get<1>(word.key)});
+        session->item_rules.push_back(JoinUniqueRules(it == by_ayah.end() ? none : it->second, word));
+    }
 }
 
 }  // namespace
@@ -402,12 +409,13 @@ bool SlideWindow(mq_session* session, const mutqin::AlignResult& local) {
     return true;
 }
 
-// False if more was heard than the session may hold (memory bound, see mutqin.h).
-bool AlignHeard(mq_session* session, const std::vector<mutqin::HeardToken>& heard) {
+// Aligns what has been heard so far (session->heard). False if more was heard than the session may hold
+// (memory bound, see mutqin.h).
+bool AlignCurrent(mq_session* session) {
     EnsureAligner(session);
+    const std::vector<mutqin::HeardToken>& heard = session->heard;
     if (heard.size() > 2 * session->total_units + 500)
         return false;
-    session->last_heard = heard;
     // A replay of a long recitation (new level) may move the window several times in one call.
     for (;;) {
         const size_t base = std::min(session->heard_base, heard.size());
@@ -422,10 +430,18 @@ bool AlignHeard(mq_session* session, const std::vector<mutqin::HeardToken>& hear
     }
 }
 
+// The hypothesis changed from token number `from` on (the tokens before it are final): align again.
+bool AlignHeard(mq_session* session, size_t from, const std::vector<mutqin::HeardToken>& tail) {
+    from = std::min(from, session->heard.size());
+    session->heard.resize(from);
+    session->heard.insert(session->heard.end(), tail.begin(), tail.end());
+    return AlignCurrent(session);
+}
+
 bool Realign(mq_session* session, const float* probs, size_t num_frames) {
     for (size_t i = 0; i < num_frames; ++i)
         session->frames.push_back(mutqin::ArgmaxFrame(probs + i * MQ_VOCAB_SIZE));
-    return AlignHeard(session, mutqin::GreedyDecode(session->frames));
+    return AlignHeard(session, 0, mutqin::GreedyDecode(session->frames));
 }
 }  // namespace
 
@@ -472,9 +488,10 @@ int mq_session_push_audio(mq_session* session, const float* samples, size_t num_
     session->streaming = true;
     if (session->recognizer) {
         try {
-            std::vector<mutqin::HeardToken> heard;
-            session->recognizer->Accept(samples, num_samples, &heard);
-            return AlignHeard(session, heard) ? MQ_OK : MQ_ERR_LIMIT;
+            std::vector<mutqin::HeardToken> tail;
+            size_t from = 0;
+            session->recognizer->Accept(samples, num_samples, &tail, &from);
+            return AlignHeard(session, from, tail) ? MQ_OK : MQ_ERR_LIMIT;
         } catch (const std::exception&) {
             return MQ_ERR_INTERNAL;
         }
@@ -502,10 +519,11 @@ int mq_session_finish_audio(mq_session* session) {
         return session->model ? MQ_OK : MQ_ERR_NO_MODEL;
     }
     try {
-        std::vector<mutqin::HeardToken> heard;
-        session->recognizer->Finish(&heard);
+        std::vector<mutqin::HeardToken> tail;
+        size_t from = 0;
+        session->recognizer->Finish(&tail, &from);
         session->streaming = false;
-        return AlignHeard(session, heard) ? MQ_OK : MQ_ERR_LIMIT;
+        return AlignHeard(session, from, tail) ? MQ_OK : MQ_ERR_LIMIT;
     } catch (const std::exception&) {
         return MQ_ERR_INTERNAL;
     }
@@ -575,7 +593,7 @@ int mq_session_load_model(mq_session* session, const char* manifest_path, char* 
             session->aligner.reset();
             session->aligned = mutqin::AlignResult();
             session->frames.clear();
-            session->last_heard.clear();
+            session->heard.clear();
             RebuildItemRules(session);
         }
         session->recognizer = std::move(recognizer);
@@ -671,8 +689,8 @@ int mq_session_set_strictness(mq_session* session, int level) {
             return MQ_OK;  // remembered for when units are loaded
         session->params = mutqin::StrictnessProfile(level);
         session->aligner.reset();  // the stored alignment belongs to the old parameters
-        if (!session->last_heard.empty())
-            AlignHeard(session, session->last_heard);  // judge what was heard so far again
+        if (!session->heard.empty())
+            AlignCurrent(session);  // judge what was heard so far again
         return MQ_OK;
     } catch (const std::exception&) {
         return MQ_ERR_INTERNAL;
@@ -685,7 +703,7 @@ int mq_session_reset(mq_session* session) {
         return MQ_ERR_ARGUMENT;
     try {
         session->frames.clear();
-        session->last_heard.clear();
+        session->heard.clear();
         session->aligned = mutqin::AlignResult();
         session->aligner.reset();
         session->logmel = mutqin::LogMel();
