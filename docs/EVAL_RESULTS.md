@@ -309,3 +309,13 @@ below 1.
 Finding from this run: the first resampler spent a sine and a cosine per filter tap and cost about 10 s per 100 s of
 44.1 kHz audio on the phone (real-time factor about 0.1). It now uses a precomputed filter table and costs about
 2 s (0.02); on the desktop it is 0.004 (`mutqin_bench`).
+
+## Sliding window for long ranges (synthetic only)
+
+A range of more than 3000 expected units is aligned through a window of about 2000 units that moves with the
+reciter (`docs/ARCHITECTURE.md`). Measured with synthetic posteriors built from the expected words of 2:1-60
+(5442 units, the window moves twice): the verdicts and events are identical to one alignment over the whole
+range, for a clean recitation, for words skipped early and late, and for a repeated word near the end; a change
+of the feedback level judges everything again (`core/tests/test_session_window.cpp`). Peak memory of that test
+process (Quran text, phonemizer and the 5442-unit session): 58 MB. Not measured yet: real recordings of a long
+recitation, speed and memory on a phone, and whole al-Baqarah (24500 units).

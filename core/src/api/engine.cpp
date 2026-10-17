@@ -45,6 +45,17 @@ struct mq_session {
     int strictness = MQ_STRICTNESS_STANDARD;
     bool units_active = false;                   // expected units from the model: the levels apply
     std::vector<mutqin::HeardToken> last_heard;  // for judging again after a level change
+
+    // A long range is aligned through a sliding window of items [win_lo, win_hi): the aligner only holds
+    // the words around the reciter's position, and what the window has left behind is final (done_*).
+    // `aligned` always holds the merged result in item numbers of the whole range.
+    size_t total_units = 0;  // expected units of the whole range
+    size_t win_lo = 0, win_hi = 0;
+    size_t heard_base = 0;  // index in the heard list where the window's first word starts
+    std::map<int, std::string> done_statuses;
+    std::vector<mutqin::AlignEvent> done_events;
+    bool has_done_span = false;
+    int done_span_first = 0;
 };
 
 namespace mutqin {
@@ -286,26 +297,129 @@ int mq_session_phoneme(const mq_session* session, size_t index, mq_phoneme* out)
 }
 
 namespace {
+// Ranges up to kSingleWindowUnits expected units are aligned as a whole. A longer range slides a window of
+// about kWindowUnits units over the words: once fewer than kSlideAheadUnits units are left ahead of the
+// reciter, the window moves on, keeping the last kBackWords words so that a repeat can still be followed.
+constexpr size_t kSingleWindowUnits = 3000;
+constexpr size_t kWindowUnits = 2000;
+constexpr size_t kSlideAheadUnits = 500;
+constexpr size_t kBackWords = 40;
+
+size_t UnitsBetween(const mq_session* session, size_t from, size_t to) {
+    size_t units = 0;
+    for (size_t i = from; i < to; ++i)
+        units += session->words[i].reading.cont.size();
+    return units;
+}
+
+size_t WindowEnd(const mq_session* session, size_t lo) {
+    const size_t n = session->words.size();
+    if (UnitsBetween(session, lo, n) <= kSingleWindowUnits)
+        return n;
+    size_t hi = lo + 1, units = session->words[lo].reading.cont.size();
+    while (hi < n && units < kWindowUnits)
+        units += session->words[hi++].reading.cont.size();
+    return hi;
+}
+
+void BuildAligner(mq_session* session) {
+    std::vector<mutqin::WordReading> readings;
+    for (size_t i = session->win_lo; i < session->win_hi; ++i)
+        readings.push_back(session->words[i].reading);
+    session->aligner = std::make_unique<mutqin::StreamingAligner>(std::move(readings), session->params);
+}
+
+// Starts the alignment of the whole range from the first word (after a reset, a new model or level).
 void EnsureAligner(mq_session* session) {
     if (session->aligner)
         return;
-    std::vector<mutqin::WordReading> readings;
-    for (const mutqin::WordRef& w : session->words)
-        readings.push_back(w.reading);
-    session->aligner = std::make_unique<mutqin::StreamingAligner>(std::move(readings), session->params);
+    session->total_units = UnitsBetween(session, 0, session->words.size());
+    session->win_lo = 0;
+    session->win_hi = WindowEnd(session, 0);
+    session->heard_base = 0;
+    session->done_statuses.clear();
+    session->done_events.clear();
+    session->has_done_span = false;
+    BuildAligner(session);
+}
+
+// `aligned` = what the window left behind + the window's own result, in item numbers of the whole range.
+void MergeWindow(mq_session* session, const mutqin::AlignResult& local) {
+    const int lo = static_cast<int>(session->win_lo);
+    mutqin::AlignResult& out = session->aligned;
+    out = mutqin::AlignResult();
+    out.statuses = session->done_statuses;
+    for (const auto& [w, status] : local.statuses)
+        out.statuses[w + lo] = status;
+    out.events = session->done_events;
+    for (mutqin::AlignEvent e : local.events) {
+        e.index += lo;
+        out.events.push_back(e);
+    }
+    if (local.has_span) {
+        out.has_span = true;
+        out.span_first = session->has_done_span ? session->done_span_first : local.span_first + lo;
+        out.span_last = local.span_last + lo;
+    } else if (session->has_done_span) {
+        out.has_span = true;
+        out.span_first = session->done_span_first;
+        out.span_last = lo;
+    }
+}
+
+// Moves the window on if the reciter is close to its end. The words left behind keep the verdicts they have.
+// False if the window stays where it is.
+bool SlideWindow(mq_session* session, const mutqin::AlignResult& local) {
+    if (!local.has_span || session->win_hi >= session->words.size())
+        return false;
+    const size_t lo = session->win_lo;
+    const size_t position = lo + static_cast<size_t>(local.span_last);
+    if (UnitsBetween(session, position, session->win_hi) >= kSlideAheadUnits)
+        return false;
+    // the new first word: kBackWords before the reciter, the first of those that was heard
+    const int want = static_cast<int>(position > lo + kBackWords ? position - lo - kBackWords : 0);
+    const auto first = local.first_heard.lower_bound(want);
+    if (first == local.first_heard.end() || first->first <= 0)
+        return false;
+    const int rel = first->first;
+    if (!session->has_done_span) {
+        session->has_done_span = true;
+        session->done_span_first = static_cast<int>(lo) + local.span_first;
+    }
+    for (const auto& [w, status] : local.statuses)
+        if (w < rel)
+            session->done_statuses[static_cast<int>(lo) + w] = status;
+    for (mutqin::AlignEvent e : local.events) {
+        if (e.index < rel) {
+            e.index += static_cast<int>(lo);
+            session->done_events.push_back(e);
+        }
+    }
+    session->heard_base += static_cast<size_t>(first->second);
+    session->win_lo = lo + static_cast<size_t>(rel);
+    session->win_hi = WindowEnd(session, session->win_lo);
+    BuildAligner(session);
+    return true;
 }
 
 // False if more was heard than the session may hold (memory bound, see mutqin.h).
 bool AlignHeard(mq_session* session, const std::vector<mutqin::HeardToken>& heard) {
-    size_t expected = 0;
-    for (const mutqin::WordRef& w : session->words)
-        expected += w.reading.cont.size();
-    if (heard.size() > 2 * expected + 500)
-        return false;
     EnsureAligner(session);
+    if (heard.size() > 2 * session->total_units + 500)
+        return false;
     session->last_heard = heard;
-    session->aligned = session->aligner->Update(heard);
-    return true;
+    // A replay of a long recitation (new level) may move the window several times in one call.
+    for (;;) {
+        const size_t base = std::min(session->heard_base, heard.size());
+        const std::vector<mutqin::HeardToken> local_heard(heard.begin() + static_cast<std::ptrdiff_t>(base),
+                                                          heard.end());
+        if (local_heard.size() > 2 * UnitsBetween(session, session->win_lo, session->win_hi) + 500)
+            return false;
+        const mutqin::AlignResult local = session->aligner->Update(local_heard);
+        MergeWindow(session, local);
+        if (!SlideWindow(session, local))
+            return true;
+    }
 }
 
 bool Realign(mq_session* session, const float* probs, size_t num_frames) {
