@@ -84,6 +84,8 @@ data class UiState(
     val detail: WordDetail? = null,
     /** Memorization mode: the text stays hidden until it has been recited. */
     val memorization: Boolean = false,
+    /** This attempt finds the surah and ayah by itself; the items appear once it has found them. */
+    val auto: Boolean = false,
     val history: List<HistoryEntry> = emptyList(),
 ) {
     val paused: Boolean get() = pausedAt != 0L
@@ -290,7 +292,7 @@ class MainViewModel(
     /** Opens a session for the chosen range and loads the model; the caller starts the audio. */
     private fun openSession(): Session {
         val st = _state.value
-        val s = engine!!.createSession(st.surah, st.fromAyah, st.toAyah)
+        val s = if (st.auto) engine!!.createAutoSession() else engine!!.createSession(st.surah, st.fromAyah, st.toAyah)
         try {
             s.setStrictness(st.strictness)
             s.loadModel(writeManifest())
@@ -306,9 +308,9 @@ class MainViewModel(
     }
 
     /** Starts listening to the microphone (the permission must be granted). */
-    fun start() {
+    fun start(auto: Boolean = false) {
         if (_state.value.phase != Phase.Setup) return
-        _state.update { it.copy(phase = Phase.Starting, message = null, items = emptyList(), findings = emptyList()) }
+        _state.update { it.copy(phase = Phase.Starting, message = null, items = emptyList(), findings = emptyList(), auto = auto) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val s = openSession()
@@ -403,6 +405,11 @@ class MainViewModel(
             val before = _state.value
             s.finish()
             refresh(s, finished = true)
+            if (before.auto && meta.isEmpty()) { // it never found out what was recited
+                closeSession()
+                _state.update { it.copy(phase = Phase.Setup, message = "not_found", items = emptyList(), findings = emptyList(), pausedAt = 0L) }
+                return
+            }
             _state.update { it.copy(phase = Phase.Result, pausedAt = 0L) }
             val end = if (before.paused) before.pausedAt else android.os.SystemClock.elapsedRealtime()
             remember(_state.value, ((end - before.startedAt) / 1000).toInt())
@@ -413,8 +420,9 @@ class MainViewModel(
 
     /** Another attempt at the same range. */
     fun retry() {
+        val auto = _state.value.auto
         back()
-        start()
+        start(auto)
     }
 
     /** Back to the range chooser. */
@@ -452,6 +460,15 @@ class MainViewModel(
         s: Session,
         finished: Boolean,
     ) {
+        if (_state.value.auto && meta.isEmpty()) {
+            // an automatic session builds its items once it has found the place
+            val place = s.located() ?: return
+            meta = (0 until s.itemCount()).map { s.item(it) }
+            shown = emptyList()
+            shownPosition = -1
+            val count = engine?.ayahCount(place.first) ?: meta.last().ayah
+            _state.update { it.copy(surah = place.first, fromAyah = place.second, toAyah = count, ayahCount = count) }
+        }
         val position = s.position()
         val events = s.events()
         val repeated = events.filter { it.kind == EventKind.Repeated }.map { it.itemIndex }.toSet()

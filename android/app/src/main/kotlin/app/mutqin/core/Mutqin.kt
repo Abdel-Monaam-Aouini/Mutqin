@@ -59,6 +59,9 @@ class Engine private constructor(
         return Session(MutqinNative.sessionCreate(engineHandle, surah, fromAyah, toAyah))
     }
 
+    /** A session that finds out by itself which surah and ayah is recited (see [Session.located]). */
+    fun createAutoSession(): Session = Session(MutqinNative.sessionCreateAuto(handle))
+
     override fun close() {
         if (handle != 0L) MutqinNative.engineDestroy(handle)
         handle = 0
@@ -99,6 +102,12 @@ class Session internal constructor(
 
     /** Index of the item being recited now, or -1 before anything was recognised. */
     fun position(): Int = MutqinNative.sessionPosition(handle)
+
+    /** The surah and ayah where the recitation begins once the session has found it, else null. */
+    fun located(): Pair<Int, Int>? {
+        val out = IntArray(2)
+        return if (MutqinNative.sessionLocated(handle, out) == 1) out[0] to out[1] else null
+    }
 
     fun itemCount(): Int = MutqinNative.sessionItemCount(handle)
 

@@ -121,4 +121,8 @@
         <item quantity="many">%1$d فرقًا</item>
         <item quantity="other">%1$d فرق</item>
     </plurals>
+    <string name="detect_auto">تعرّف على السورة تلقائيًا</string>
+    <string name="detect_title">نبحث عمّا تتلوه</string>
+    <string name="detect_listening">نستمع… ابدأ التلاوة من أي سورة</string>
+    <string name="detect_not_found">لم أتمكن من معرفة ما تلوته. حاول مرة أخرى أو اختر السورة.</string>
 </resources>

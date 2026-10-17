@@ -19,6 +19,13 @@ internal object MutqinNative {
         surah: Int,
     ): Int
 
+    external fun sessionCreateAuto(engine: Long): Long
+
+    external fun sessionLocated(
+        session: Long,
+        out: IntArray,
+    ): Int
+
     external fun sessionCreate(
         engine: Long,
         surah: Int,

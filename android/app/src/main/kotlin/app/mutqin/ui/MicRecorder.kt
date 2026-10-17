@@ -37,7 +37,7 @@ class MicRecorder(
                         rate,
                         AudioFormat.CHANNEL_IN_MONO,
                         AudioFormat.ENCODING_PCM_16BIT,
-                        max(minBytes, rate / 10 * 2) * 4,
+                        max(minBytes, rate * 2 * 2), // about two seconds: building a long surah in an automatic session takes a moment
                     )
                 } catch (e: Exception) {
                     continue

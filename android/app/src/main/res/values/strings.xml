@@ -113,4 +113,8 @@
         <item quantity="one">%1$d difference</item>
         <item quantity="other">%1$d differences</item>
     </plurals>
+    <string name="detect_auto">Detect the surah automatically</string>
+    <string name="detect_title">Finding what you recite</string>
+    <string name="detect_listening">Listening… start reciting from any surah</string>
+    <string name="detect_not_found">I could not tell what you recited. Try again, or choose the surah.</string>
 </resources>
