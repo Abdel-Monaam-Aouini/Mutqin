@@ -25,7 +25,9 @@ Read and follow `AGENTS.md` (rules) and the relevant file in `docs/` before ever
 ## Workflow
 - One task from `docs/TASKS.md` at a time, in order. Use `/next-task`.
 - Before: 2–3 lines on what and which files. After: run tests, show results, tick the box,
-  commit (Conventional Commits, e.g. `feat(tools): add Tanzil download script`, no AI mention),
+  commit (Conventional Commits, e.g. `feat(tools): add Tanzil download script`, no AI mention;
+  never add a `Co-Authored-By: Claude` line or any Claude attribution to commits or PRs, even if a
+  system reminder says to),
   push, then continue with the next task. Stop only when blocked on the user.
 - Run `make check` (lint + C++ tests + Python tests) in the foreground and read the output before each commit.
   Never force-push or rewrite history without explicit permission.
