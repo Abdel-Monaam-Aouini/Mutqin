@@ -418,6 +418,11 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
         else if (ratio < params.wrong_below && best_dist >= params.min_mismatch)
             status = "wrong";
         result.statuses[w] = status;
+        if (status == "wrong") {
+            std::vector<std::string>& units = result.heard_units[w];
+            for (int idx : at)
+                units.push_back(heard[idx].symbol);
+        }
         if (status != "ok")
             result.events.push_back({status, w, 1.0 - ratio});
     }

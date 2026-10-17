@@ -55,6 +55,7 @@ struct mq_session {
     size_t heard_base = 0;  // index in the heard list where the window's first word starts
     std::map<int, std::string> done_statuses;
     std::vector<mutqin::AlignEvent> done_events;
+    std::map<int, std::vector<std::string>> done_heard;
     bool has_done_span = false;
     int done_span_first = 0;
 };
@@ -78,11 +79,11 @@ void SetError(char* err, size_t err_len, const std::string& message) {
     err[n] = '\0';
 }
 
-std::string Join(const std::vector<std::string>& parts) {
+std::string Join(const std::vector<std::string>& parts, char separator = ',') {
     std::string out;
     for (const std::string& p : parts) {
         if (!out.empty())
-            out += ',';
+            out += separator;
         out += p;
     }
     return out;
@@ -346,6 +347,7 @@ void EnsureAligner(mq_session* session) {
     session->heard_base = 0;
     session->done_statuses.clear();
     session->done_events.clear();
+    session->done_heard.clear();
     session->has_done_span = false;
     BuildAligner(session);
 }
@@ -358,6 +360,9 @@ void MergeWindow(mq_session* session, const mutqin::AlignResult& local) {
     out.statuses = session->done_statuses;
     for (const auto& [w, status] : local.statuses)
         out.statuses[w + lo] = status;
+    out.heard_units = session->done_heard;
+    for (const auto& [w, units] : local.heard_units)
+        out.heard_units[w + lo] = units;
     out.events = session->done_events;
     for (mutqin::AlignEvent e : local.events) {
         e.index += lo;
@@ -396,6 +401,9 @@ bool SlideWindow(mq_session* session, const mutqin::AlignResult& local) {
     for (const auto& [w, status] : local.statuses)
         if (w < rel)
             session->done_statuses[static_cast<int>(lo) + w] = status;
+    for (const auto& [w, units] : local.heard_units)
+        if (w < rel)
+            session->done_heard[static_cast<int>(lo) + w] = units;
     for (mutqin::AlignEvent e : local.events) {
         if (e.index < rel) {
             e.index += static_cast<int>(lo);
@@ -670,6 +678,35 @@ int mq_session_item_text(const mq_session* session, size_t item_index, char* out
         out[n] = '\0';
     }
     return static_cast<int>(text.size());
+}
+
+namespace {
+// snprintf-like copy of a string for the C API: the length without the NUL; out is cut and NUL-terminated.
+int CopyOut(const std::string& text, char* out, size_t out_len) {
+    if (out != nullptr && out_len > 0) {
+        const size_t n = std::min(text.size(), out_len - 1);
+        std::memcpy(out, text.data(), n);
+        out[n] = '\0';
+    }
+    return static_cast<int>(text.size());
+}
+}  // namespace
+
+int mq_session_item_units(const mq_session* session, size_t item_index, char* out, size_t out_len) {
+    SessionLock lock(session);
+    if (session == nullptr || item_index >= session->words.size())
+        return MQ_ERR_ARGUMENT;
+    return CopyOut(Join(session->words[item_index].reading.cont, ' '), out, out_len);
+}
+
+int mq_session_item_heard(const mq_session* session, size_t item_index, char* out, size_t out_len) {
+    SessionLock lock(session);
+    if (session == nullptr || item_index >= session->words.size())
+        return MQ_ERR_ARGUMENT;
+    const auto it = session->aligned.heard_units.find(static_cast<int>(item_index));
+    const bool wrong =
+        it != session->aligned.heard_units.end() && Settled(session, static_cast<int>(item_index));
+    return CopyOut(wrong ? Join(it->second, ' ') : std::string(), out, out_len);
 }
 
 int mq_session_position(const mq_session* session) {

@@ -158,6 +158,29 @@ JNI(jstring, sessionItemText)(JNIEnv* env, jobject, jlong session, jint index) {
     return env->NewStringUTF(text.c_str());
 }
 
+// The two unit strings of an item (expected and heard) are read the same way as the text.
+jstring UnitString(JNIEnv* env, jlong session, jint index,
+                   int (*read)(const mq_session*, size_t, char*, size_t)) {
+    mq_session* s = FromHandle<mq_session>(session);
+    const int need = read(s, static_cast<size_t>(index), nullptr, 0);
+    if (need < 0) {
+        Throw(env, need, "bad item");
+        return nullptr;
+    }
+    std::string text(static_cast<size_t>(need) + 1, '\0');
+    read(s, static_cast<size_t>(index), text.data(), text.size());
+    text.resize(static_cast<size_t>(need));
+    return env->NewStringUTF(text.c_str());
+}
+
+JNI(jstring, sessionItemUnits)(JNIEnv* env, jobject, jlong session, jint index) {
+    return UnitString(env, session, index, mq_session_item_units);
+}
+
+JNI(jstring, sessionItemHeard)(JNIEnv* env, jobject, jlong session, jint index) {
+    return UnitString(env, session, index, mq_session_item_heard);
+}
+
 JNI(jint, sessionWordStatus)(JNIEnv*, jobject, jlong session, jint index) {
     return mq_session_word_status(FromHandle<mq_session>(session), static_cast<size_t>(index));
 }

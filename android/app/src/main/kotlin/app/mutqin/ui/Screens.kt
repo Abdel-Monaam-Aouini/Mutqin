@@ -666,7 +666,7 @@ private fun ReciteScreen(
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                itemsIndexed(pages) { _, page -> AyahPage(page) }
+                itemsIndexed(pages) { _, page -> AyahPage(page, onWordClick = vm::showDetail) }
             }
         }
         if (reciting) {
@@ -988,7 +988,10 @@ private const val AYAHS_PER_PAGE = 10
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AyahPage(ayahs: List<Pair<Int, List<UiItem>>>) {
+private fun AyahPage(
+    ayahs: List<Pair<Int, List<UiItem>>>,
+    onWordClick: (UiItem) -> Unit,
+) {
     FlowRow(
         Modifier.fillMaxWidth().padding(vertical = 1.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -997,14 +1000,14 @@ private fun AyahPage(ayahs: List<Pair<Int, List<UiItem>>>) {
     ) {
         ayahs.forEach { (ayah, words) ->
             if (ayah > 0 && words.isNotEmpty()) {
-                words.dropLast(1).forEach { WordText(it) }
+                words.dropLast(1).forEach { WordText(it, onWordClick) }
                 // the ring stays with the last word instead of wrapping onto a line of its own
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    WordText(words.last())
+                    WordText(words.last(), onWordClick)
                     AyahMarker(ayah)
                 }
             } else {
-                words.forEach { WordText(it) }
+                words.forEach { WordText(it, onWordClick) }
             }
         }
     }
@@ -1021,9 +1024,77 @@ private fun AyahMarker(ayah: Int) {
     }
 }
 
+/** The expected units and the heard units of a flagged word, the differing ones marked. */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun WordDetailSheet(
+    detail: WordDetail,
+    onDismiss: () -> Unit,
+) {
+    val attention = LocalAttention.current
+    val diff = remember(detail) { diffUnits(detail.expected, detail.heard) }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                Text(detail.text, fontSize = 36.sp, lineHeight = 56.sp, color = attention, modifier = Modifier.fillMaxWidth())
+            }
+            Text(
+                stringResource(if (detail.state == ItemState.Skipped) R.string.kind_skipped else R.string.kind_wrong) +
+                    " · " + stringResource(R.string.where_format, detail.ayah, detail.word),
+                style = MaterialTheme.typography.labelLarge,
+                color = attention,
+            )
+            UnitsRow(stringResource(R.string.detail_expected), detail.expected, diff.expectedDiffers)
+            if (detail.state == ItemState.Skipped || detail.heard.isEmpty()) {
+                Text(stringResource(R.string.detail_nothing), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                UnitsRow(stringResource(R.string.detail_heard), detail.heard, diff.heardDiffers)
+            }
+            Text(stringResource(R.string.detail_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun UnitsRow(
+    label: String,
+    units: List<String>,
+    differing: Set<Int>,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                units.forEachIndexed { i, unit ->
+                    val marked = i in differing
+                    Text(
+                        unit,
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (marked) LocalAttention.current.copy(alpha = 0.2f) else MaterialTheme.colorScheme.background)
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        fontSize = 22.sp,
+                        color = if (marked) LocalAttention.current else MaterialTheme.colorScheme.onSurface,
+                        fontWeight = if (marked) FontWeight.Bold else FontWeight.Normal,
+                    )
+                }
+            }
+        }
+    }
+}
+
 /** One item with its mark, drawn just under the letters (shapes, not colors, tell the problems apart). */
 @Composable
-private fun WordText(item: UiItem) {
+private fun WordText(
+    item: UiItem,
+    onClick: (UiItem) -> Unit,
+) {
     val attention = LocalAttention.current
     val accent = MaterialTheme.colorScheme.primary
     val wordColor =
@@ -1036,7 +1107,13 @@ private fun WordText(item: UiItem) {
     val modifier =
         Modifier
             .then(if (item.state == ItemState.Current) Modifier.clip(RoundedCornerShape(10.dp)).background(accent.copy(alpha = 0.18f)) else Modifier)
-            .padding(horizontal = 3.dp)
+            .then(
+                if (item.state == ItemState.Wrong || item.state == ItemState.Skipped) {
+                    Modifier.clip(RoundedCornerShape(8.dp)).clickable { onClick(item) }
+                } else {
+                    Modifier
+                },
+            ).padding(horizontal = 3.dp)
             .drawBehind {
                 val y = (baseline + 9.dp.toPx()).coerceAtMost(size.height - 1.dp.toPx())
                 val stroke = 2.dp.toPx()
