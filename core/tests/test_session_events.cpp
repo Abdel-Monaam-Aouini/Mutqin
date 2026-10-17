@@ -484,3 +484,43 @@ TEST(Strictness, LevelsAreOrderedAndTheApiValidatesThem) {
     EXPECT_EQ(mq_session_set_strictness(f.session, MQ_STRICTNESS_STRICT), MQ_OK);
     EXPECT_EQ(mq_session_event_count(f.session), 0u);
 }
+
+TEST(SessionDetail, ExpectedAndHeardUnitsOfAWrongWord) {
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    auto join = [](const std::vector<std::string>& v) {
+        std::string s;
+        for (const std::string& u : v)
+            s += (s.empty() ? "" : " ") + u;
+        return s;
+    };
+    auto read = [&](int (*fn)(const mq_session*, size_t, char*, size_t), size_t item) {
+        const int need = fn(f.session, item, nullptr, 0);
+        EXPECT_GE(need, 0);
+        std::string text(static_cast<size_t>(need) + 1, '\0');
+        fn(f.session, item, text.data(), text.size());
+        text.resize(static_cast<size_t>(need));
+        return text;
+    };
+    // word 5 is recited as the units of word 11, word 8 is left out
+    std::vector<size_t> order = AllWords(f.words.size());
+    order[5] = 11;
+    order.erase(order.begin() + 8);
+    const std::vector<float> rows = f.Speak(order);
+    ASSERT_EQ(mq_session_push_posteriors(f.session, rows.data(), rows.size() / MQ_VOCAB_SIZE), MQ_OK);
+
+    ASSERT_EQ(mq_session_word_status(f.session, 5), MQ_WORD_WRONG);
+    EXPECT_EQ(read(mq_session_item_units, 5), join(f.words[5].reading.cont));
+    EXPECT_EQ(read(mq_session_item_heard, 5), join(f.words[11].reading.cont));
+
+    ASSERT_EQ(mq_session_word_status(f.session, 8), MQ_WORD_SKIPPED);
+    EXPECT_EQ(read(mq_session_item_heard, 8), "");  // nothing was heard
+    EXPECT_FALSE(read(mq_session_item_units, 8).empty());
+
+    ASSERT_EQ(mq_session_word_status(f.session, 2), MQ_WORD_OK);
+    EXPECT_EQ(read(mq_session_item_heard, 2), "");  // fine words have nothing to compare
+
+    EXPECT_EQ(mq_session_item_units(f.session, f.words.size(), nullptr, 0), MQ_ERR_ARGUMENT);
+    EXPECT_EQ(mq_session_item_heard(nullptr, 0, nullptr, 0), MQ_ERR_ARGUMENT);
+}

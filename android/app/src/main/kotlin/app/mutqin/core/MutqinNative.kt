@@ -73,6 +73,16 @@ internal object MutqinNative {
         index: Int,
     ): String
 
+    external fun sessionItemUnits(
+        session: Long,
+        index: Int,
+    ): String
+
+    external fun sessionItemHeard(
+        session: Long,
+        index: Int,
+    ): String
+
     external fun sessionWordStatus(
         session: Long,
         index: Int,

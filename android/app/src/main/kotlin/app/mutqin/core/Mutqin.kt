@@ -120,6 +120,14 @@ class Session internal constructor(
         )
     }
 
+    /** The units of the expected reading of an item. */
+    fun expectedUnits(index: Int): List<String> = units(MutqinNative.sessionItemUnits(handle, index))
+
+    /** The units heard for an item that was judged wrong (empty for every other item). */
+    fun heardUnits(index: Int): List<String> = units(MutqinNative.sessionItemHeard(handle, index))
+
+    private fun units(text: String): List<String> = text.split(' ').filter(String::isNotEmpty)
+
     fun status(index: Int): WordStatus =
         when (MutqinNative.sessionWordStatus(handle, index)) {
             1 -> WordStatus.Ok

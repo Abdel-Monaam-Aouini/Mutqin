@@ -185,6 +185,15 @@ MQ_API int mq_session_item_rules(const mq_session* session, size_t item_index, c
  * The engine must outlive the session. */
 MQ_API int mq_session_item_text(const mq_session* session, size_t item_index, char* out, size_t out_len);
 
+/* The units of the item's expected reading (the phoneme units the aligner compares), separated by a space,
+ * for showing what was expected. Same string conventions as mq_session_item_text. */
+MQ_API int mq_session_item_units(const mq_session* session, size_t item_index, char* out, size_t out_len);
+
+/* The units that were heard for an item judged MQ_WORD_WRONG, separated by a space, to put next to the
+ * expected units. Empty for every other item (a skipped item has nothing heard, an item that is not judged
+ * yet or is fine gives nothing to compare). Same string conventions as mq_session_item_text. */
+MQ_API int mq_session_item_heard(const mq_session* session, size_t item_index, char* out, size_t out_len);
+
 /* Index of the item being recited now (the last one heard), or -1 before anything was recognised. For
  * highlighting the current word. */
 MQ_API int mq_session_position(const mq_session* session);
