@@ -337,3 +337,38 @@ The cut changes the recognition slightly: of the 58 events two disappeared (wron
 changed kind (5:101:1, wrong to skipped). The recitation is a correct one, so every event is a false alarm: 56 of
 about 2430 words is 2.3% (it was 2.4%). One recording of one reciter; the cut thresholds were not tuned.
 Not measured yet: phone speed and memory with a long range, other reciters, and whole al-Baqarah (24500 units).
+
+## Finding the surah and ayah without being told (`Locator`)
+
+**Synthetic** (`core/tests/test_locator.cpp`, needs the model's table: `MUTQIN_UNITS_TABLE=models/zipformer_p-quran/expected_units.tsv`):
+a recitation starting at the first word of a random ayah of the whole Quran, with 10% of the units deleted, wrong
+or followed by an extra unit (400 trials, seed 7):
+
+| Units heard | Placed at the right ayah | Placed at another ayah | Not placed yet |
+|---|---|---|---|
+| 30 | 289 (72%) | 2 (0.5%) | 109 |
+| 50 | 350 (88%) | 2 (0.5%) | 48 |
+
+"Not placed yet" is mostly text that occurs in several places (the same words in different ayahs), where waiting
+for more audio is the right answer. The synthetic mistakes are not the model's real mistakes.
+
+**Real recordings** (the reciter of the 49-minute surah 5 recording and the recording of surah 105, `mutqin-cli --auto`):
+
+| Recording | Placed at | Audio time when placed |
+|---|---|---|
+| surah 105 (whole surah) | 105:1 | 16.0 s |
+| surah 5, from its start | 5:1 | 10.8 s |
+| surah 5, a 90 s piece cut at 600 s | 5:18 | 9.3 s |
+| surah 5, a 90 s piece cut at 1500 s | 5:56 | 9.8 s |
+| surah 5, a 90 s piece cut at 2400 s | 5:97 | 16.5 s |
+
+There is no ground truth for the cut pieces; the places agree with the times of the events in the 49-minute run
+(5:8 at 324 s, 5:49 at 1326 s, 5:101 at 2452 s), and a normal session started at the placed ayah gives exactly the
+same events as the automatic one (6, 3 and 1 events). On the whole 49-minute recording the automatic session
+places 5:1 after 10.8 s and its output is identical, event for event and time for time, to the session that was
+told the range (56 events, 1 min 59.9 s). Five recordings of one reciter: this is a first check, not a rate. The
+times include the lead-in of the recording and the three attempts in a row the session waits for.
+
+Found while testing: the sliding window could move on early when only a few units had been heard (the alignment
+may put the reciter anywhere in the window then), after which the real recitation was not found. The window now
+moves only once at least 150 units are heard; the 49-minute run is unchanged (identical output).

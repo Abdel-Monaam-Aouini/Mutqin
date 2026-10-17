@@ -19,9 +19,12 @@ struct UnitGroup {
 
 // Reads the groups of ayahs [ayah_first, ayah_last] of `surah` from the table (one line per group:
 // "surah:ayah<TAB>first-last<TAB>unit unit ..."). Fails if the file is missing, malformed, or has no
-// group for one of the ayahs.
+// group for one of the ayahs. surah 0 reads the whole table (no check).
 bool LoadUnitGroups(const std::string& path, int surah, int ayah_first, int ayah_last,
                     std::vector<UnitGroup>* out, std::string* error);
+
+// All groups of the table, in order (the whole Quran), for locating a recitation.
+bool LoadAllUnitGroups(const std::string& path, std::vector<UnitGroup>* out, std::string* error);
 
 // Cuts every run of the same character (code point) longer than `keep` down to `keep`, so units that
 // differ only in elongation compare equal (a reciter's madd length is not a mistake here). keep <= 0

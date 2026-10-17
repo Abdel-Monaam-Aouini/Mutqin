@@ -25,6 +25,7 @@ namespace {
 void Usage() {
     std::fputs(
         "usage: mutqin-cli --surah N --ayah A[-B] [--data DIR] [--posteriors FILE | --wav FILE]\n"
+        "       mutqin-cli --auto --model FILE --wav FILE   (find out which surah and ayah is recited)\n"
         "  without --posteriors / --wav: prints the expected phonemes (provisional tajweed rules).\n"
         "  --data DIR         verified Quran text (default: data/quran)\n"
         "  --posteriors FILE  replay model output: raw little-endian float32, 32 values per frame\n"
@@ -189,6 +190,7 @@ int main(int argc, char** argv) {
     [[maybe_unused]] int mic_seconds = 0;  // unused when built without microphone support
     size_t chunk_frames = 0;
     int surah = 0, first = 0, last = 0;
+    bool auto_detect = false;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         const bool has_value = i + 1 < argc;
@@ -213,6 +215,8 @@ int main(int argc, char** argv) {
                 Usage();
                 return 2;
             }
+        } else if (arg == "--auto") {
+            auto_detect = true;
         } else if (arg == "--timeline") {
             timeline = true;
         } else if (arg == "--mic") {
@@ -235,8 +239,12 @@ int main(int argc, char** argv) {
             return 2;
         }
     }
-    if (surah < 1 || first < 1) {
+    if (!auto_detect && (surah < 1 || first < 1)) {
         Usage();
+        return 2;
+    }
+    if (auto_detect && model_path.empty()) {
+        std::fprintf(stderr, "error: --auto needs --model (the model's units are how the place is found)\n");
         return 2;
     }
 
@@ -248,7 +256,10 @@ int main(int argc, char** argv) {
         return 1;
     }
     mq_session* session = nullptr;
-    if (mq_session_create(engine, surah, first, last, &session, err, sizeof err) != MQ_OK) {
+    const int created = auto_detect
+                            ? mq_session_create_auto(engine, &session, err, sizeof err)
+                            : mq_session_create(engine, surah, first, last, &session, err, sizeof err);
+    if (created != MQ_OK) {
         std::fprintf(stderr, "error: %s\n", err);
         mq_engine_destroy(engine);
         return 1;
@@ -290,6 +301,7 @@ int main(int argc, char** argv) {
             if (mq_session_set_input_rate(session, wav.sample_rate) != MQ_OK)
                 std::fprintf(stderr, "warning: unsupported sample rate %d Hz\n", wav.sample_rate);
             std::set<std::string> shown;
+            bool announced = !auto_detect;
             const size_t chunk = 1600;  // 100 ms, as a microphone would deliver it
             for (size_t at = 0; at < wav.samples.size() && status == 0; at += chunk) {
                 const size_t n = std::min(chunk, wav.samples.size() - at);
@@ -301,13 +313,22 @@ int main(int argc, char** argv) {
                 } else if (rc != MQ_OK) {
                     std::fprintf(stderr, "error: could not process the audio\n");
                     status = 1;
-                } else if (timeline) {
-                    ReportChanges(session, &shown, static_cast<double>(at + n) / wav.sample_rate);
+                } else {
+                    int found_surah = 0, found_ayah = 0;
+                    if (!announced && mq_session_located(session, &found_surah, &found_ayah) == 1) {
+                        announced = true;
+                        std::printf("[%6.1f s] located %d:%d\n",
+                                    static_cast<double>(at + n) / wav.sample_rate, found_surah, found_ayah);
+                    }
+                    if (timeline)
+                        ReportChanges(session, &shown, static_cast<double>(at + n) / wav.sample_rate);
                 }
             }
             if (status == 0 && mq_session_finish_audio(session) == MQ_OK) {
                 if (timeline)
                     ReportChanges(session, &shown, static_cast<double>(wav.samples.size()) / wav.sample_rate);
+                if (!announced)
+                    std::printf("could not tell what was recited\n");
                 std::printf("final result:\n");
                 PrintEvents(session);
             }

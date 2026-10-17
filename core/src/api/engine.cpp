@@ -11,6 +11,7 @@
 
 #include "align/aligner.h"
 #include "align/ctc.h"
+#include "align/locator.h"
 #include "api/session_internal.h"
 #include "audio/resampler.h"
 #include "features/logmel.h"
@@ -58,6 +59,17 @@ struct mq_session {
     std::map<int, std::vector<std::string>> done_heard;
     bool has_done_span = false;
     int done_span_first = 0;
+
+    // A session that does not know yet what is recited (mq_session_create_auto): it listens, finds the place
+    // with the locator and then builds its range.
+    bool auto_mode = false;
+    bool located = false;
+    std::string units_path;
+    int collapse_runs = 0;
+    std::unique_ptr<mutqin::Locator> locator;
+    size_t locate_heard = 0;  // how many units had been heard at the last attempt
+    int candidate_surah = 0, candidate_ayah = 0, candidate_count = 0;
+    int refused_surah = 0, refused_ayah = 0;  // a place that was locked and did not fit what was heard
 };
 
 namespace mutqin {
@@ -66,6 +78,12 @@ void SetSessionModel(mq_session* session, std::unique_ptr<AcousticModel> model) 
 }
 void SetSessionRecognizer(mq_session* session, std::unique_ptr<TokenRecognizer> recognizer) {
     session->recognizer = std::move(recognizer);
+}
+void SetSessionAutoUnits(mq_session* session, const std::vector<UnitGroup>& all_groups,
+                         const std::string& units_path, int collapse_runs) {
+    session->units_path = units_path;
+    session->collapse_runs = collapse_runs;
+    session->locator = std::make_unique<Locator>(all_groups, collapse_runs);
 }
 }  // namespace mutqin
 
@@ -217,6 +235,54 @@ void mq_engine_destroy(mq_engine* engine) {
     delete engine;
 }
 
+namespace {
+// Fills a session with the phonemes and the expected readings of the ayahs [first, last] of a surah.
+// Returns MQ_OK, or an error code with the message in *error.
+int BuildRange(mq_session* session, const mq_engine* engine, int surah, int first, int last,
+               std::string* error) {
+    std::vector<const mutqin::Ayah*> ayahs;
+    std::map<std::pair<int, int>, int> ayah_words;
+    for (int a = first; a <= last; ++a) {
+        const mutqin::Ayah* found = engine->quran.FindAyah(surah, a);
+        if (found == nullptr) {
+            *error = "no such ayah " + std::to_string(surah) + ":" + std::to_string(a);
+            return MQ_ERR_ARGUMENT;
+        }
+        ayahs.push_back(found);
+        ayah_words[{surah, a}] = static_cast<int>(found->words.size());
+    }
+    // Rules look at the next word, so the ayah after the range is phonemized too (and dropped).
+    std::vector<const mutqin::Ayah*> with_next = ayahs;
+    if (const mutqin::Ayah* next = engine->quran.FindAyah(surah, last + 1))
+        with_next.push_back(next);
+    session->result = mutqin::PhonemizeResult();
+    if (!mutqin::PhonemizeRange(with_next, &session->result, error))
+        return MQ_ERR_DATA;
+    auto& items = session->result.items;
+    items.erase(std::remove_if(items.begin(), items.end(),
+                               [&](const mutqin::PhonemeItem& it) { return it.ayah > last; }),
+                items.end());
+    session->words = mutqin::BuildWordReadings(items, ayah_words);
+    session->engine = engine;
+    session->surah = surah;
+    session->ayah_first = first;
+    session->ayah_last = last;
+    size_t expected = 0;
+    for (const mutqin::WordRef& w : session->words)
+        expected += w.reading.cont.size();
+    if (expected > MQ_MAX_EXPECTED_PHONEMES) {
+        *error = "range too long (" + std::to_string(expected) + " phonemes, at most " +
+                 std::to_string(MQ_MAX_EXPECTED_PHONEMES) + ")";
+        return MQ_ERR_LIMIT;
+    }
+    session->rules.clear();
+    for (const mutqin::PhonemeItem& item : session->result.items)
+        session->rules.push_back(Join(item.rules));
+    RebuildItemRules(session);
+    return MQ_OK;
+}
+}  // namespace
+
 int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ayah_last, mq_session** out,
                       char* err, size_t err_len) {
     if (out == nullptr)
@@ -227,56 +293,51 @@ int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ay
         return MQ_ERR_ARGUMENT;
     }
     try {
-        std::vector<const mutqin::Ayah*> ayahs;
-        std::map<std::pair<int, int>, int> ayah_words;
-        for (int a = ayah_first; a <= ayah_last; ++a) {
-            const mutqin::Ayah* found = engine->quran.FindAyah(surah, a);
-            if (found == nullptr) {
-                SetError(err, err_len, "no such ayah " + std::to_string(surah) + ":" + std::to_string(a));
-                return MQ_ERR_ARGUMENT;
-            }
-            ayahs.push_back(found);
-            ayah_words[{surah, a}] = static_cast<int>(found->words.size());
-        }
-        // Rules look at the next word, so the ayah after the range is phonemized too (and dropped).
-        std::vector<const mutqin::Ayah*> with_next = ayahs;
-        if (const mutqin::Ayah* next = engine->quran.FindAyah(surah, ayah_last + 1))
-            with_next.push_back(next);
-        auto session = new mq_session();
+        auto session = std::make_unique<mq_session>();
         std::string error;
-        if (!mutqin::PhonemizeRange(with_next, &session->result, &error)) {
-            delete session;
+        const int rc = BuildRange(session.get(), engine, surah, ayah_first, ayah_last, &error);
+        if (rc != MQ_OK) {
             SetError(err, err_len, error);
-            return MQ_ERR_DATA;
+            return rc;
         }
-        auto& items = session->result.items;
-        items.erase(std::remove_if(items.begin(), items.end(),
-                                   [&](const mutqin::PhonemeItem& it) { return it.ayah > ayah_last; }),
-                    items.end());
-        session->words = mutqin::BuildWordReadings(items, ayah_words);
-        session->engine = engine;
-        session->surah = surah;
-        session->ayah_first = ayah_first;
-        session->ayah_last = ayah_last;
-        size_t expected = 0;
-        for (const mutqin::WordRef& w : session->words)
-            expected += w.reading.cont.size();
-        if (expected > MQ_MAX_EXPECTED_PHONEMES) {
-            delete session;
-            SetError(err, err_len,
-                     "range too long (" + std::to_string(expected) + " phonemes, at most " +
-                         std::to_string(MQ_MAX_EXPECTED_PHONEMES) + ")");
-            return MQ_ERR_LIMIT;
-        }
-        for (const mutqin::PhonemeItem& item : session->result.items)
-            session->rules.push_back(Join(item.rules));
-        RebuildItemRules(session);
-        *out = session;
+        *out = session.release();
         return MQ_OK;
     } catch (const std::exception& e) {
         SetError(err, err_len, e.what());
         return MQ_ERR_INTERNAL;
     }
+}
+
+int mq_session_create_auto(const mq_engine* engine, mq_session** out, char* err, size_t err_len) {
+    if (out == nullptr)
+        return MQ_ERR_ARGUMENT;
+    *out = nullptr;
+    if (engine == nullptr) {
+        SetError(err, err_len, "invalid engine");
+        return MQ_ERR_ARGUMENT;
+    }
+    try {
+        auto session = std::make_unique<mq_session>();
+        session->engine = engine;
+        session->auto_mode = true;
+        *out = session.release();
+        return MQ_OK;
+    } catch (const std::exception& e) {
+        SetError(err, err_len, e.what());
+        return MQ_ERR_INTERNAL;
+    }
+}
+
+int mq_session_located(const mq_session* session, int* surah, int* ayah) {
+    SessionLock lock(session);
+    if (session == nullptr)
+        return MQ_ERR_ARGUMENT;
+    const bool known = !session->auto_mode || session->located;
+    if (known && surah != nullptr)
+        *surah = session->surah;
+    if (known && ayah != nullptr)
+        *ayah = session->ayah_first;
+    return known ? 1 : 0;
 }
 
 void mq_session_destroy(mq_session* session) {
@@ -312,6 +373,9 @@ constexpr size_t kSingleWindowUnits = 3000;
 constexpr size_t kWindowUnits = 2000;
 constexpr size_t kSlideAheadUnits = 500;
 constexpr size_t kBackWords = 40;
+// With only a few units heard the alignment may put the reciter anywhere in the window (its start is free);
+// the window must not move on a guess like that.
+constexpr size_t kMinHeardToSlide = 150;
 
 size_t UnitsBetween(const mq_session* session, size_t from, size_t to) {
     size_t units = 0;
@@ -381,8 +445,8 @@ void MergeWindow(mq_session* session, const mutqin::AlignResult& local) {
 
 // Moves the window on if the reciter is close to its end. The words left behind keep the verdicts they have.
 // False if the window stays where it is.
-bool SlideWindow(mq_session* session, const mutqin::AlignResult& local) {
-    if (!local.has_span || session->win_hi >= session->words.size())
+bool SlideWindow(mq_session* session, const mutqin::AlignResult& local, size_t heard_in_window) {
+    if (!local.has_span || session->win_hi >= session->words.size() || heard_in_window < kMinHeardToSlide)
         return false;
     const size_t lo = session->win_lo;
     const size_t position = lo + static_cast<size_t>(local.span_last);
@@ -417,6 +481,64 @@ bool SlideWindow(mq_session* session, const mutqin::AlignResult& local) {
     return true;
 }
 
+namespace {
+int BuildRange(mq_session* session, const mq_engine* engine, int surah, int first, int last,
+               std::string* error);
+int ApplyUnits(mq_session* session, const std::string& units_path, int collapse_runs, std::string* error);
+}  // namespace
+
+bool AlignCurrent(mq_session* session);  // below
+
+// An automatic session before its range is known: every few units heard, the locator is asked where this
+// is. When it names the same ayah three times in a row (a wrong first guess changes as more is heard) the
+// range from that ayah to the end of the surah is built and everything heard so far is aligned to it.
+bool TryLocate(mq_session* session) {
+    if (!session->locator || session->heard.size() < session->locate_heard + 4)
+        return true;
+    session->locate_heard = session->heard.size();
+    const mutqin::LocateResult found = session->locator->Locate(session->heard);
+    if (!found.found) {
+        session->candidate_count = 0;
+        return true;
+    }
+    if (found.surah == session->candidate_surah && found.ayah == session->candidate_ayah) {
+        ++session->candidate_count;
+    } else {
+        session->candidate_surah = found.surah;
+        session->candidate_ayah = found.ayah;
+        session->candidate_count = 1;
+    }
+    if (found.surah == session->refused_surah && found.ayah == session->refused_ayah) {
+        session->candidate_count = 0;
+        return true;
+    }
+    if (session->candidate_count < 3)
+        return true;
+    const auto& surahs = session->engine->quran.surahs();
+    const int last = static_cast<int>(surahs[static_cast<size_t>(found.surah - 1)].ayahs.size());
+    std::string error;
+    std::vector<mutqin::HeardToken> heard = std::move(session->heard);
+    if (BuildRange(session, session->engine, found.surah, found.ayah, last, &error) != MQ_OK ||
+        ApplyUnits(session, session->units_path, session->collapse_runs, &error) != MQ_OK) {
+        session->heard = std::move(heard);
+        return false;
+    }
+    session->heard = std::move(heard);  // ApplyUnits starts a range with nothing heard
+    session->located = true;
+    if (AlignCurrent(session))
+        return true;
+    // What was heard is far more than this range could hold: the place was wrong. Look again.
+    session->located = false;
+    session->words.clear();
+    session->item_rules.clear();
+    session->aligner.reset();
+    session->aligned = mutqin::AlignResult();
+    session->refused_surah = found.surah;
+    session->refused_ayah = found.ayah;
+    session->candidate_count = 0;
+    return true;
+}
+
 // Aligns what has been heard so far (session->heard). False if more was heard than the session may hold
 // (memory bound, see mutqin.h).
 bool AlignCurrent(mq_session* session) {
@@ -433,7 +555,7 @@ bool AlignCurrent(mq_session* session) {
             return false;
         const mutqin::AlignResult local = session->aligner->Update(local_heard);
         MergeWindow(session, local);
-        if (!SlideWindow(session, local))
+        if (!SlideWindow(session, local, local_heard.size()))
             return true;
     }
 }
@@ -443,6 +565,8 @@ bool AlignHeard(mq_session* session, size_t from, const std::vector<mutqin::Hear
     from = std::min(from, session->heard.size());
     session->heard.resize(from);
     session->heard.insert(session->heard.end(), tail.begin(), tail.end());
+    if (session->auto_mode && !session->located)
+        return TryLocate(session);
     return AlignCurrent(session);
 }
 
@@ -537,6 +661,58 @@ int mq_session_finish_audio(mq_session* session) {
     }
 }
 
+namespace {
+// The model's own reading: expected units per group of words, compared as they are, for the range of the
+// session. Returns MQ_OK, or an error code with the message in *error.
+int ApplyUnits(mq_session* session, const std::string& units_path, int collapse_runs, std::string* error) {
+    std::vector<mutqin::UnitGroup> groups;
+    if (!mutqin::LoadUnitGroups(units_path, session->surah, session->ayah_first, session->ayah_last, &groups,
+                                error))
+        return MQ_ERR_DATA;
+    // A recitation of a surah usually opens with the basmala, which is not a word of its first ayah.
+    // Its groups (those of 1:1) are put in front as ayah 0; if the reciter leaves it out the
+    // aligner's free start skips them.
+    if (session->ayah_first == 1 && session->surah != 1 && session->surah != 9) {
+        std::vector<mutqin::UnitGroup> basmala;
+        if (!mutqin::LoadUnitGroups(units_path, 1, 1, 1, &basmala, error))
+            return MQ_ERR_DATA;
+        for (mutqin::UnitGroup& g : basmala) {
+            g.surah = session->surah;
+            g.ayah = 0;
+        }
+        groups.insert(groups.begin(), basmala.begin(), basmala.end());
+    }
+    std::vector<mutqin::WordRef> words;
+    size_t expected = 0;
+    for (const mutqin::UnitGroup& g : groups) {
+        mutqin::WordRef w;
+        w.key = mutqin::WordKey(g.surah, g.ayah, g.first_word);
+        w.reading.ayah = g.ayah;
+        w.last_word = g.last_word;
+        for (const std::string& u : g.units)
+            w.reading.cont.push_back(mutqin::CollapseRuns(u, collapse_runs));
+        for (auto& context : w.reading.contexts)
+            context = w.reading.cont;
+        expected += w.reading.cont.size();
+        words.push_back(std::move(w));
+    }
+    if (expected > MQ_MAX_EXPECTED_PHONEMES) {
+        *error = "range too long for the model's units";
+        return MQ_ERR_LIMIT;
+    }
+    session->words = std::move(words);
+    session->units_active = true;
+    session->params = mutqin::StrictnessProfile(session->strictness);  // tuned on real model output
+    session->aligner.reset();
+    session->aligned = mutqin::AlignResult();
+    session->frames.clear();
+    session->heard.clear();
+    RebuildItemRules(session);
+    return MQ_OK;
+}
+
+}  // namespace
+
 int mq_session_load_model(mq_session* session, const char* manifest_path, char* err, size_t err_len) {
     SessionLock lock(session);
     if (session == nullptr || manifest_path == nullptr)
@@ -555,54 +731,26 @@ int mq_session_load_model(mq_session* session, const char* manifest_path, char* 
             return MQ_ERR_DATA;
         }
         if (!config.units.empty()) {
-            // The model's own reading: expected units per group of words, compared as they are.
-            std::vector<mutqin::UnitGroup> groups;
-            if (!mutqin::LoadUnitGroups(config.units, session->surah, session->ayah_first, session->ayah_last,
-                                        &groups, &error)) {
-                SetError(err, err_len, error);
-                return MQ_ERR_DATA;
-            }
-            // A recitation of a surah usually opens with the basmala, which is not a word of its first ayah.
-            // Its groups (those of 1:1) are put in front as ayah 0; if the reciter leaves it out the
-            // aligner's free start skips them.
-            if (session->ayah_first == 1 && session->surah != 1 && session->surah != 9) {
-                std::vector<mutqin::UnitGroup> basmala;
-                if (!mutqin::LoadUnitGroups(config.units, 1, 1, 1, &basmala, &error)) {
+            if (session->auto_mode) {
+                // no range yet: the whole table is indexed to find out what is recited (see TryLocate)
+                std::vector<mutqin::UnitGroup> all;
+                if (!mutqin::LoadAllUnitGroups(config.units, &all, &error)) {
                     SetError(err, err_len, error);
                     return MQ_ERR_DATA;
                 }
-                for (mutqin::UnitGroup& g : basmala) {
-                    g.surah = session->surah;
-                    g.ayah = 0;
+                session->units_path = config.units;
+                session->collapse_runs = config.collapse_runs;
+                session->locator = std::make_unique<mutqin::Locator>(all, config.collapse_runs);
+            } else {
+                const int rc = ApplyUnits(session, config.units, config.collapse_runs, &error);
+                if (rc != MQ_OK) {
+                    SetError(err, err_len, error);
+                    return rc;
                 }
-                groups.insert(groups.begin(), basmala.begin(), basmala.end());
             }
-            std::vector<mutqin::WordRef> words;
-            size_t expected = 0;
-            for (const mutqin::UnitGroup& g : groups) {
-                mutqin::WordRef w;
-                w.key = mutqin::WordKey(g.surah, g.ayah, g.first_word);
-                w.reading.ayah = g.ayah;
-                w.last_word = g.last_word;
-                for (const std::string& u : g.units)
-                    w.reading.cont.push_back(mutqin::CollapseRuns(u, config.collapse_runs));
-                for (auto& context : w.reading.contexts)
-                    context = w.reading.cont;
-                expected += w.reading.cont.size();
-                words.push_back(std::move(w));
-            }
-            if (expected > MQ_MAX_EXPECTED_PHONEMES) {
-                SetError(err, err_len, "range too long for the model's units");
-                return MQ_ERR_LIMIT;
-            }
-            session->words = std::move(words);
-            session->units_active = true;
-            session->params = mutqin::StrictnessProfile(session->strictness);  // tuned on real model output
-            session->aligner.reset();
-            session->aligned = mutqin::AlignResult();
-            session->frames.clear();
-            session->heard.clear();
-            RebuildItemRules(session);
+        } else if (session->auto_mode) {
+            SetError(err, err_len, "automatic detection needs the model's units (units= in the manifest)");
+            return MQ_ERR_DATA;
         }
         session->recognizer = std::move(recognizer);
         return MQ_OK;
@@ -743,6 +891,13 @@ int mq_session_reset(mq_session* session) {
         session->heard.clear();
         session->aligned = mutqin::AlignResult();
         session->aligner.reset();
+        if (session->auto_mode) {  // a new recitation: what it is has to be found again
+            session->located = false;
+            session->words.clear();
+            session->item_rules.clear();
+            session->locate_heard = 0;
+            session->candidate_count = 0;
+        }
         session->logmel = mutqin::LogMel();
         session->converted.clear();
         session->streaming = false;

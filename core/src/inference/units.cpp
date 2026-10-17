@@ -46,7 +46,8 @@ bool LoadUnitGroups(const std::string& path, int surah, int ayah_first, int ayah
         return false;
     }
     out->clear();
-    std::vector<bool> seen(static_cast<size_t>(ayah_last - ayah_first + 1), false);
+    const bool everything = surah == 0;  // the whole table (for locating a recitation)
+    std::vector<bool> seen(everything ? 0 : static_cast<size_t>(ayah_last - ayah_first + 1), false);
     std::string line;
     int number = 0;
     while (std::getline(in, line)) {
@@ -67,10 +68,10 @@ bool LoadUnitGroups(const std::string& path, int surah, int ayah_first, int ayah
         }
         UnitGroup g;
         g.surah = std::atoi(line.substr(0, colon).c_str());
-        if (g.surah != surah)
+        if (!everything && g.surah != surah)
             continue;
         g.ayah = std::atoi(line.substr(colon + 1, t1 - colon - 1).c_str());
-        if (g.ayah < ayah_first || g.ayah > ayah_last)
+        if (!everything && (g.ayah < ayah_first || g.ayah > ayah_last))
             continue;
         g.first_word = std::atoi(line.substr(t1 + 1, dash - t1 - 1).c_str());
         g.last_word = std::atoi(line.substr(dash + 1, t2 - dash - 1).c_str());
@@ -81,11 +82,12 @@ bool LoadUnitGroups(const std::string& path, int surah, int ayah_first, int ayah
             *error = path + " line " + std::to_string(number) + ": bad group";
             return false;
         }
-        seen[static_cast<size_t>(g.ayah - ayah_first)] = true;
+        if (!everything)
+            seen[static_cast<size_t>(g.ayah - ayah_first)] = true;
         // The table may spell one word in several rows (the letters of an opening letter group are read
         // one after the other): rows with the same ayah and span are one word, so the units are joined.
-        if (!out->empty() && out->back().ayah == g.ayah && out->back().first_word == g.first_word &&
-            out->back().last_word == g.last_word) {
+        if (!out->empty() && out->back().surah == g.surah && out->back().ayah == g.ayah &&
+            out->back().first_word == g.first_word && out->back().last_word == g.last_word) {
             out->back().units.insert(out->back().units.end(), g.units.begin(), g.units.end());
             continue;
         }
@@ -99,6 +101,10 @@ bool LoadUnitGroups(const std::string& path, int surah, int ayah_first, int ayah
         }
     }
     return true;
+}
+
+bool LoadAllUnitGroups(const std::string& path, std::vector<UnitGroup>* out, std::string* error) {
+    return LoadUnitGroups(path, 0, 0, 0, out, error);
 }
 
 }  // namespace mutqin
