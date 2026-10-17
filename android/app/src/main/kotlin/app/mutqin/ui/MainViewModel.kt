@@ -6,6 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.mutqin.AppPreferences
 import app.mutqin.BuildConfig
+import app.mutqin.HistoryEntry
+import app.mutqin.HistoryStore
 import app.mutqin.core.Engine
 import app.mutqin.core.EventKind
 import app.mutqin.core.Item
@@ -80,6 +82,9 @@ data class UiState(
     val pausedAt: Long = 0L,
     /** The word whose detail is open (tapped on the recitation screen), if any. */
     val detail: WordDetail? = null,
+    /** Memorization mode: the text stays hidden until it has been recited. */
+    val memorization: Boolean = false,
+    val history: List<HistoryEntry> = emptyList(),
 ) {
     val paused: Boolean get() = pausedAt != 0L
 }
@@ -111,7 +116,9 @@ class MainViewModel(
     private val modelFiles = listOf("quran_phoneme_zipformer.int8.onnx", "tokens.txt", "expected_units.tsv")
 
     init {
-        _state.update { it.copy(modelFolder = modelDir.absolutePath, strictness = AppPreferences.strictness(app)) }
+        _state.update {
+            it.copy(modelFolder = modelDir.absolutePath, strictness = AppPreferences.strictness(app), memorization = AppPreferences.memorization(app))
+        }
         prepare()
     }
 
@@ -222,6 +229,50 @@ class MainViewModel(
     fun setStrictness(level: Int) {
         AppPreferences.saveStrictness(getApplication(), level)
         _state.update { it.copy(strictness = level) }
+    }
+
+    fun setMemorization(on: Boolean) {
+        AppPreferences.saveMemorization(getApplication(), on)
+        _state.update { it.copy(memorization = on) }
+    }
+
+    /** Reads the history from the phone (for the history screen). */
+    fun loadHistory() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val all = HistoryStore.load(getApplication()).reversed()
+            _state.update { it.copy(history = all) }
+        }
+    }
+
+    fun clearHistory() {
+        viewModelScope.launch(Dispatchers.IO) {
+            HistoryStore.clear(getApplication())
+            _state.update { it.copy(history = emptyList()) }
+        }
+    }
+
+    /** Keeps the attempt in the history (not an attempt where nothing was recited). */
+    private fun remember(
+        st: UiState,
+        durationSeconds: Int,
+    ) {
+        if (durationSeconds < 3 || st.items.none { it.state != ItemState.Upcoming }) return
+        val kinds = st.findings.groupingBy { it.kind }.eachCount()
+        HistoryStore.append(
+            getApplication(),
+            HistoryEntry(
+                System.currentTimeMillis(),
+                st.surah,
+                st.fromAyah,
+                st.toAyah,
+                durationSeconds,
+                kinds[EventKind.Wrong] ?: 0,
+                kinds[EventKind.Skipped] ?: 0,
+                kinds[EventKind.Repeated] ?: 0,
+                kinds[EventKind.Added] ?: 0,
+                st.memorization,
+            ),
+        )
     }
 
     /** The model manifest with absolute paths (the core resolves relative paths against the manifest's folder). */
@@ -349,9 +400,12 @@ class MainViewModel(
         recorder = null
         val s = session ?: return
         try {
+            val before = _state.value
             s.finish()
             refresh(s, finished = true)
             _state.update { it.copy(phase = Phase.Result, pausedAt = 0L) }
+            val end = if (before.paused) before.pausedAt else android.os.SystemClock.elapsedRealtime()
+            remember(_state.value, ((end - before.startedAt) / 1000).toInt())
         } catch (e: Exception) {
             _state.update { it.copy(phase = Phase.Setup, message = describe(e)) }
         }
