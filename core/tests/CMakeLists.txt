@@ -11,6 +11,7 @@ add_executable(mutqin_tests
     test_phonemizer.cpp
     test_api.cpp
     test_session_events.cpp
+    test_session_window.cpp
     test_audio.cpp
     test_units.cpp
 )
