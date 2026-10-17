@@ -64,11 +64,12 @@ TEST(AlignerParity, CppEqualsPython) {
                 ls >> params.edge_free >> params.add_min_tokens >> params.wrong_below >> params.min_mismatch;
             } else if (line.rfind("W: ", 0) == 0) {
                 const std::vector<std::string> parts = Split(line.substr(3), '|');
-                ASSERT_EQ(parts.size(), 5u);
+                ASSERT_EQ(parts.size(), 6u);
                 WordReading w;
                 w.cont = Words(parts[0]);
                 for (int c = 0; c < 4; ++c)
                     w.contexts[c] = Words(parts[c + 1]);
+                w.ayah = std::stoi(parts[5]);
                 words.push_back(w);
             } else if (line.rfind("T: ", 0) == 0) {
                 std::istringstream ls(line.substr(3));

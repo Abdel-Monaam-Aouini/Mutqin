@@ -51,6 +51,7 @@ The app asks the core every 100-200 ms (UI thread; allowed while the worker thre
 |---|---|
 | `mq_session_position` | the item being recited now (highlight, scroll) |
 | `mq_session_item` | which Tanzil words an item covers: `word` to `word_last` (an item can join several words where the reading merges them; mark them together) |
+| `mq_session_item_rules` | expected tajweed guidance for the item (`qalqalah`, `idgham`, `ikhfa`, `iqlab`, `ghunnah`, `madd`, etc.); these are not observed pass/fail results |
 | `mq_session_word_status` | per item: not judged yet / ok / wrong / skipped |
 | `mq_session_event_count`, `mq_session_event` | skipped, wrong, repeated, added (with the item they refer to) |
 
@@ -66,6 +67,10 @@ Behaviour that the app must respect:
   optional basmala before ayah 1 is accepted and reported as ayah 0 (do not show it as a mistake if missing).
 - Pauses, hesitations and restarts of a word are tolerated; repeating words is reported as "repeated", which
   the user may do on purpose (the mark is informational, not an error count).
+  Reciting a whole ayah again from its start (or the last two or three ayahs together), as one does when
+  practising, is not reported at all: the aligner has restart arcs from the end of an ayah back to its start.
+  Only the first reading of each word is judged. Measured effect on false alarms and recall: not yet re-run
+  (the saved 49-minute recording is not available here); tests are synthetic.
 - Hifz mode reveals a word when its item becomes judged; wrong and skipped words are revealed with their mark.
 
 ## 5. Visual design (decided: professional, few colors)
@@ -221,7 +226,7 @@ Minimum Android 5.0 (API 21) and iOS 13; target the latest stable releases. What
 
 ## 13. Out of scope for the first version
 
-Letter- and vowel-level feedback, tajweed rules, other qira'at, translations or tafsir, listening to reciters
+Acoustic pass/fail judgments for letter, vowel and tajweed rules, other qira'at, translations or tafsir, listening to reciters
 (audio licenses), accounts, sharing and social features beyond the beta sharing above, cloud sync, payments of any
 kind, notifications, widgets and wearables, background recitation.
 
@@ -229,8 +234,8 @@ kind, notifications, widgets and wearables, background recitation.
 
 1. Core additions the app needs: cross-compiled builds for Android (and later iOS) and phone measurements
    (the strictness level API is done).
-2. Android prototype (Compose): record, push, highlight the current word, show marks; range picker; follow
-   mode; model files placed by hand.
+2. Android prototype (Compose): record, push, highlight the current word, show green accepted words and red differences,
+   show expected tajweed guidance for the current word; range picker; follow mode; model files placed by hand.
 3. Hifz mode, result screen, history, settings, localization (en, ar), licenses screen, first-run flow with the
    model download.
 4. iOS app (SwiftUI) with the same behaviour on the same core.

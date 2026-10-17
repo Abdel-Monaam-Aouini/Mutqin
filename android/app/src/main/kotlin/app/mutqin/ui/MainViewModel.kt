@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.mutqin.AppPreferences
 import app.mutqin.BuildConfig
 import app.mutqin.core.Engine
 import app.mutqin.core.EventKind
@@ -11,6 +12,7 @@ import app.mutqin.core.Item
 import app.mutqin.core.MutqinException
 import app.mutqin.core.Session
 import app.mutqin.core.Strictness
+import app.mutqin.core.TajweedRule
 import app.mutqin.core.WordStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,6 +22,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
 
 enum class Phase { Loading, NeedModel, Setup, Starting, Reciting, Result, Error }
@@ -35,6 +39,7 @@ data class UiItem(
     val state: ItemState,
     val repeated: Boolean,
     val addedAfter: Boolean,
+    val tajweedRules: List<TajweedRule>,
 )
 
 data class Finding(
@@ -60,7 +65,11 @@ data class UiState(
     val error: String? = null,
     /** When listening started (uptime milliseconds), for the timer. */
     val startedAt: Long = 0L,
-)
+    /** When listening was paused (uptime milliseconds), or 0 while it runs; the timer stands still meanwhile. */
+    val pausedAt: Long = 0L,
+) {
+    val paused: Boolean get() = pausedAt != 0L
+}
 
 class MainViewModel(
     app: Application,
@@ -84,7 +93,7 @@ class MainViewModel(
     private val modelFiles = listOf("quran_phoneme_zipformer.int8.onnx", "tokens.txt", "expected_units.tsv")
 
     init {
-        _state.update { it.copy(modelFolder = modelDir.absolutePath) }
+        _state.update { it.copy(modelFolder = modelDir.absolutePath, strictness = AppPreferences.strictness(app)) }
         prepare()
     }
 
@@ -113,6 +122,7 @@ class MainViewModel(
                     engine = Engine.fromMemory(uthmani, simple, checksums)
                 }
                 stage = "checking the model files"
+                installBundledModelIfPresent()
                 if (modelFiles.any { !File(modelDir, it).isFile }) {
                     modelDir.mkdirs()
                     _state.update { it.copy(phase = Phase.NeedModel) }
@@ -124,6 +134,31 @@ class MainViewModel(
                 Log.e(TAG, "prepare failed while $stage", e)
                 _state.update { it.copy(phase = Phase.Error, error = exactError(stage, e)) }
             }
+        }
+    }
+
+    /**
+     * A shareable APK may carry the gated model in assets/model. Extract it to the same directory
+     * used by the development adb workflow. The temporary file prevents a killed first launch from
+     * leaving a partial ONNX file that looks present on the next launch.
+     */
+    private fun installBundledModelIfPresent() {
+        val assets = getApplication<Application>().assets
+        val bundled = modelFiles + "LICENSE"
+        val names = assets.list("model")?.toSet().orEmpty()
+        if (!bundled.all { it in names }) return
+        modelDir.mkdirs()
+        for (name in bundled) {
+            val destination = File(modelDir, name)
+            val temporary = File(modelDir, "$name.part")
+            if (destination.isFile && destination.length() == assets.open("model/$name").use { it.available().toLong() }) continue
+            assets.open("model/$name").use { input ->
+                BufferedInputStream(input).use { source ->
+                    BufferedOutputStream(temporary.outputStream()).use { output -> source.copyTo(output) }
+                }
+            }
+            if (destination.exists()) check(destination.delete()) { "could not replace bundled model file $name" }
+            check(temporary.renameTo(destination)) { "could not install bundled model file $name" }
         }
     }
 
@@ -166,7 +201,10 @@ class MainViewModel(
             it.copy(toAyah = to, fromAyah = minOf(it.fromAyah, to), message = null)
         }
 
-    fun setStrictness(level: Int) = _state.update { it.copy(strictness = level) }
+    fun setStrictness(level: Int) {
+        AppPreferences.saveStrictness(getApplication(), level)
+        _state.update { it.copy(strictness = level) }
+    }
 
     /** The model manifest with absolute paths (the core resolves relative paths against the manifest's folder). */
     private fun writeManifest(): String {
@@ -203,28 +241,61 @@ class MainViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val s = openSession()
-                val mic =
-                    MicRecorder { samples, n ->
-                        var sum = 0.0
-                        for (i in 0 until n) sum += samples[i] * samples[i]
-                        val db = 20.0 * kotlin.math.log10(kotlin.math.sqrt(sum / n) + 1e-9)
-                        rawLevel = ((db + 60.0) / 50.0).coerceIn(0.0, 1.0).toFloat() // -60 dBFS is silent, -10 dBFS loud
-                        try {
-                            s.pushAudio(samples, n)
-                        } catch (e: MutqinException) {
-                            Log.w(TAG, "push failed: ${e.message}")
-                        }
-                    }
+                val mic = newMic(s)
                 if (!mic.open()) error("cannot open the microphone")
                 s.setInputRate(mic.sampleRate)
                 recorder = mic
                 refresh(s, finished = false)
-                _state.update { it.copy(phase = Phase.Reciting, startedAt = android.os.SystemClock.elapsedRealtime()) }
+                _state.update { it.copy(phase = Phase.Reciting, startedAt = android.os.SystemClock.elapsedRealtime(), pausedAt = 0L) }
                 mic.start()
                 startPolling(s)
             } catch (e: Exception) {
                 closeSession()
                 _state.update { it.copy(phase = Phase.Setup, message = describe(e)) }
+            }
+        }
+    }
+
+    private fun newMic(s: Session) =
+        MicRecorder { samples, n ->
+            var sum = 0.0
+            for (i in 0 until n) sum += samples[i] * samples[i]
+            val db = 20.0 * kotlin.math.log10(kotlin.math.sqrt(sum / n) + 1e-9)
+            rawLevel = ((db + 60.0) / 50.0).coerceIn(0.0, 1.0).toFloat() // -60 dBFS is silent, -10 dBFS loud
+            try {
+                s.pushAudio(samples, n)
+            } catch (e: MutqinException) {
+                Log.w(TAG, "push failed: ${e.message}")
+            }
+        }
+
+    /** Pauses listening: the microphone is released (the phone shows it is no longer in use); the session keeps its place. */
+    fun pause() {
+        if (_state.value.phase != Phase.Reciting || _state.value.paused) return
+        _state.update { it.copy(pausedAt = android.os.SystemClock.elapsedRealtime()) } // at once, so the screen answers the tap
+        viewModelScope.launch(Dispatchers.IO) {
+            recorder?.stop()
+            recorder = null
+            rawLevel = 0f
+        }
+    }
+
+    /** Continues after [pause]: the microphone is opened again and the new audio follows the old. */
+    fun resume() {
+        val s = session ?: return
+        val st = _state.value
+        if (st.phase != Phase.Reciting || !st.paused) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val mic = newMic(s)
+                if (!mic.open()) error("cannot open the microphone")
+                recorder = mic
+                val now = android.os.SystemClock.elapsedRealtime()
+                _state.update { it.copy(startedAt = it.startedAt + (now - it.pausedAt), pausedAt = 0L) }
+                mic.start()
+            } catch (e: Exception) {
+                Log.w(TAG, "resume failed: ${e.message}")
+                _state.update { it.copy(message = describe(e)) }
             }
         }
     }
@@ -243,7 +314,7 @@ class MainViewModel(
         try {
             s.finish()
             refresh(s, finished = true)
-            _state.update { it.copy(phase = Phase.Result) }
+            _state.update { it.copy(phase = Phase.Result, pausedAt = 0L) }
         } catch (e: Exception) {
             _state.update { it.copy(phase = Phase.Setup, message = describe(e)) }
         }
@@ -261,7 +332,7 @@ class MainViewModel(
         recorder?.stop()
         recorder = null
         closeSession()
-        _state.update { it.copy(phase = Phase.Setup, items = emptyList(), findings = emptyList(), level = 0f) }
+        _state.update { it.copy(phase = Phase.Setup, items = emptyList(), findings = emptyList(), level = 0f, pausedAt = 0L) }
     }
 
     private fun closeSession() {
@@ -299,7 +370,7 @@ class MainViewModel(
                         WordStatus.Ok -> ItemState.Ok
                         WordStatus.NotJudged -> if (!finished && i == position) ItemState.Current else ItemState.Upcoming
                     }
-                UiItem(i, item.ayah, item.word, item.text, state, i in repeated, i in added)
+                UiItem(i, item.ayah, item.word, item.text, state, i in repeated, i in added, item.tajweedRules)
             }
         val findings =
             events
@@ -330,7 +401,7 @@ class MainViewModel(
             setSurah(surah)
             setFrom(from)
             setTo(to)
-            setStrictness(level)
+            _state.update { it.copy(strictness = level) } // a debug replay does not change the saved setting
             try {
                 val t0 = System.nanoTime()
                 val s = openSession()

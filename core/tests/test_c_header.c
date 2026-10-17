@@ -22,6 +22,7 @@ int main(void) {
     if (mq_session_create(NULL, 1, 1, 7, &session, err, sizeof err) != MQ_ERR_ARGUMENT)
         return 4;
     if (mq_session_event(NULL, 0, &event) != MQ_ERR_ARGUMENT || mq_session_item(NULL, 0, &item) != MQ_ERR_ARGUMENT ||
+        mq_session_item_rules(NULL, 0, NULL, 0) != MQ_ERR_ARGUMENT ||
         mq_session_phoneme(NULL, 0, &phoneme) != MQ_ERR_ARGUMENT)
         return 5;
     if (mq_session_position(NULL) != -1 || mq_session_word_count(NULL) != 0)

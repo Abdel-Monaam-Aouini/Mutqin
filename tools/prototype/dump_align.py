@@ -3,7 +3,7 @@
 Usage: python3 -I tools/prototype/dump_align.py OUT_FILE DATA_DIR [--per-case N]
 Format (one token or word per line, floats as repr so they round-trip exactly):
   CASE id / P edge_free add_min_tokens wrong_below min_mismatch / W n
-  / W: cont|ctx0|ctx1|ctx2|ctx3 (symbols space separated) / T n / T: symbol conf start end
+  / W: cont|ctx0|ctx1|ctx2|ctx3|ayah (symbols space separated) / T n / T: symbol conf start end
   SPAN a b | SPAN none / S word status / E kind index conf / END
 """
 
@@ -69,7 +69,11 @@ def main() -> int:
                         lines.append("P " + " ".join(str(k) for k in knobs))
                         lines.append(f"W {len(wps)}")
                         for wp in wps:
-                            lines.append("W: " + "|".join(" ".join(c) for c in (wp.cont, *wp.contexts)))
+                            lines.append(
+                                "W: "
+                                + "|".join(" ".join(c) for c in (wp.cont, *wp.contexts))
+                                + f"|{wp.key[1]}"
+                            )
                         lines.append(f"T {len(heard)}")
                         for t in heard:
                             lines.append(f"T: {t.symbol} {t.confidence!r} {t.start} {t.end}")

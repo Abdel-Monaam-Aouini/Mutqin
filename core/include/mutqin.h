@@ -169,6 +169,13 @@ typedef struct mq_item {
 } mq_item;
 MQ_API int mq_session_item(const mq_session* session, size_t item_index, mq_item* out);
 
+/* Comma-separated expected tajweed rule tags for an item, for example
+ * "ikhfa,ghunnah" or "qalqalah_kubra". These are rules in the verified expected reading;
+ * they are guidance for the app, not a claim that the reciter performed them correctly.
+ * Like mq_session_item_text, returns the byte length without the terminating NUL and cuts the
+ * result if out_len is too small. out may be NULL to ask for the length. */
+MQ_API int mq_session_item_rules(const mq_session* session, size_t item_index, char* out, size_t out_len);
+
 /* The Uthmani text of an item, exactly as in the verified Tanzil text (UTF-8, the words separated by a
  * space, standalone waqf signs after their word). The basmala items (ayah 0) give the surah's basmala
  * words. Like snprintf: returns the length in bytes without the terminating NUL; out is NUL-terminated and

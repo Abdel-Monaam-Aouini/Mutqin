@@ -27,7 +27,8 @@ struct mq_engine {
 struct mq_session {
     const mq_engine* engine = nullptr;  // for the text of the items; must outlive the session
     mutqin::PhonemizeResult result;
-    std::vector<std::string> rules;  // joined rule tags, one per item
+    std::vector<std::string> rules;       // joined rule tags, one per item
+    std::vector<std::string> item_rules;  // unique expected rule tags, one per recitation item
     std::vector<mutqin::WordRef> words;
     std::vector<mutqin::Frame> frames;
     mutqin::AlignResult aligned;
@@ -73,6 +74,30 @@ std::string Join(const std::vector<std::string>& parts) {
         out += p;
     }
     return out;
+}
+
+std::string JoinUniqueRules(const mq_session* session, const mutqin::WordRef& word) {
+    const int surah = std::get<0>(word.key);
+    const int ayah = std::get<1>(word.key);
+    const int first = std::get<2>(word.key);
+    const int last = word.last_word;
+    std::vector<std::string> unique;
+    for (const mutqin::PhonemeItem& item : session->result.items) {
+        if (item.surah != surah || item.ayah != ayah || item.word < first || item.word > last)
+            continue;
+        for (const std::string& rule : item.rules) {
+            if (std::find(unique.begin(), unique.end(), rule) == unique.end())
+                unique.push_back(rule);
+        }
+    }
+    return Join(unique);
+}
+
+void RebuildItemRules(mq_session* session) {
+    session->item_rules.clear();
+    session->item_rules.reserve(session->words.size());
+    for (const mutqin::WordRef& word : session->words)
+        session->item_rules.push_back(JoinUniqueRules(session, word));
 }
 
 }  // namespace
@@ -226,6 +251,7 @@ int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ay
         }
         for (const mutqin::PhonemeItem& item : session->result.items)
             session->rules.push_back(Join(item.rules));
+        RebuildItemRules(session);
         *out = session;
         return MQ_OK;
     } catch (const std::exception& e) {
@@ -416,6 +442,7 @@ int mq_session_load_model(mq_session* session, const char* manifest_path, char* 
             for (const mutqin::UnitGroup& g : groups) {
                 mutqin::WordRef w;
                 w.key = mutqin::WordKey(g.surah, g.ayah, g.first_word);
+                w.reading.ayah = g.ayah;
                 w.last_word = g.last_word;
                 for (const std::string& u : g.units)
                     w.reading.cont.push_back(mutqin::CollapseRuns(u, config.collapse_runs));
@@ -435,6 +462,7 @@ int mq_session_load_model(mq_session* session, const char* manifest_path, char* 
             session->aligned = mutqin::AlignResult();
             session->frames.clear();
             session->last_heard.clear();
+            RebuildItemRules(session);
         }
         session->recognizer = std::move(recognizer);
         return MQ_OK;
@@ -458,6 +486,19 @@ int mq_session_item(const mq_session* session, size_t item_index, mq_item* out) 
     out->word = std::get<2>(w.key);
     out->word_last = w.last_word;
     return MQ_OK;
+}
+
+int mq_session_item_rules(const mq_session* session, size_t item_index, char* out, size_t out_len) {
+    SessionLock lock(session);
+    if (session == nullptr || item_index >= session->words.size())
+        return MQ_ERR_ARGUMENT;
+    const std::string& rules = session->item_rules[item_index];
+    if (out != nullptr && out_len > 0) {
+        const size_t n = std::min(rules.size(), out_len - 1);
+        std::memcpy(out, rules.data(), n);
+        out[n] = '\0';
+    }
+    return static_cast<int>(rules.size());
 }
 
 int mq_session_item_text(const mq_session* session, size_t item_index, char* out, size_t out_len) {

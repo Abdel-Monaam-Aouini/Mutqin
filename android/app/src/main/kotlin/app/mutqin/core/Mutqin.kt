@@ -31,6 +31,12 @@ data class Item(
     val word: Int,
     val wordLast: Int,
     val text: String,
+    val tajweedRules: List<TajweedRule>,
+)
+
+/** A rule in the expected reading. This is guidance, not an observed pass/fail result. */
+data class TajweedRule(
+    val tag: String,
 )
 
 data class Event(
@@ -98,7 +104,20 @@ class Session internal constructor(
 
     fun item(index: Int): Item {
         MutqinNative.sessionItem(handle, index, itemBuffer)
-        return Item(itemBuffer[0], itemBuffer[1], itemBuffer[2], itemBuffer[3], MutqinNative.sessionItemText(handle, index))
+        val rules =
+            MutqinNative
+                .sessionItemRules(handle, index)
+                .split(',')
+                .filter(String::isNotEmpty)
+                .map(::TajweedRule)
+        return Item(
+            itemBuffer[0],
+            itemBuffer[1],
+            itemBuffer[2],
+            itemBuffer[3],
+            MutqinNative.sessionItemText(handle, index),
+            rules,
+        )
     }
 
     fun status(index: Int): WordStatus =

@@ -84,7 +84,8 @@ mq_session_set_input_rate(session, hz);                 /* default 16000; other 
 mq_session_push_audio(session, samples, n);             /* needs a model, else MQ_ERR_NO_MODEL */
 mq_session_finish_audio(session);                       /* judge the last word too */
 mq_session_load_model(session, manifest, err, len);     /* recognition model (optional sherpa-onnx backend) */
-mq_session_item / mq_session_item_text / mq_session_position(...) /* item -> Tanzil words and their Uthmani text; the item being recited now */
+mq_session_item / mq_session_item_text / mq_session_item_rules(...) /* item -> Tanzil words, Uthmani text and expected tajweed tags */
+mq_session_position(...)                          /* the item being recited now */
 mq_engine_ayah_count(engine, surah);                    /* for a range picker */
 mq_session_set_strictness(session, level);              /* MQ_STRICTNESS_RELAXED / STANDARD / STRICT, any time */
 mq_session_reset(session);                              /* new attempt on the same range */
@@ -93,9 +94,11 @@ mq_session_event_count / mq_session_event(...)          /* skipped, wrong, repea
 ```
 
 Recognition models plug in behind `AcousticModel` (CTC posteriors) or `TokenRecognizer` (tokens; the
-sherpa-onnx backend), see "Recognition backends". Still planned: loading the Quran text and the units
-table from memory, install rules and a shared library, a configuration struct (confidence threshold, madd
-preference), and letter-level and tajweed events with character spans.
+sherpa-onnx backend), see "Recognition backends". The item-rule accessor exposes tags from the expected
+reading (for example `qalqalah_sughra`, `idgham_ghunnah`, `ikhfa` and `madd_munfasil`) so an app can show
+quiet, localized guidance. It does not claim that the reciter performed a rule correctly. Still planned:
+loading the Quran text and the units table from memory, install rules and a shared library, a configuration
+struct (confidence threshold, madd preference), and acoustic letter-level and tajweed feedback with character spans.
 
 ## Packaging for the apps
 

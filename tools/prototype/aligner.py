@@ -34,6 +34,12 @@ class Params:
     add_min_tokens: int = 4  # unexplained run length (between words) to call an added word
     add_inside_min: int = 3  # same, for a run in the middle of a word (noise rarely does this)
     max_jump_words: int = 3
+    restart_cost: float = (
+        1.0  # a whole ayah recited again (practice, not a mistake): jump from its end back to its start
+    )
+    max_restart_ayahs: int = (
+        3  # the restart may go back to the start of this many ayahs (the last one included)
+    )
     pause_frames: int = 8  # a gap this long between tokens is a pause (a stop is possible there)
     edge_free: int = 0  # leading / trailing expected units that may be missing without cost (word joins)
 
@@ -124,6 +130,14 @@ def align_tokens(heard: list[Token], words: list[WordPhonemes], params: Params |
             jumps.append((bounds[b], bounds[b + k], params.skip_cost * k, "skip", b))
         for r in range(1, min(params.max_jump_words, b) + 1):
             jumps.append((bounds[b], bounds[b - r], params.repeat_cost + 0.5 * (r - 1), "repeat", b - 1))
+    # Reciting an ayah (or the last few) again from its start is how one practises: it is not reported.
+    # These arcs come last, so for the same (from, to) they decide how the jump is read.
+    starts = [w for w in range(n_words) if w == 0 or words[w].key[:2] != words[w - 1].key[:2]]
+    for i in range(len(starts)):
+        end = starts[i + 1] if i + 1 < len(starts) else n_words
+        for k in range(min(params.max_restart_ayahs, i + 1)):
+            cost = params.restart_cost + 0.5 * k
+            jumps.append((bounds[end], bounds[starts[i - k]], cost, "restart", end - 1))
 
     inf = float("inf")
     sub_low, ins_low = 0.4, 0.5
@@ -222,7 +236,7 @@ def align_tokens(heard: list[Token], words: list[WordPhonemes], params: Params |
                     if first_w <= sw <= last_w:
                         skipped.add(sw)
                         result.events.append(Event("skipped", sw, 1.0))
-            else:
+            else:  # "repeat" or "restart"
                 # tokens consumed while the path re-walks the repeated words
                 end_pos, pos, taken = op[1], op[2], []
                 while k < len(ops) and pos < end_pos:
@@ -237,7 +251,9 @@ def align_tokens(heard: list[Token], words: list[WordPhonemes], params: Params |
                         pos = nxt[1] + 1
                 target = tuple(sym for _w, sym in flat[op[2] : end_pos])
                 ratio = lcs_wild(taken, target, params.low_conf) / max(1, len(target))
-                if ratio >= params.repeat_min_ratio:
+                if kind == "restart":
+                    pass  # an ayah recited again from its start: not reported
+                elif ratio >= params.repeat_min_ratio:
                     result.events.append(Event("repeated", w, ratio))
                 elif len(taken) >= params.add_min_tokens:
                     result.events.append(Event("added", w, 1.0))

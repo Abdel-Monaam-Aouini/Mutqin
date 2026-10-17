@@ -133,6 +133,18 @@ JNI(void, sessionItem)(JNIEnv* env, jobject, jlong session, jint index, jintArra
     env->SetIntArrayRegion(out, 0, 4, values);
 }
 
+JNI(jstring, sessionItemRules)(JNIEnv* env, jobject, jlong session, jint index) {
+    mq_session* s = FromHandle<mq_session>(session);
+    const int need = mq_session_item_rules(s, static_cast<size_t>(index), nullptr, 0);
+    if (need < 0) {
+        Throw(env, need, "bad item");
+        return nullptr;
+    }
+    std::string rules(static_cast<size_t>(need) + 1, '\0');
+    mq_session_item_rules(s, static_cast<size_t>(index), rules.data(), rules.size());
+    return env->NewStringUTF(rules.c_str());
+}
+
 JNI(jstring, sessionItemText)(JNIEnv* env, jobject, jlong session, jint index) {
     mq_session* s = FromHandle<mq_session>(session);
     const int need = mq_session_item_text(s, static_cast<size_t>(index), nullptr, 0);

@@ -4,7 +4,6 @@ on:
   push:
     branches: [master]
   pull_request:
-  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -228,7 +227,7 @@ jobs:
       NDK_VERSION: 27.1.12297006
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
@@ -242,7 +241,7 @@ jobs:
       - name: Android SDK components (platform, NDK, CMake)
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "ndk;${NDK_VERSION}" "cmake;3.22.1"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "ndk;${NDK_VERSION}" "cmake;3.22.1"
       - name: sherpa-onnx Android libraries (checksum-verified)
         run: android/scripts/fetch_sherpa.sh
       - name: Restore Quran text cache
@@ -265,7 +264,13 @@ jobs:
             echo "GRADLE_FLAGS=-PnoQuranAssets" >> "$GITHUB_ENV"
           fi
       - name: Android lint
-        run: cd android && ./gradlew --no-daemon $GRADLE_FLAGS :app:lintDebug
+        run: |
+          # shellcheck disable=SC2153 # GRADLE_FLAGS is written to GITHUB_ENV by the previous step.
+          read -r -a gradle_flags <<< "$GRADLE_FLAGS"
+          cd android && ./gradlew --no-daemon "${gradle_flags[@]}" :app:lintDebug
       - name: Build debug and release (R8) apps
-        run: cd android && ./gradlew --no-daemon $GRADLE_FLAGS :app:assembleDebug :app:assembleRelease
-      # The APKs are deliberately not uploaded: they contain the Tanzil text, which is not ours to redistribute.
+        run: |
+          # shellcheck disable=SC2153 # GRADLE_FLAGS is written to GITHUB_ENV by the previous step.
+          read -r -a gradle_flags <<< "$GRADLE_FLAGS"
+          cd android && ./gradlew --no-daemon "${gradle_flags[@]}" :app:assembleDebug :app:assembleRelease
+      # APKs are deliberately not uploaded: they contain Tanzil text, which is not ours to redistribute.

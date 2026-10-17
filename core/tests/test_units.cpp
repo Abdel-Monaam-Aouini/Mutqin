@@ -33,3 +33,16 @@ TEST(Units, LoadsTheGroupsOfARange) {
     EXPECT_NE(error.find("1:3"), std::string::npos);
     EXPECT_FALSE(LoadUnitGroups(path + ".missing", 1, 1, 1, &groups, &error));
 }
+
+TEST(Units, RowsWithTheSameSpanAreOneWord) {
+    const std::string path = ::testing::TempDir() + "/units_same_span.tsv";
+    {
+        std::ofstream out(path);
+        out << "3:1\t1-1\ta b\n3:1\t1-1\tc d\n3:2\t1-1\te\n";
+    }
+    std::vector<UnitGroup> groups;
+    std::string error;
+    ASSERT_TRUE(LoadUnitGroups(path, 3, 1, 2, &groups, &error)) << error;
+    ASSERT_EQ(groups.size(), 2u);
+    EXPECT_EQ(groups[0].units, (std::vector<std::string>{"a", "b", "c", "d"}));
+}

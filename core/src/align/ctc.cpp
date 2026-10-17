@@ -100,6 +100,7 @@ std::vector<WordRef> BuildWordReadings(const std::vector<PhonemeItem>& items,
         const bool first = std::get<2>(key) == 1;
         const bool last = std::get<2>(key) == ayah_words.at({std::get<0>(key), std::get<1>(key)});
         ref.reading.contexts = combos;
+        ref.reading.ayah = std::get<1>(key);
         ref.reading.cont = combos[2 * static_cast<int>(first) + static_cast<int>(last)];
         out.push_back(std::move(ref));
     }

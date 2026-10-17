@@ -15,10 +15,12 @@ struct Step {
     int a = 0, b = 0;  // diag: heard, flat; del: flat; ins: heard; jump: from, to
 };
 
+enum class JumpKind { kSkip, kRepeat, kRestart };
+
 struct Jump {
     int from, to;
     double cost;
-    bool skip;
+    JumpKind kind;
     int word;
 };
 
@@ -111,10 +113,24 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
         st.n_words = static_cast<int>(words.size());
         for (int b = 1; b < st.n_words; ++b) {
             for (int k = 1; k <= std::min(params.max_jump_words, st.n_words - 1 - b); ++k)
-                st.jumps.push_back({st.bounds[b], st.bounds[b + k], params.skip_cost * k, true, b});
-            for (int r = 1; r <= std::min(params.max_jump_words, b); ++r)
                 st.jumps.push_back(
-                    {st.bounds[b], st.bounds[b - r], params.repeat_cost + 0.5 * (r - 1), false, b - 1});
+                    {st.bounds[b], st.bounds[b + k], params.skip_cost * k, JumpKind::kSkip, b});
+            for (int r = 1; r <= std::min(params.max_jump_words, b); ++r)
+                st.jumps.push_back({st.bounds[b], st.bounds[b - r], params.repeat_cost + 0.5 * (r - 1),
+                                    JumpKind::kRepeat, b - 1});
+        }
+        // An ayah (or the last few) recited again from its start is practice: it is not reported. These
+        // arcs come last so that, for the same (from, to), they decide how the jump is read.
+        std::vector<int> starts;
+        for (int w = 0; w < st.n_words; ++w)
+            if (w == 0 || words[static_cast<size_t>(w)].ayah != words[static_cast<size_t>(w) - 1].ayah)
+                starts.push_back(w);
+        for (size_t i = 0; i < starts.size(); ++i) {
+            const int end = i + 1 < starts.size() ? starts[i + 1] : st.n_words;
+            for (size_t k = 0; k < static_cast<size_t>(params.max_restart_ayahs) && k <= i; ++k)
+                st.jumps.push_back(
+                    {st.bounds[static_cast<size_t>(end)], st.bounds[static_cast<size_t>(starts[i - k])],
+                     params.restart_cost + 0.5 * static_cast<double>(k), JumpKind::kRestart, end - 1});
         }
         st.stride = static_cast<size_t>(st.m) + 1;
         st.row0.assign(st.stride, std::numeric_limits<double>::infinity());
@@ -259,9 +275,9 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
     result.span_last = last_w;
 
     // Later jumps overwrite earlier ones with the same (from, to), as in the Python dict.
-    std::map<std::pair<int, int>, std::pair<bool, int>> jump_of;
+    std::map<std::pair<int, int>, std::pair<JumpKind, int>> jump_of;
     for (const Jump& jp : jumps)
-        jump_of[{jp.from, jp.to}] = {jp.skip, jp.word};
+        jump_of[{jp.from, jp.to}] = {jp.kind, jp.word};
     auto word_at_bound = [&](int pos) {
         return static_cast<int>(std::find(bounds.begin(), bounds.end(), pos) - bounds.begin());
     };
@@ -304,7 +320,7 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
         } else if (op.type == Step::kJumpStep) {
             const auto info = jump_of[{op.a, op.b}];
             const int w = info.second;
-            if (info.first) {
+            if (info.first == JumpKind::kSkip) {
                 for (int sw = word_at_bound(op.a); sw < word_at_bound(op.b); ++sw) {
                     if (in_span(sw)) {
                         skipped[sw - first_w] = 1;
@@ -335,7 +351,9 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
                 }
                 const double ratio = static_cast<double>(LcsWild(taken_sym, taken_low, target)) /
                                      static_cast<double>(std::max<size_t>(1, target.size()));
-                if (ratio >= params.repeat_min_ratio)
+                if (info.first == JumpKind::kRestart) {
+                    // an ayah recited again from its start: not reported
+                } else if (ratio >= params.repeat_min_ratio)
                     result.events.push_back({"repeated", w, ratio});
                 else if (static_cast<int>(taken.size()) >= params.add_min_tokens)
                     result.events.push_back({"added", w, 1.0});
