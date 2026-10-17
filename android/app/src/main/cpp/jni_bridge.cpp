@@ -159,7 +159,8 @@ JNI(jstring, sessionItemText)(JNIEnv* env, jobject, jlong session, jint index) {
 }
 
 // The two unit strings of an item (expected and heard) are read the same way as the text.
-jstring UnitString(JNIEnv* env, jlong session, jint index, int (*read)(const mq_session*, size_t, char*, size_t)) {
+jstring UnitString(JNIEnv* env, jlong session, jint index,
+                   int (*read)(const mq_session*, size_t, char*, size_t)) {
     mq_session* s = FromHandle<mq_session>(session);
     const int need = read(s, static_cast<size_t>(index), nullptr, 0);
     if (need < 0) {
