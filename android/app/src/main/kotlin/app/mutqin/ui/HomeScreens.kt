@@ -33,6 +33,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -65,8 +68,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -74,6 +79,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringArrayResource
@@ -81,6 +87,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -218,30 +226,53 @@ internal fun NumberRing(
     }
 }
 
-/** − value + in a bordered capsule; holding a button repeats. */
+/** − value + in a bordered capsule; holding a button repeats, and the number can be typed. */
 @Composable
 private fun Stepper(
     label: String,
     value: Int,
+    max: Int,
     canMinus: Boolean,
     canPlus: Boolean,
     onMinus: () -> Unit,
     onPlus: () -> Unit,
+    onSet: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val focus = LocalFocusManager.current
+    var text by remember(value) { mutableStateOf(value.toString()) }
+    var focused by remember { mutableStateOf(false) }
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(6.dp))
         Row(
-            Modifier.clip(RoundedCornerShape(16.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
+            Modifier
+                .clip(
+                    RoundedCornerShape(16.dp),
+                ).border(1.dp, if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             StepKey("−", canMinus, onMinus)
-            Text(
-                value.toString(),
-                Modifier.width(52.dp),
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.titleLarge,
+            BasicTextField(
+                value = text,
+                onValueChange = { typed ->
+                    val digits = typed.filter { it.isDigit() }.take(3)
+                    text = digits
+                    // what is typed counts at once (past the end of the surah it is the last ayah); an empty field waits
+                    digits.toIntOrNull()?.let { n -> onSet(n.coerceIn(1, max)) }
+                },
+                modifier =
+                    Modifier
+                        .width(56.dp)
+                        .onFocusChanged {
+                            focused = it.isFocused
+                            if (!it.isFocused) text = value.toString()
+                        },
+                textStyle = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center),
+                singleLine = true,
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
             )
             StepKey("+", canPlus, onPlus)
         }
@@ -366,18 +397,22 @@ internal fun SetupScreen(
                     Stepper(
                         stringResource(R.string.ayah_from),
                         state.fromAyah,
+                        state.ayahCount,
                         state.fromAyah > 1,
                         state.fromAyah < state.ayahCount,
                         { vm.setFrom(state.fromAyah - 1) },
                         { vm.setFrom(state.fromAyah + 1) },
+                        vm::setFrom,
                     )
                     Stepper(
                         stringResource(R.string.ayah_to),
                         state.toAyah,
+                        state.ayahCount,
                         state.toAyah > 1,
                         state.toAyah < state.ayahCount,
                         { vm.setTo(state.toAyah - 1) },
                         { vm.setTo(state.toAyah + 1) },
+                        vm::setTo,
                     )
                 }
                 Spacer(Modifier.height(12.dp))
