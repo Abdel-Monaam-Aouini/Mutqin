@@ -292,16 +292,16 @@ TEST(ModelManifest, LoadModelExplainsWhenTheBackendIsNotBuilt) {
 }
 #endif
 
-TEST(SessionLimits, TooLongRangesAndTooMuchSpeechAreRefused) {
+TEST(SessionLimits, WholeSurahsAreAllowedAndTooMuchSpeechIsRefused) {
     Fixture f;
     if (!f.ok)
         GTEST_SKIP() << "data/quran missing";
     char err[256];
     mq_session* big = nullptr;
-    EXPECT_EQ(mq_session_create(f.engine, 2, 1, 286, &big, err, sizeof err),
-              MQ_ERR_LIMIT);  // all of al-Baqarah
-    EXPECT_EQ(big, nullptr);
-    EXPECT_NE(std::string(err).find("too long"), std::string::npos);
+    // all of al-Baqarah, the longest surah: allowed since the aligner slides a window over the range
+    ASSERT_EQ(mq_session_create(f.engine, 2, 1, 286, &big, err, sizeof err), MQ_OK) << err;
+    EXPECT_GT(mq_session_word_count(big), 6000u);
+    mq_session_destroy(big);
 
     // Far more heard phonemes than the range could ever need.
     size_t expected = 0;

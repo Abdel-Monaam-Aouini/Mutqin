@@ -74,12 +74,14 @@ typedef struct mq_phoneme {
  *    most for the push in progress. The core starts no threads of its own.
  *
  * Limits (memory is bounded so a phone cannot run out of it)
- *  - A range may have at most MQ_MAX_EXPECTED_PHONEMES expected phonemes (about 900 words, more than
- *    a mushaf page); mq_session_create returns MQ_ERR_LIMIT for a longer range.
+ *  - A range may have at most MQ_MAX_EXPECTED_PHONEMES expected phonemes; mq_session_create returns
+ *    MQ_ERR_LIMIT for a longer range. The limit is above the longest surah (al-Baqarah has about 24500
+ *    units), so any whole surah can be recited. The aligner works on a sliding window of about 2000
+ *    expected phonemes around the reciter's position (ranges up to 3000 are aligned as a whole), so its
+ *    memory does not grow with the length of the range.
  *  - A session accepts at most 2 x (expected phonemes) + 500 heard phonemes; beyond that
- *    push functions return MQ_ERR_LIMIT and the app should end the session. Memory stays below about
- *    60 MB at the maximum range. */
-#define MQ_MAX_EXPECTED_PHONEMES 5000
+ *    push functions return MQ_ERR_LIMIT and the app should end the session. */
+#define MQ_MAX_EXPECTED_PHONEMES 60000
 
 /* Size of the posterior vocabulary the core expects: token 0 is the CTC blank, tokens 1..31 are
  * the phonemes of docs/PHONEME_INVENTORY.md in contract order. An inference backend maps its own

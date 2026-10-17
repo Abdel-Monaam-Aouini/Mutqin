@@ -170,10 +170,16 @@ Written in `core/include/mutqin.h` and repeated here:
 - `mq_session_push_audio` / `push_posteriors` allocate memory, take the session lock and run the aligner
   for a few milliseconds. Call them from a **worker thread**, never from the platform's real-time audio
   callback (copy samples into your own queue there). The core starts no threads.
-- Memory is bounded: a range may have at most `MQ_MAX_EXPECTED_PHONEMES` (5000, about 900 words) and a
-  session accepts at most 2 x expected + 500 heard phonemes, then returns `MQ_ERR_LIMIT`. The aligner
-  keeps one byte per cell plus a few cost rows; the 700-word test session peaks at about 25 MB above
-  the base process (it was 150-230 MB before the bound).
+- Memory is bounded: a session accepts at most 2 x expected + 500 heard phonemes, then returns
+  `MQ_ERR_LIMIT`, and a range may have at most `MQ_MAX_EXPECTED_PHONEMES` (60000, above the longest surah).
+  The aligner keeps one byte per cell plus a few cost rows; the 700-word test session peaks at about 25 MB
+  above the base process (it was 150-230 MB before the bound).
+- **Sliding window.** A range of up to 3000 expected units is aligned as a whole. A longer one (a long
+  surah) is aligned through a window of about 2000 units: when fewer than 500 units are left ahead of the
+  reciter, the window moves on so that it starts 40 words before the reciter, at the first of those words
+  that was heard. The words it leaves behind keep their verdicts and events (`done_*` in the session);
+  the window's own words are judged again from the audio that belongs to them. Memory therefore does not
+  grow with the length of the range. A change of the feedback level judges the whole recitation again.
 
 ## Threading
 

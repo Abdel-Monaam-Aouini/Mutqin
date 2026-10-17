@@ -31,8 +31,8 @@ Same engine in both; only the presentation differs.
 1. **First run:** what the app does and the privacy statement, microphone permission request (with the reason),
    download and preparation of the model (section 6) with a progress bar.
 2. **Home:** continue the last range, choose surah and ayah range, choose the mode.
-3. **Range picker:** surah list; ayah from-to. The range is limited to about 900 words
-   (`MQ_MAX_EXPECTED_PHONEMES`, more than a mushaf page); a longer choice is refused with an explanation.
+3. **Range picker:** surah list; ayah from-to. The range may be as long as a whole surah
+   (`MQ_MAX_EXPECTED_PHONEMES`; above the longest surah); a longer choice is refused with an explanation.
 4. **Recitation screen:** the text (or placeholders), a live status line, a record/stop control, a retry
    control. Details in section 4.
 5. **Result screen** (after stop): the whole range with every judged word marked, a short list of what was

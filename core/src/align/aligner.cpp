@@ -371,6 +371,8 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
         }
         const WordReading& wp = words[w];
         const std::vector<int>& at = aligned_at[w - first_w];
+        if (!at.empty())
+            result.first_heard[w] = at.front();
         const size_t length = wp.cont.size();
         bool pause_before = false, pause_after = false;
         if (!at.empty()) {
