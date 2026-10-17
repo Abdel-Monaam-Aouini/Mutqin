@@ -117,4 +117,17 @@
     <string name="detect_title">Finding what you recite</string>
     <string name="detect_listening">Listening… start reciting from any surah</string>
     <string name="detect_not_found">I could not tell what you recited. Try again, or choose the surah.</string>
+    <string name="result_tap_hint">Tap a word</string>
+    <string name="result_see_all">See all</string>
+    <string name="appearance">Appearance</string>
+    <string name="theme_hint">Light is like paper; dark is the same page at night.</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="about">About</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_privacy">Everything stays on this phone: your recitation is never sent anywhere.</string>
+    <string name="about_free">Free to use, with no ads, no payments and no tracking.</string>
+    <string name="memorization_banner">Memorization mode: each word appears as you recite it.</string>
+    <string name="memorization_show">Show text</string>
 </resources>

@@ -125,4 +125,17 @@
     <string name="detect_title">نبحث عمّا تتلوه</string>
     <string name="detect_listening">نستمع… ابدأ التلاوة من أي سورة</string>
     <string name="detect_not_found">لم أتمكن من معرفة ما تلوته. حاول مرة أخرى أو اختر السورة.</string>
+    <string name="result_tap_hint">المس كلمة</string>
+    <string name="result_see_all">عرض الكل</string>
+    <string name="appearance">المظهر</string>
+    <string name="theme_hint">الفاتح كالورق، والداكن هو الصفحة نفسها في الليل.</string>
+    <string name="theme_system">النظام</string>
+    <string name="theme_light">فاتح</string>
+    <string name="theme_dark">داكن</string>
+    <string name="about">حول التطبيق</string>
+    <string name="about_version">الإصدار %1$s</string>
+    <string name="about_privacy">كل شيء يبقى على هذا الهاتف: لا تُرسل تلاوتك إلى أي مكان.</string>
+    <string name="about_free">مجاني بلا إعلانات ولا مدفوعات ولا تتبّع.</string>
+    <string name="memorization_banner">وضع الحفظ: تظهر كل كلمة عند تلاوتها.</string>
+    <string name="memorization_show">إظهار النص</string>
 </resources>

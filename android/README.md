@@ -75,3 +75,9 @@ debug key for trying it on a phone; a store release needs the project's own key.
 fixes style problems. Lint warnings about newer library versions are expected: the Compose, activity,
 lifecycle and core-ktx versions are pinned on purpose so that Android 5 (API 21) stays supported.
 Without the Tanzil text in `data/quran/`, add `-PnoQuranAssets` to the Gradle command to compile and lint anyway.
+
+## Running on an emulator
+
+The app carries only the phone ABIs (arm64-v8a, armeabi-v7a). For an x86_64 emulator build the debug app with
+`-PemulatorAbi=1` (`./gradlew -PemulatorAbi=1 :app:assembleDebug`); releases never carry it. Copy the model with
+`make android-model ADB="adb -s emulator-5554"` and replay a recording with `make android-replay` (see `make help`).

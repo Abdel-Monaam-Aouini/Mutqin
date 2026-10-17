@@ -515,8 +515,7 @@ class MainViewModel(
         level: Int,
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            val e = engine
-            while (e == null || _state.value.phase == Phase.Loading) delay(100)
+            while (engine == null || _state.value.phase == Phase.Loading) delay(100)
             if (_state.value.phase != Phase.Setup) {
                 Log.e(TAG, "REPLAY not ready: phase ${_state.value.phase}")
                 return@launch

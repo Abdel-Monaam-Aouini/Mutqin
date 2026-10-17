@@ -14,7 +14,9 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        // -PemulatorAbi adds x86_64 so a debug build runs on an emulator; phones (and releases) never carry it
+        val abis = listOf("arm64-v8a", "armeabi-v7a") + if (providers.gradleProperty("emulatorAbi").isPresent) listOf("x86_64") else emptyList()
+        ndk { abiFilters += abis }
         externalNativeBuild { cmake { cppFlags += "-std=c++17" } }
     }
 
