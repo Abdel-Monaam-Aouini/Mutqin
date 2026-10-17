@@ -80,11 +80,19 @@ Behaviour that the app must respect:
 **Few colors.** Two neutrals and two hues, no rainbow. Problems are told apart by **shape**, not by color, which
 also works for color-blind users and in grayscale.
 
-| Role | Light theme | Dark theme |
+| Role | Light theme (warm paper) | Dark theme (the page at night) |
 | --- | --- | --- |
-| Background / text | `#F4F1EA` / `#1B1F1E` | `#14181A` / `#ECE8DF` |
-| Accent (brand, current word, ok) | deep green `#0F5C4D` | `#5FBFA6` |
-| Attention (every kind of problem) | muted terracotta `#B4533A` | `#E0866C` |
+| Background / text | `#F4EEDC` / `#22302A` | `#0F1613` / `#ECE5D0` |
+| Card (a ruled panel) | `#FBF7EA`, border `#DDD0AB` | `#17211C`, border `#2B3A32` |
+| Accent (brand, ok words, buttons) | deep green `#1C5B4B` | `#7DC9AC` |
+| Gold (ornament only: rings, rules, the surah banner, the current word's tint) | `#A8832E` | `#D3B567` |
+| Attention (every kind of problem) | muted terracotta `#B04A32` | `#E4896C` |
+
+The look is a printed mushaf: the Quran text is set on a framed page (a thin border and a gold line inside it)
+with the surah name on a ribbon at its head, the basmala centered on its own line, and every ayah closed by a
+gold ring with its number. Headings are in a serif, small labels are capitals with spacing (not in Arabic, where
+spacing would break the letters), cards have a thin border and no shadow, and screens change with a short fade.
+The result lists the flagged words themselves (a strip of cards and a full list), each tappable to go to the word.
 
 | State | Marking |
 | --- | --- |

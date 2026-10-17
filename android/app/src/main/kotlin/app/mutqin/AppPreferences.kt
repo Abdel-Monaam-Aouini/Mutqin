@@ -2,6 +2,7 @@ package app.mutqin
 
 import android.content.Context
 import app.mutqin.core.Strictness
+import app.mutqin.ui.ThemeMode
 
 /** The few settings kept on the phone, in the app's private preferences file. */
 object AppPreferences {
@@ -9,6 +10,7 @@ object AppPreferences {
     private const val LANGUAGE = "language"
     private const val STRICTNESS = "strictness"
     private const val MEMORIZATION = "memorization"
+    private const val THEME = "theme"
 
     private fun Context.prefs() = getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -21,6 +23,17 @@ object AppPreferences {
         .prefs()
         .edit()
         .putString(LANGUAGE, language.tag)
+        .apply()
+
+    fun themeMode(context: Context): ThemeMode = ThemeMode.fromKey(context.prefs().getString(THEME, null))
+
+    fun saveThemeMode(
+        context: Context,
+        mode: ThemeMode,
+    ) = context
+        .prefs()
+        .edit()
+        .putString(THEME, mode.key)
         .apply()
 
     fun memorization(context: Context): Boolean = context.prefs().getBoolean(MEMORIZATION, false)

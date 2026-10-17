@@ -14,7 +14,9 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -22,6 +24,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -43,6 +46,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -56,6 +60,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -78,11 +83,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -100,6 +108,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -123,6 +133,7 @@ import app.mutqin.core.EventKind
 import app.mutqin.core.Strictness
 import app.mutqin.core.TajweedRule
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.DateFormat
 import java.util.Date
@@ -134,6 +145,7 @@ fun MutqinApp(
     state: UiState,
     vm: MainViewModel,
     language: AppLanguage,
+    appearance: Appearance,
     onLanguageSelected: (AppLanguage) -> Unit,
     onStart: (auto: Boolean) -> Unit,
 ) {
@@ -141,661 +153,87 @@ fun MutqinApp(
     CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
             Box(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 20.dp)) {
-                when (state.phase) {
-                    Phase.Loading -> {
-                        Centered { LogoLoader() }
+                val screen =
+                    when (state.phase) {
+                        Phase.Loading, Phase.Starting -> 0
+                        Phase.NeedModel -> 1
+                        Phase.Error -> 2
+                        Phase.Setup -> 3
+                        Phase.Reciting, Phase.Result -> 4
                     }
-
-                    Phase.NeedModel -> {
-                        NeedModelScreen(state, onCheck = vm::prepare)
-                    }
-
-                    Phase.Error -> {
-                        ErrorScreen(state.error.orEmpty(), onRetry = vm::prepare)
-                    }
-
-                    Phase.Setup -> {
-                        var sub by rememberSaveable { mutableStateOf(SetupPage.Home) }
-                        when (sub) {
-                            SetupPage.Preferences -> {
-                                PreferencesScreen(state, vm, language, onLanguageSelected) { sub = SetupPage.Home }
+                AnimatedContent(
+                    targetState = screen,
+                    modifier = Modifier.fillMaxSize(),
+                    transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(160)) },
+                    label = "screen",
+                ) { target ->
+                    key(target) {
+                        when (state.phase) {
+                            Phase.Loading -> {
+                                Centered { LogoLoader() }
                             }
 
-                            SetupPage.History -> {
-                                HistoryScreen(state, vm) { sub = SetupPage.Home }
+                            Phase.NeedModel -> {
+                                NeedModelScreen(state, onCheck = vm::prepare)
                             }
 
-                            SetupPage.Home -> {
-                                SetupScreen(
-                                    state,
-                                    vm,
-                                    onOpenPreferences = { sub = SetupPage.Preferences },
-                                    onOpenHistory = {
-                                        vm.loadHistory()
-                                        sub = SetupPage.History
+                            Phase.Error -> {
+                                ErrorScreen(state.error.orEmpty(), onRetry = vm::prepare)
+                            }
+
+                            Phase.Setup -> {
+                                var sub by rememberSaveable { mutableStateOf(SetupPage.Home) }
+                                AnimatedContent(
+                                    targetState = sub,
+                                    modifier = Modifier.fillMaxSize(),
+                                    transitionSpec = {
+                                        val forward = targetState != SetupPage.Home
+                                        (fadeIn(tween(240)) + slideInHorizontally(tween(260)) { if (forward) it / 10 else -it / 10 }) togetherWith
+                                            (fadeOut(tween(140)) + slideOutHorizontally(tween(260)) { if (forward) -it / 10 else it / 10 })
                                     },
-                                    onStart = onStart,
-                                )
+                                    label = "page",
+                                ) { page ->
+                                    when (page) {
+                                        SetupPage.Preferences -> {
+                                            PreferencesScreen(state, vm, language, appearance, onLanguageSelected) { sub = SetupPage.Home }
+                                        }
+
+                                        SetupPage.History -> {
+                                            HistoryScreen(state, vm) { sub = SetupPage.Home }
+                                        }
+
+                                        SetupPage.Home -> {
+                                            SetupScreen(
+                                                state,
+                                                vm,
+                                                onOpenPreferences = { sub = SetupPage.Preferences },
+                                                onOpenHistory = {
+                                                    vm.loadHistory()
+                                                    sub = SetupPage.History
+                                                },
+                                                onStart = onStart,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            Phase.Starting -> {
+                                Centered { LogoLoader() }
+                            }
+
+                            Phase.Reciting, Phase.Result -> {
+                                ReciteScreen(state, vm)
                             }
                         }
                     }
-
-                    Phase.Starting -> {
-                        Centered { LogoLoader() }
-                    }
-
-                    Phase.Reciting, Phase.Result -> {
-                        ReciteScreen(state, vm)
-                    }
                 }
             }
-        }
-    }
-}
-
-/** The app icon, softly pulsing: shown while the model loads or a session starts (no text, no spinner). */
-@Composable
-private fun LogoLoader() {
-    val pulse = rememberInfiniteTransition(label = "logo")
-    val alpha by pulse.animateFloat(
-        initialValue = 0.55f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
-        label = "logo alpha",
-    )
-    MutqinLogo(120.dp, Modifier.alpha(alpha))
-}
-
-@Composable
-private fun Centered(content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) { content() }
-}
-
-@Composable
-private fun Card(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-        Column(Modifier.padding(18.dp)) { content() }
-    }
-}
-
-/** The exact error, selectable, with a button to copy it (for a bug report). */
-@Composable
-private fun ErrorScreen(
-    error: String,
-    onRetry: () -> Unit,
-) {
-    val clipboard = LocalClipboardManager.current
-    var copied by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().padding(vertical = 24.dp)) {
-        Text(
-            stringResource(R.string.error_quran_title),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = LocalAttention.current,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(stringResource(R.string.error_quran_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(14.dp))
-        Card(Modifier.weight(1f, fill = false)) {
-            SelectionContainer {
-                Text(
-                    error,
-                    Modifier.verticalScroll(rememberScrollState()),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                )
-            }
-        }
-        Spacer(Modifier.weight(1f))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(
-                onClick = {
-                    clipboard.setText(AnnotatedString(error))
-                    copied = true
-                },
-                modifier = Modifier.weight(1f).height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-            ) { Text(stringResource(if (copied) R.string.error_copied else R.string.error_copy)) }
-            Button(onClick = onRetry, modifier = Modifier.weight(1f).height(56.dp), shape = RoundedCornerShape(16.dp)) {
-                Text(stringResource(R.string.retry_check))
-            }
-        }
-    }
-}
-
-@Composable
-private fun NeedModelScreen(
-    state: UiState,
-    onCheck: () -> Unit,
-) {
-    Column(Modifier.fillMaxSize().padding(vertical = 24.dp), verticalArrangement = Arrangement.Center) {
-        Text(stringResource(R.string.need_model_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(12.dp))
-        Text(stringResource(R.string.need_model_body))
-        Spacer(Modifier.height(12.dp))
-        Card {
-            Text(state.modelFolder, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(8.dp))
-            Text(stringResource(R.string.need_model_files), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = onCheck, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(16.dp)) {
-            Text(stringResource(R.string.retry_check), fontSize = 17.sp)
         }
     }
 }
 
 // ---------------------------------------------------------------------------------------------- setup
-
-private enum class SetupPage { Home, Preferences, History }
-
-/** The app icon drawn with the theme colors: a closed ring (itqan, mastery) around three sound bars. */
-@Composable
-private fun MutqinLogo(
-    size: Dp,
-    modifier: Modifier = Modifier,
-) {
-    val tile = MaterialTheme.colorScheme.primary
-    val ink = MaterialTheme.colorScheme.onPrimary
-    Canvas(modifier.size(size)) {
-        val u = this.size.minDimension / 1024f // the icon is designed on a 1024 grid (docs/branding/icon.svg)
-        drawRoundRect(tile, cornerRadius = CornerRadius(224f * u))
-        val line = Stroke(width = 44f * u, cap = StrokeCap.Round)
-        drawCircle(ink, radius = 300f * u, center = Offset(512f * u, 512f * u), style = line)
-        for ((x, y1, y2) in listOf(Triple(420f, 452f, 572f), Triple(512f, 392f, 632f), Triple(604f, 432f, 592f))) {
-            drawLine(ink, Offset(x * u, y1 * u), Offset(x * u, y2 * u), strokeWidth = 44f * u, cap = StrokeCap.Round)
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SetupScreen(
-    state: UiState,
-    vm: MainViewModel,
-    onOpenPreferences: () -> Unit,
-    onOpenHistory: () -> Unit,
-    onStart: (auto: Boolean) -> Unit,
-) {
-    val surahNames = stringArrayResource(R.array.surah_names)
-    var picking by remember { mutableStateOf(false) }
-    // everything fits on one screen: the logo takes whatever height the rest leaves
-    Column(Modifier.fillMaxSize()) {
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val logo = minOf(180.dp, maxOf(72.dp, maxHeight - 96.dp))
-            IconButton(
-                onClick = onOpenPreferences,
-                modifier =
-                    Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 8.dp)
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.secondaryContainer),
-            ) {
-                Icon(
-                    Icons.Default.Settings,
-                    contentDescription = stringResource(R.string.preferences),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-            IconButton(
-                onClick = onOpenHistory,
-                modifier =
-                    Modifier
-                        .align(Alignment.TopStart)
-                        .padding(top = 8.dp)
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.secondaryContainer),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.List,
-                    contentDescription = stringResource(R.string.history),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                MutqinLogo(logo)
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Text(stringResource(R.string.app_tagline), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
-            }
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Card {
-                Text(stringResource(R.string.surah), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.background)
-                        .clickable { picking = true }
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(String.format(Locale.US, "%02d", state.surah), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.width(14.dp))
-                    Text(surahNames[state.surah - 1], Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        stringResource(R.string.ayahs_in_surah, state.ayahCount),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text("▾", Modifier.padding(start = 10.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
-            Card {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.practice_passage), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            stringResource(R.string.range_summary, state.fromAyah, state.toAyah),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                    TextButton(onClick = {
-                        vm.setFrom(1)
-                        vm.setTo(state.ayahCount)
-                    }) { Text(stringResource(R.string.whole_surah), fontWeight = FontWeight.SemiBold) }
-                }
-                Spacer(Modifier.height(8.dp))
-                RangeRow(
-                    stringResource(R.string.ayah_from),
-                    state.fromAyah,
-                    state.fromAyah > 1,
-                    state.fromAyah < state.ayahCount,
-                    { vm.setFrom(state.fromAyah - 1) },
-                    { vm.setFrom(state.fromAyah + 1) },
-                )
-                Spacer(Modifier.height(6.dp))
-                RangeRow(
-                    stringResource(R.string.ayah_to),
-                    state.toAyah,
-                    state.toAyah > 1,
-                    state.toAyah < state.ayahCount,
-                    { vm.setTo(state.toAyah - 1) },
-                    { vm.setTo(state.toAyah + 1) },
-                )
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.memorization_mode), style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            stringResource(R.string.memorization_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Switch(checked = state.memorization, onCheckedChange = vm::setMemorization)
-                }
-            }
-
-            state.message?.let {
-                Card {
-                    if (it == "range") {
-                        Text(stringResource(R.string.range_too_long), color = LocalAttention.current)
-                    } else if (it == "not_found") {
-                        Text(stringResource(R.string.detect_not_found), color = LocalAttention.current)
-                    } else {
-                        SelectionContainer {
-                            Text(it, color = LocalAttention.current, fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 19.sp)
-                        }
-                    }
-                }
-            }
-            val forward = if (LocalLayoutDirection.current == LayoutDirection.Rtl) "←" else "→"
-            Button(onClick = { onStart(false) }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) {
-                Text(stringResource(R.string.start), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text("  $forward", fontSize = 16.sp)
-            }
-            TextButton(onClick = { onStart(true) }, Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.detect_auto), fontWeight = FontWeight.SemiBold)
-            }
-        }
-    }
-
-    if (picking) {
-        SurahSheet(surahNames, state.surah, onPick = {
-            vm.setSurah(it)
-            picking = false
-        }, onDismiss = { picking = false })
-    }
-}
-
-/** The list of surahs in a bottom sheet; it opens at the chosen one. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SurahSheet(
-    names: Array<String>,
-    selected: Int,
-    onPick: (Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val accent = MaterialTheme.colorScheme.primary
-    val list = rememberLazyListState(initialFirstVisibleItemIndex = maxOf(0, selected - 3))
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-    ) {
-        Text(
-            stringResource(R.string.choose_surah),
-            Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = accent,
-        )
-        LazyColumn(Modifier.fillMaxWidth(), state = list, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
-            itemsIndexed(names.toList()) { i, name ->
-                val chosen = i + 1 == selected
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 2.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(if (chosen) accent.copy(alpha = 0.16f) else Color.Transparent)
-                        .clickable { onPick(i + 1) }
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(accent.copy(alpha = if (chosen) 0.28f else 0.10f)),
-                        contentAlignment = Alignment.Center,
-                    ) { Text((i + 1).toString(), fontWeight = FontWeight.SemiBold, color = accent, fontSize = 14.sp) }
-                    Spacer(Modifier.width(14.dp))
-                    Text(
-                        name,
-                        Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (chosen) accent else MaterialTheme.colorScheme.onSurface,
-                    )
-                    if (chosen) Text("✓", color = accent, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-/** The attempts kept on this phone, newest first. */
-@Composable
-private fun HistoryScreen(
-    state: UiState,
-    vm: MainViewModel,
-    onClose: () -> Unit,
-) {
-    BackHandler(onBack = onClose)
-    val surahNames = stringArrayResource(R.array.surah_names)
-    var confirming by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
-                onClick = onClose,
-                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.secondaryContainer),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = MaterialTheme.colorScheme.primary)
-            }
-            Spacer(Modifier.width(14.dp))
-            Column {
-                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Text(stringResource(R.string.history), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-            }
-        }
-        if (state.history.isEmpty()) {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text(
-                    stringResource(R.string.history_empty),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                )
-            }
-        } else {
-            val format = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
-            LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                itemsIndexed(state.history) { _, entry ->
-                    Card {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                stringResource(R.string.range_title, surahNames.getOrElse(entry.surah - 1) { "" }, entry.surah),
-                                Modifier.weight(1f),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text("%d:%02d".format(entry.seconds / 60, entry.seconds % 60), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Text(
-                            stringResource(R.string.range_summary, entry.fromAyah, entry.toAyah),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                if (entry.differences == 0) {
-                                    stringResource(R.string.history_clean)
-                                } else {
-                                    pluralStringResource(R.plurals.history_differences, entry.differences, entry.differences)
-                                },
-                                color = if (entry.differences == 0) MaterialTheme.colorScheme.primary else LocalAttention.current,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            if (entry.memorization) {
-                                Text("  ·  " + stringResource(R.string.history_memorization), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Spacer(Modifier.weight(1f))
-                            Text(
-                                format.format(Date(entry.time)),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-            TextButton(onClick = { confirming = true }, Modifier.align(Alignment.CenterHorizontally)) {
-                Text(stringResource(R.string.history_clear), color = LocalAttention.current)
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-    }
-    if (confirming) {
-        AlertDialog(
-            onDismissRequest = { confirming = false },
-            title = { Text(stringResource(R.string.history_clear_title)) },
-            text = { Text(stringResource(R.string.history_clear_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.clearHistory()
-                    confirming = false
-                }) { Text(stringResource(R.string.history_clear_confirm), color = LocalAttention.current) }
-            },
-            dismissButton = { TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
-}
-
-/** Language and feedback level. Nothing changes until "Save preferences"; the choices are then kept on the phone. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PreferencesScreen(
-    state: UiState,
-    vm: MainViewModel,
-    language: AppLanguage,
-    onLanguageSelected: (AppLanguage) -> Unit,
-    onClose: () -> Unit,
-) {
-    var draftLanguage by rememberSaveable { mutableStateOf(language) }
-    var draftLevel by rememberSaveable { mutableIntStateOf(state.strictness) }
-    BackHandler(onBack = onClose)
-    // the screen shows the chosen language at once, before anything is saved
-    val base = LocalContext.current
-    val current = LocalConfiguration.current
-    val preview =
-        remember(draftLanguage, base, current) {
-            val configuration = Configuration(current)
-            configuration.setLocale(Locale.forLanguageTag(draftLanguage.tag))
-            base.createConfigurationContext(configuration)
-        }
-    CompositionLocalProvider(
-        LocalContext provides preview,
-        LocalLayoutDirection provides if (draftLanguage == AppLanguage.ARABIC) LayoutDirection.Rtl else LayoutDirection.Ltr,
-    ) {
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = onClose,
-                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.secondaryContainer),
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = MaterialTheme.colorScheme.primary)
-                }
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Text(stringResource(R.string.preferences), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Card {
-                    Text(stringResource(R.string.language), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        stringResource(R.string.preferences_language_hint),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    val languages = listOf(AppLanguage.ENGLISH to R.string.language_english, AppLanguage.ARABIC to R.string.language_arabic)
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        languages.forEachIndexed { index, (option, label) ->
-                            SegmentedButton(
-                                selected = draftLanguage == option,
-                                onClick = { draftLanguage = option },
-                                shape = SegmentedButtonDefaults.itemShape(index, languages.size),
-                            ) { Text(stringResource(label)) }
-                        }
-                    }
-                }
-                Card {
-                    Text(stringResource(R.string.strictness), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(12.dp))
-                    val levels =
-                        listOf(
-                            Triple(Strictness.RELAXED, R.string.strictness_relaxed, R.string.strictness_relaxed_hint),
-                            Triple(Strictness.STANDARD, R.string.strictness_standard, R.string.strictness_standard_hint),
-                            Triple(Strictness.STRICT, R.string.strictness_strict, R.string.strictness_strict_hint),
-                        )
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        levels.forEachIndexed { i, (level, label, _) ->
-                            SegmentedButton(
-                                selected = draftLevel == level,
-                                onClick = { draftLevel = level },
-                                shape = SegmentedButtonDefaults.itemShape(i, levels.size),
-                            ) { Text(stringResource(label)) }
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        stringResource(levels.first { it.first == draftLevel }.third),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = {
-                    vm.setStrictness(draftLevel)
-                    onClose()
-                    onLanguageSelected(draftLanguage) // recreates the screen when the language changed
-                },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(14.dp),
-            ) { Text(stringResource(R.string.save), fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
-            Spacer(Modifier.height(8.dp))
-        }
-    }
-}
-
-@Composable
-private fun RangeRow(
-    label: String,
-    value: Int,
-    canMinus: Boolean,
-    canPlus: Boolean,
-    onMinus: () -> Unit,
-    onPlus: () -> Unit,
-) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        StepButton("−", canMinus, onMinus)
-        Text(
-            value.toString(),
-            Modifier.width(56.dp),
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
-        StepButton("+", canPlus, onPlus)
-    }
-}
-
-/** A round − or + button; holding it repeats, so a surah number far away can be reached quickly. */
-@Composable
-private fun StepButton(
-    label: String,
-    enabled: Boolean,
-    onStep: () -> Unit,
-) {
-    val step by rememberUpdatedState(onStep)
-    val accent = MaterialTheme.colorScheme.primary
-    Box(
-        Modifier
-            .size(52.dp)
-            .clip(CircleShape)
-            .background(accent.copy(alpha = if (enabled) 0.16f else 0.06f))
-            .pointerInput(enabled) {
-                if (!enabled) return@pointerInput
-                awaitEachGesture {
-                    awaitFirstDown()
-                    step()
-                    // The repeat follows the finger: it starts only if the finger is still down after a moment,
-                    // and stops the instant it lifts (a timer alone could keep stepping after a quick tap).
-                    var released = false
-                    withTimeoutOrNull(450L) {
-                        waitForUpOrCancellation()
-                        released = true
-                    }
-                    while (!released) {
-                        step()
-                        withTimeoutOrNull(80L) {
-                            waitForUpOrCancellation()
-                            released = true
-                        }
-                    }
-                }
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, fontSize = 26.sp, color = accent.copy(alpha = if (enabled) 1f else 0.35f))
-    }
-}
 
 // ----------------------------------------------------------------------------------------- recitation
 
@@ -807,14 +245,54 @@ private fun ReciteScreen(
     val groups = remember(state.items) { state.items.groupBy { it.ayah }.toList() }
     val listState = rememberLazyListState()
     // the ayahs run on one after the other, as in a mushaf; they are cut into pages of a few ayahs for the list
-    val pages = remember(groups) { groups.chunked(AYAHS_PER_PAGE) }
-    val currentGroup = groups.indexOfFirst { (_, words) -> words.any { it.state == ItemState.Current } }
-    val currentPage = if (currentGroup >= 0) currentGroup / AYAHS_PER_PAGE else -1
-    LaunchedEffect(currentPage) { if (currentPage >= 0) listState.animateScrollToItem(currentPage) }
+    val pages =
+        remember(groups) {
+            val (basmala, ayahs) = groups.partition { it.first == 0 }
+            (if (basmala.isEmpty()) emptyList() else listOf(basmala)) + ayahs.chunked(AYAHS_PER_PAGE)
+        }
+    val currentPage = pages.indexOfFirst { page -> page.any { (_, words) -> words.any { it.state == ItemState.Current } } }
+    // item 0 of the list is the surah banner
+    LaunchedEffect(currentPage) { if (currentPage >= 0) listState.animateScrollToItem(currentPage + 1) }
     val reciting = state.phase == Phase.Reciting
+    val scope = rememberCoroutineScope()
+    // where the flagged words are on the screen, to scroll to one exactly (their block of ayahs can be long)
+    val wordTops = remember { mutableStateMapOf<Int, Float>() }
+    var listTop by remember { mutableFloatStateOf(0f) }
+    var showAll by remember { mutableStateOf(false) }
+    val flagged = remember(state.items) { state.items.filter { it.state == ItemState.Wrong || it.state == ItemState.Skipped || it.repeated || it.addedAfter } }
+    val goTo: (UiItem) -> Unit = { item ->
+        val page = pages.indexOfFirst { p -> p.any { it.first == item.ayah } }
+        scope.launch {
+            if (page >= 0) {
+                val visible = listState.layoutInfo.visibleItemsInfo.any { it.index == page + 1 }
+                if (!visible) {
+                    listState.scrollToItem(page + 1)
+                    delay(120)
+                }
+                wordTops[item.index]?.let { listState.animateScrollBy(it - listTop - 120f) }
+            }
+        }
+        if (item.state == ItemState.Wrong || item.state == ItemState.Skipped) vm.showDetail(item)
+    }
 
     Column(Modifier.fillMaxSize()) {
         TopBar(state, reciting, onClose = vm::back)
+        if (state.memorization && reciting) {
+            // the grey bars are deliberate: say so, and let the text be shown with one tap
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(LocalGold.current.copy(alpha = 0.12f))
+                    .border(1.dp, LocalGold.current.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                    .padding(start = 14.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(R.string.memorization_banner), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { vm.setMemorization(false) }) { Text(stringResource(R.string.memorization_show), fontWeight = FontWeight.SemiBold) }
+            }
+        }
         if (state.auto && state.items.isEmpty()) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -828,16 +306,55 @@ private fun ReciteScreen(
                 }
             }
         } else {
-            // the Quran text is always right to left, whatever the language of the app
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                LazyColumn(
-                    Modifier.weight(1f).fillMaxWidth(),
-                    state = listState,
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                ) {
-                    itemsIndexed(pages) { _, page -> AyahPage(page, hideUpcoming = state.memorization && reciting, onWordClick = vm::showDetail) }
+            // the text is set on a page: paper, a thin border and a gold line inside it, like a page of a mushaf
+            val gold = LocalGold.current
+            val frame = RoundedCornerShape(20.dp)
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clip(frame)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, frame)
+                    .drawBehind {
+                        val inset = 6.dp.toPx()
+                        drawRoundRect(
+                            gold.copy(alpha = 0.35f),
+                            topLeft = Offset(inset, inset),
+                            size = Size(size.width - 2 * inset, size.height - 2 * inset),
+                            cornerRadius = CornerRadius(15.dp.toPx()),
+                            style = Stroke(1.dp.toPx()),
+                        )
+                    },
+            ) {
+                // the Quran text is always right to left, whatever the language of the app
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    LazyColumn(
+                        Modifier.fillMaxSize().onGloballyPositioned { listTop = it.positionInRoot().y },
+                        state = listState,
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                    ) {
+                        item { SurahBanner(stringArrayResource(R.array.surah_names)[state.surah - 1]) }
+                        itemsIndexed(pages) { _, page ->
+                            AyahPage(
+                                page,
+                                hideUpcoming = state.memorization && reciting,
+                                onWordClick = vm::showDetail,
+                                onWordPlaced = { index, top -> wordTops[index] = top },
+                            )
+                        }
+                    }
                 }
             }
+            Spacer(Modifier.height(10.dp))
+        }
+        state.detail?.let { WordDetailSheet(it, onDismiss = vm::closeDetail) }
+        if (showAll) {
+            ResultListSheet(flagged, onPick = {
+                showAll = false
+                goTo(it)
+            }, onDismiss = { showAll = false })
         }
         if (reciting) {
             ListeningPanel(
@@ -847,7 +364,7 @@ private fun ReciteScreen(
                 onStop = vm::stop,
             )
         } else {
-            ResultPanel(state, onBack = vm::back, onRetry = vm::retry)
+            ResultPanel(flagged, onBack = vm::back, onRetry = vm::retry, onPick = goTo, onSeeAll = { showAll = true })
         }
     }
 }
@@ -859,33 +376,41 @@ private fun TopBar(
     onClose: () -> Unit,
 ) {
     val surahNames = stringArrayResource(R.array.surah_names)
-    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable(onClick = onClose),
-            contentAlignment = Alignment.Center,
-        ) { Text("✕", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        Spacer(Modifier.width(12.dp))
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        RoundAction(onClose) { Text("✕", fontSize = 16.sp, color = MaterialTheme.colorScheme.primary) }
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             if (state.auto && state.items.isEmpty()) {
-                Text(stringResource(R.string.detect_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.detect_title), style = MaterialTheme.typography.titleMedium)
             } else {
-                Text(
-                    stringResource(R.string.range_title, surahNames[state.surah - 1], state.surah),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    stringResource(R.string.range_summary, state.fromAyah, state.toAyah),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Eyebrow(stringResource(R.string.range_title, surahNames[state.surah - 1], state.surah))
+                Text(stringResource(R.string.range_summary, state.fromAyah, state.toAyah), style = MaterialTheme.typography.titleLarge)
             }
         }
         if (reciting) RecordingBadge(state.startedAt, state.pausedAt)
+    }
+}
+
+/** The name of the surah on a ribbon with a gold border, as chapters open in a mushaf. */
+@Composable
+private fun SurahBanner(name: String) {
+    val gold = LocalGold.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 10.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(gold.copy(alpha = 0.10f))
+            .border(1.dp, gold.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("◆", color = gold, fontSize = 10.sp)
+        Spacer(Modifier.width(12.dp))
+        Text(name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
+        Spacer(Modifier.width(12.dp))
+        Text("◆", color = gold, fontSize = 10.sp)
     }
 }
 
@@ -912,7 +437,11 @@ private fun RecordingBadge(
     }
     val seconds = (((if (paused) pausedAt else now) - startedAt) / 1000).coerceAtLeast(0)
     Row(
-        Modifier.clip(RoundedCornerShape(50)).background(tone.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 8.dp),
+        Modifier
+            .clip(RoundedCornerShape(50))
+            .background(tone.copy(alpha = 0.10f))
+            .border(1.dp, tone.copy(alpha = 0.45f), RoundedCornerShape(50))
+            .padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -1038,7 +567,8 @@ private fun ListeningPanel(
             Modifier.fillMaxWidth().animateContentSize(),
             shape = RoundedCornerShape(22.dp),
             color = MaterialTheme.colorScheme.surfaceVariant,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+            contentColor = MaterialTheme.colorScheme.onBackground,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
             Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 MicTile(state.level, listening = !paused)
@@ -1061,6 +591,8 @@ private fun ListeningPanel(
                     onClick = if (paused) onResume else onPause,
                     modifier = Modifier.height(46.dp),
                     shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                     contentPadding = PaddingValues(horizontal = 14.dp),
                 ) {
                     AnimatedContent(
@@ -1084,38 +616,146 @@ private fun ListeningPanel(
     }
 }
 
+private fun kindOf(item: UiItem): EventKind =
+    when {
+        item.state == ItemState.Wrong -> EventKind.Wrong
+        item.state == ItemState.Skipped -> EventKind.Skipped
+        item.repeated -> EventKind.Repeated
+        else -> EventKind.Added
+    }
+
+private fun kindLabel(kind: EventKind): Int =
+    when (kind) {
+        EventKind.Wrong -> R.string.kind_wrong
+        EventKind.Skipped -> R.string.kind_skipped
+        EventKind.Repeated -> R.string.kind_repeated
+        EventKind.Added -> R.string.kind_added
+    }
+
+/** Every flagged word in a list that scrolls: tap one to go to it. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ResultListSheet(
+    flagged: List<UiItem>,
+    onPick: (UiItem) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.background,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    ) {
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            Eyebrow(stringResource(R.string.result_title))
+            Text(pluralStringResource(R.plurals.history_differences, flagged.size, flagged.size), style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(8.dp))
+            OrnamentRule()
+        }
+        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+            itemsIndexed(flagged) { _, item ->
+                val kind = kindOf(item)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 3.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+                        .clickable { onPick(item) }
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            MarkSample(kind)
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(kindLabel(kind)), style = MaterialTheme.typography.labelLarge)
+                        }
+                        Text(
+                            stringResource(R.string.where_format, item.ayah, item.word),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                        Text(item.text, fontSize = 28.sp, lineHeight = 44.sp, color = LocalAttention.current)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+    }
+}
+
+/** The words that were flagged, as a strip of cards: tap one to go to it (and see what was heard). */
 @Composable
 private fun ResultPanel(
-    state: UiState,
+    flagged: List<UiItem>,
     onBack: () -> Unit,
     onRetry: () -> Unit,
+    onPick: (UiItem) -> Unit,
+    onSeeAll: () -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-        Card {
-            Text(stringResource(R.string.result_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(6.dp))
-            if (state.findings.isEmpty()) {
-                Text(stringResource(R.string.nothing_found), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                Text(
-                    pluralStringResource(R.plurals.differences_found, state.findings.size, state.findings.size),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (flagged.isEmpty()) {
+                    stringResource(R.string.history_clean)
+                } else {
+                    pluralStringResource(R.plurals.history_differences, flagged.size, flagged.size)
+                },
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.titleLarge,
+                color = if (flagged.isEmpty()) MaterialTheme.colorScheme.primary else LocalAttention.current,
+            )
+            if (flagged.isNotEmpty()) {
+                TextButton(onClick = onSeeAll) { Text(stringResource(R.string.result_see_all), fontWeight = FontWeight.SemiBold) }
+            }
+        }
+        if (flagged.isEmpty()) {
+            Text(
+                stringResource(R.string.nothing_found),
+                Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            LazyRow(
+                Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                itemsIndexed(flagged) { _, item ->
+                    val kind = kindOf(item)
+                    Column(
+                        Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                            .clickable { onPick(item) }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                            Text(item.text, fontSize = 26.sp, lineHeight = 40.sp, color = LocalAttention.current)
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        MarkSample(kind)
+                        Spacer(Modifier.height(4.dp))
+                        Text(stringResource(kindLabel(kind)), style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            stringResource(R.string.where_format, item.ayah, item.word),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(
-                onClick = onBack,
-                modifier = Modifier.weight(1f).height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-            ) { Text(stringResource(R.string.back)) }
-            Button(
-                onClick = onRetry,
-                modifier = Modifier.weight(1f).height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-            ) { Text(stringResource(R.string.try_again)) }
+            SecondaryButton(stringResource(R.string.back), onBack, Modifier.weight(1f).height(50.dp))
+            PrimaryButton(stringResource(R.string.try_again), onRetry, Modifier.weight(1f).height(50.dp))
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -1166,36 +806,44 @@ private fun AyahPage(
     ayahs: List<Pair<Int, List<UiItem>>>,
     hideUpcoming: Boolean,
     onWordClick: (UiItem) -> Unit,
+    onWordPlaced: (Int, Float) -> Unit,
 ) {
+    val basmala = ayahs.firstOrNull()?.first == 0
     FlowRow(
         Modifier.fillMaxWidth().padding(vertical = 1.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = if (basmala) Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally) else Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         ayahs.forEach { (ayah, words) ->
             if (ayah > 0 && words.isNotEmpty()) {
-                words.dropLast(1).forEach { WordText(it, hideUpcoming, onWordClick) }
+                words.dropLast(1).forEach { WordText(it, hideUpcoming, onWordClick, onWordPlaced) }
                 // the ring stays with the last word instead of wrapping onto a line of its own
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    WordText(words.last(), hideUpcoming, onWordClick)
+                    WordText(words.last(), hideUpcoming, onWordClick, onWordPlaced)
                     AyahMarker(ayah)
                 }
             } else {
-                words.forEach { WordText(it, hideUpcoming, onWordClick) }
+                words.forEach { WordText(it, hideUpcoming, onWordClick, onWordPlaced) }
             }
         }
     }
 }
 
-/** The ayah number in a ring (the ornamental brackets of the Quran fonts are missing from the system font). */
+/** The ayah number in a gold ring (the ornamental brackets of the Quran fonts are missing from the system font). */
 @Composable
 private fun AyahMarker(ayah: Int) {
+    val gold = LocalGold.current
     Box(
-        Modifier.padding(horizontal = 2.dp).size(34.dp).border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape),
+        Modifier
+            .padding(horizontal = 2.dp)
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(gold.copy(alpha = 0.12f))
+            .border(1.5.dp, gold, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Text(arabicDigits(ayah), fontSize = if (ayah > 99) 13.sp else 16.sp, color = MaterialTheme.colorScheme.primary)
+        Text(arabicDigits(ayah), fontSize = if (ayah > 99) 13.sp else 16.sp, color = MaterialTheme.colorScheme.onBackground)
     }
 }
 
@@ -1211,19 +859,19 @@ private fun WordDetailSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        containerColor = MaterialTheme.colorScheme.background,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 Text(detail.text, fontSize = 36.sp, lineHeight = 56.sp, color = attention, modifier = Modifier.fillMaxWidth())
             }
-            Text(
+            Eyebrow(
                 stringResource(if (detail.state == ItemState.Skipped) R.string.kind_skipped else R.string.kind_wrong) +
                     " · " + stringResource(R.string.where_format, detail.ayah, detail.word),
-                style = MaterialTheme.typography.labelLarge,
                 color = attention,
             )
+            OrnamentRule()
             UnitsRow(stringResource(R.string.detail_expected), detail.expected, diff.expectedDiffers)
             if (detail.state == ItemState.Skipped || detail.heard.isEmpty()) {
                 Text(stringResource(R.string.detail_nothing), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1270,6 +918,7 @@ private fun WordText(
     item: UiItem,
     hideUpcoming: Boolean,
     onClick: (UiItem) -> Unit,
+    onPlaced: (Int, Float) -> Unit,
 ) {
     val attention = LocalAttention.current
     val accent = MaterialTheme.colorScheme.primary
@@ -1282,10 +931,16 @@ private fun WordText(
     var baseline by remember { mutableFloatStateOf(0f) }
     val modifier =
         Modifier
-            .then(if (item.state == ItemState.Current) Modifier.clip(RoundedCornerShape(10.dp)).background(accent.copy(alpha = 0.18f)) else Modifier)
+            .then(if (item.state == ItemState.Current) Modifier.clip(RoundedCornerShape(10.dp)).background(LocalGold.current.copy(alpha = 0.22f)) else Modifier)
             .then(
                 if (item.state == ItemState.Wrong || item.state == ItemState.Skipped) {
                     Modifier.clip(RoundedCornerShape(8.dp)).clickable { onClick(item) }
+                } else {
+                    Modifier
+                },
+            ).then(
+                if (item.state == ItemState.Wrong || item.state == ItemState.Skipped || item.repeated || item.addedAfter) {
+                    Modifier.onGloballyPositioned { onPlaced(item.index, it.positionInRoot().y) }
                 } else {
                     Modifier
                 },
@@ -1317,7 +972,7 @@ private fun WordText(
     if (hideUpcoming && (item.state == ItemState.Upcoming || item.state == ItemState.Current)) {
         // memorization: the word is still hidden, only its length shows
         val width = (item.text.count { it.isLetter() } * 13).coerceIn(34, 150).dp
-        Box(Modifier.height(50.dp).padding(horizontal = 3.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.height(56.dp).padding(horizontal = 3.dp), contentAlignment = Alignment.Center) {
             Box(
                 Modifier
                     .width(width)
@@ -1338,13 +993,13 @@ private fun WordText(
         Text(
             item.text,
             modifier,
-            fontSize = 30.sp,
-            lineHeight = 50.sp,
+            fontSize = 32.sp,
+            lineHeight = 56.sp,
             color = wordColor,
             onTextLayout = { baseline = it.getLineBaseline(0) },
         )
     }
-    if (item.addedAfter) Text("‸", fontSize = 30.sp, color = attention) // a small caret between the words
+    if (item.addedAfter) Text("‸", fontSize = 32.sp, color = attention) // a small caret between the words
 }
 
 private fun tajweedLabelResource(rule: TajweedRule): Int? =
