@@ -14,6 +14,7 @@ add_executable(mutqin_tests
     test_session_window.cpp
     test_audio.cpp
     test_units.cpp
+    test_locator.cpp
 )
 target_include_directories(mutqin_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 target_compile_definitions(mutqin_tests PRIVATE MUTQIN_DATA_DIR="${MUTQIN_DATA_DIR}")

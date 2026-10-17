@@ -131,6 +131,17 @@ MQ_API int mq_engine_ayah_count(const mq_engine* engine, int surah);
 /* Ayahs ayah_first..ayah_last (inclusive) of a surah. */
 MQ_API int mq_session_create(const mq_engine* engine, int surah, int ayah_first, int ayah_last,
                              mq_session** out, char* err, size_t err_len);
+/* A session that does not know yet which surah or ayah is recited. It needs a model with an expected-units
+ * table (mq_session_load_model) and listens: once the units heard point clearly at one place, the session
+ * builds its range, from the first ayah heard to the end of that surah, and aligns what was heard to it.
+ * Until then mq_session_word_count is 0. mq_session_reset forgets the place and starts looking again. */
+MQ_API int mq_session_create_auto(const mq_engine* engine, mq_session** out, char* err, size_t err_len);
+
+/* 1 and the place (surah, ayah of the first item; either pointer may be NULL) once the session has its range;
+ * 0 while an automatic session is still listening; negative on error. A session made with mq_session_create
+ * is always located. */
+MQ_API int mq_session_located(const mq_session* session, int* surah, int* ayah);
+
 MQ_API void mq_session_destroy(mq_session* session);
 
 MQ_API size_t mq_session_phoneme_count(const mq_session* session);

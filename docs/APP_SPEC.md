@@ -48,11 +48,12 @@ Same engine in both; only the presentation differs.
 The app asks the core every 100-200 ms (UI thread; allowed while the worker thread pushes audio):
 
 | Core call | Used for |
-|---|---|
+| --- | --- |
 | `mq_session_position` | the item being recited now (highlight, scroll) |
 | `mq_session_item` | which Tanzil words an item covers: `word` to `word_last` (an item can join several words where the reading merges them; mark them together) |
 | `mq_session_item_rules` | expected tajweed guidance for the item (`qalqalah`, `idgham`, `ikhfa`, `iqlab`, `ghunnah`, `madd`, etc.); these are not observed pass/fail results |
 | `mq_session_item_units`, `mq_session_item_heard` | the expected units of an item and, for a wrong item, the units heard; the app shows both in a sheet when a flagged word is tapped, with the differing units marked (the units are the model's own sounds) |
+| `mq_session_create_auto`, `mq_session_located` | the home screen's detect option: the session listens, finds the surah and ayah by itself and shows the text from there (see ARCHITECTURE, "Finding the place automatically") |
 | `mq_session_word_status` | per item: not judged yet / ok / wrong / skipped |
 | `mq_session_event_count`, `mq_session_event` | skipped, wrong, repeated, added (with the item they refer to) |
 
@@ -80,13 +81,13 @@ Behaviour that the app must respect:
 also works for color-blind users and in grayscale.
 
 | Role | Light theme | Dark theme |
-|---|---|---|
+| --- | --- | --- |
 | Background / text | `#F4F1EA` / `#1B1F1E` | `#14181A` / `#ECE8DF` |
 | Accent (brand, current word, ok) | deep green `#0F5C4D` | `#5FBFA6` |
 | Attention (every kind of problem) | muted terracotta `#B4533A` | `#E0866C` |
 
 | State | Marking |
-|---|---|
+| --- | --- |
 | upcoming | normal text |
 | current | accent background tint on the word |
 | ok | normal text (optionally a faint accent underline when the word is confirmed) |
@@ -102,7 +103,7 @@ Icon and name: section 11.
 ## 6. Data the app ships and how the model arrives
 
 | Item | Size | Notes |
-|---|---|---|
+| --- | --- | --- |
 | Recognition model (int8) | about 73 MB | NPL-1.1; **delivered after install** (below) |
 | Expected-units table | about 2.3 MB | derived from the model files, so also NPL-1.1; delivered with the model |
 | Quran text (Tanzil Uthmani + simple) and checksums | about 2.3 MB | in the install package; handed to the core from memory (`mq_engine_create_from_memory`) or as files; verified by checksum |
@@ -134,7 +135,7 @@ finds fewer wrong and added words; strict finds almost everything with more stra
 the settings screen in plain words ("fewer reports" / "more reports"), not with numbers.
 
 | Situation | App behaviour |
-|---|---|
+| --- | --- |
 | model files missing, damaged or still downloading | explain, offer to prepare or download them again; never show results |
 | no speech heard for a while | gentle prompt ("I cannot hear you"), no marks |
 | very noisy room | quality hint; marks may be less reliable |
@@ -211,7 +212,7 @@ Minimum Android 5.0 (API 21) and iOS 13; target the latest stable releases. What
 ## 12. Decisions (2026-10-14)
 
 | # | Question | Decision |
-|---|---|---|
+| --- | --- | --- |
 | 1 | UI technology | **Native**: Jetpack Compose on Android, SwiftUI on iOS, over the shared C++ core |
 | 2 | Name, icon, branding | proposal in section 11; store accounts to be created by the owner |
 | 3 | Minimum OS | **Old phones are supported** (owner, 2026-10-14): Android 5.0 (API 21) and iOS 13, the lowest that sherpa-onnx's own Android demos (`minSdk 21`) and iOS build (deployment target 13.0), Jetpack Compose (API 21) and SwiftUI (iOS 13) allow. Raised only if tests on old devices show a problem (section 9a). The Android app pins Compose 1.8 (BOM 2025.07.00) because Compose 1.9 and later need API 23. Phones first; tablets work through adaptive layouts |

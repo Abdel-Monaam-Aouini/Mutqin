@@ -1,6 +1,7 @@
 set(MUTQIN_CORE_SOURCES
     src/align/aligner.cpp
     src/align/ctc.cpp
+    src/align/locator.cpp
     src/api/engine.cpp
     src/api/version.cpp
     src/audio/resampler.cpp

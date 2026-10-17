@@ -4,8 +4,7 @@ Monorepo: core, CLI, tools, and (later) the mobile apps all live in one reposito
 
 ## Pipeline
 
-```
-Audio source (16 kHz mono: WAV file or microphone, supplied by the CLI/app)
+```Audio source (16 kHz mono: WAV file or microphone, supplied by the CLI/app)
   → Ring buffer
   → VAD (speech / silence, pause detection for waqf)
   → Feature extraction (80-dim log-mel)
@@ -21,7 +20,7 @@ phoneme sequence (with waqf / continue variants).
 ## Where things stand
 
 | Stage | State |
-|---|---|
+| --- | --- |
 | Quran text, rule engine (phonemizer), word readings | done in C++, checked against the Python reference for the whole Quran |
 | Ring buffer, log-mel features, energy VAD | done in C++ (`audio/`, `features/`, `vad/`) |
 | Recognition model | **Muno459/zipformer_p-quran** (streaming Zipformer2 CTC, NPL-1.1, run through the optional sherpa-onnx backend); results in `EVAL_RESULTS.md`. A CTC-posterior plug-in shape also exists (see "Recognition backends") |
@@ -33,8 +32,7 @@ Python is development-only (`tools/`); the apps will use only the C++ core throu
 
 ## Folder layout
 
-```
-mutqin/
+```mutqin/
 ├── AGENTS.md, CLAUDE.md, README.md, START_PROMPT.md
 ├── .claude/               # rules, skills, settings for Claude Code
 ├── docs/
@@ -86,6 +84,7 @@ mq_session_finish_audio(session);                       /* judge the last word t
 mq_session_load_model(session, manifest, err, len);     /* recognition model (optional sherpa-onnx backend) */
 mq_session_item / mq_session_item_text / mq_session_item_rules(...) /* item -> Tanzil words, Uthmani text and expected tajweed tags */
 mq_session_item_units / mq_session_item_heard(...) /* expected units of an item; units heard for a wrong item */
+mq_session_create_auto / mq_session_located(...) /* a session that finds out which surah and ayah is recited */
 mq_session_position(...)                          /* the item being recited now */
 mq_engine_ayah_count(engine, surah);                    /* for a range picker */
 mq_session_set_strictness(session, level);              /* MQ_STRICTNESS_RELAXED / STANDARD / STRICT, any time */
@@ -135,8 +134,7 @@ Build it with `-DMUTQIN_WITH_SHERPA=ON -DSHERPA_ONNX_DIR=<extracted sherpa-onnx 
 the switch `mq_session_load_model` explains that the backend is not built. A model is loaded from a
 manifest (`mutqin_model.txt`, `key=value` lines, paths relative to it):
 
-```
-model=model.int8.onnx        # streaming Zipformer2 CTC
+```model=model.int8.onnx        # streaming Zipformer2 CTC
 tokens=tokens.txt
 token_map=token_map.tsv      # "<model unit><TAB><our phoneme symbols>", one line per unit
 threads=2
@@ -162,6 +160,22 @@ statuses about it would flash and disappear), so an event appears about one word
 be missing at its edges, `add_min_tokens=3`) and cuts runs of one character to 2 (madd length ignored); see
 `EVAL_RESULTS.md`. Files from the model repository (weights, units, table) stay outside this
 repository (`models/`, gated, NPL-1.1: free apps only).
+
+## Finding the place automatically
+
+`mq_session_create_auto` makes a session without a range. It needs a model with an expected-units table; loading
+the model indexes the units of the whole Quran in 5-unit runs (`align/locator.cpp`). While the recitation is
+heard, the `Locator` lets every run of units heard vote for the places where it occurs in the Quran; a recitation
+puts its votes on one diagonal (the same offset between heard and expected units), and the place is reported when
+that diagonal has at least 5 votes and twice those of any other place. Runs of the basmala are not used (it opens
+most recitations and also occurs in 27:30), runs that occur in more than 64 places are skipped, and the start is
+the first place that has two more votes within a few units (a chance match just before the real start does not
+move it). The session locks when the same ayah is named on three attempts in a row (an attempt every 4 new
+units); it then builds the range from that ayah to the end of the surah, aligns everything heard so far to it, and
+goes on as a normal session through the sliding window. A lock that cannot be followed (far more was heard than
+the range holds) is undone and that place is not tried again. `mq_session_located` says whether the place is
+known; `mq_session_reset` forgets it. A surah is built in one call (al-Baqarah about 0.15 s on a desktop), so an
+app should give the microphone a buffer of a second or more.
 
 ## Threading contract and limits (for the apps)
 
