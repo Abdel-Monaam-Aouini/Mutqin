@@ -13,6 +13,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import app.mutqin.ui.MainViewModel
 import app.mutqin.ui.MutqinApp
@@ -39,14 +42,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             MutqinTheme {
                 val state by vm.state.collectAsState()
+                var pendingAuto by remember { mutableStateOf(false) }
                 val askMic =
                     rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                        if (granted) vm.start()
+                        if (granted) vm.start(pendingAuto)
                     }
-                MutqinApp(state, vm, language, ::selectLanguage) {
+                MutqinApp(state, vm, language, ::selectLanguage) { auto ->
                     if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                        vm.start()
+                        vm.start(auto)
                     } else {
+                        pendingAuto = auto
                         askMic.launch(Manifest.permission.RECORD_AUDIO)
                     }
                 }

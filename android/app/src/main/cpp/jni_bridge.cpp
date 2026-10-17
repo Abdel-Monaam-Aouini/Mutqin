@@ -79,6 +79,32 @@ JNI(jlong, sessionCreate)(JNIEnv* env, jobject, jlong engine, jint surah, jint f
     return ToHandle(session);
 }
 
+JNI(jlong, sessionCreateAuto)(JNIEnv* env, jobject, jlong engine) {
+    mq_session* session = nullptr;
+    char err[256] = {0};
+    const int rc = mq_session_create_auto(FromHandle<mq_engine>(engine), &session, err, sizeof err);
+    if (rc != MQ_OK) {
+        Throw(env, rc, err);
+        return 0;
+    }
+    return ToHandle(session);
+}
+
+// 1 and out = surah, ayah once the session has its range; 0 while an automatic session is still listening
+JNI(jint, sessionLocated)(JNIEnv* env, jobject, jlong session, jintArray out) {
+    int surah = 0, ayah = 0;
+    const int rc = mq_session_located(FromHandle<mq_session>(session), &surah, &ayah);
+    if (rc < 0) {
+        Throw(env, rc, "bad session");
+        return 0;
+    }
+    if (rc == 1) {
+        const jint values[2] = {surah, ayah};
+        env->SetIntArrayRegion(out, 0, 2, values);
+    }
+    return rc;
+}
+
 JNI(void, sessionDestroy)(JNIEnv*, jobject, jlong session) {
     mq_session_destroy(FromHandle<mq_session>(session));
 }

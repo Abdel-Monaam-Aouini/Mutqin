@@ -135,7 +135,7 @@ fun MutqinApp(
     vm: MainViewModel,
     language: AppLanguage,
     onLanguageSelected: (AppLanguage) -> Unit,
-    onStart: () -> Unit,
+    onStart: (auto: Boolean) -> Unit,
 ) {
     val layoutDirection = if (language == AppLanguage.ARABIC) LayoutDirection.Rtl else LayoutDirection.Ltr
     CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
@@ -319,7 +319,7 @@ private fun SetupScreen(
     vm: MainViewModel,
     onOpenPreferences: () -> Unit,
     onOpenHistory: () -> Unit,
-    onStart: () -> Unit,
+    onStart: (auto: Boolean) -> Unit,
 ) {
     val surahNames = stringArrayResource(R.array.surah_names)
     var picking by remember { mutableStateOf(false) }
@@ -449,6 +449,8 @@ private fun SetupScreen(
                 Card {
                     if (it == "range") {
                         Text(stringResource(R.string.range_too_long), color = LocalAttention.current)
+                    } else if (it == "not_found") {
+                        Text(stringResource(R.string.detect_not_found), color = LocalAttention.current)
                     } else {
                         SelectionContainer {
                             Text(it, color = LocalAttention.current, fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 19.sp)
@@ -457,11 +459,13 @@ private fun SetupScreen(
                 }
             }
             val forward = if (LocalLayoutDirection.current == LayoutDirection.Rtl) "←" else "→"
-            Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) {
+            Button(onClick = { onStart(false) }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) {
                 Text(stringResource(R.string.start), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 Text("  $forward", fontSize = 16.sp)
             }
-            Spacer(Modifier.height(4.dp))
+            TextButton(onClick = { onStart(true) }, Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.detect_auto), fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 
@@ -811,14 +815,28 @@ private fun ReciteScreen(
 
     Column(Modifier.fillMaxSize()) {
         TopBar(state, reciting, onClose = vm::back)
-        // the Quran text is always right to left, whatever the language of the app
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-            LazyColumn(
-                Modifier.weight(1f).fillMaxWidth(),
-                state = listState,
-                verticalArrangement = Arrangement.spacedBy(0.dp),
-            ) {
-                itemsIndexed(pages) { _, page -> AyahPage(page, hideUpcoming = state.memorization && reciting, onWordClick = vm::showDetail) }
+        if (state.auto && state.items.isEmpty()) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    LogoLoader()
+                    Text(
+                        stringResource(R.string.detect_listening),
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                    )
+                }
+            }
+        } else {
+            // the Quran text is always right to left, whatever the language of the app
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                LazyColumn(
+                    Modifier.weight(1f).fillMaxWidth(),
+                    state = listState,
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                ) {
+                    itemsIndexed(pages) { _, page -> AyahPage(page, hideUpcoming = state.memorization && reciting, onWordClick = vm::showDetail) }
+                }
             }
         }
         if (reciting) {
@@ -852,16 +870,20 @@ private fun TopBar(
         ) { Text("✕", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                stringResource(R.string.range_title, surahNames[state.surah - 1], state.surah),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                stringResource(R.string.range_summary, state.fromAyah, state.toAyah),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (state.auto && state.items.isEmpty()) {
+                Text(stringResource(R.string.detect_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            } else {
+                Text(
+                    stringResource(R.string.range_title, surahNames[state.surah - 1], state.surah),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    stringResource(R.string.range_summary, state.fromAyah, state.toAyah),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         if (reciting) RecordingBadge(state.startedAt, state.pausedAt)
     }
