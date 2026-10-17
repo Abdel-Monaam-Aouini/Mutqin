@@ -102,4 +102,23 @@
     <string name="detail_heard">ما سُمع</string>
     <string name="detail_nothing">لم يُسمع شيء لهذه الكلمة.</string>
     <string name="detail_note">الوحدات المُعلَّمة مختلفة. الوحدات هي أصوات النموذج نفسه بترتيب سماعها.</string>
+    <string name="memorization_mode">وضع الحفظ</string>
+    <string name="memorization_hint">إخفاء النص حتى تتلوه</string>
+    <string name="history">السجل</string>
+    <string name="history_empty">ستظهر محاولاتك هنا. وتبقى على هذا الهاتف.</string>
+    <string name="history_clear">مسح السجل</string>
+    <string name="history_clear_title">مسح السجل؟</string>
+    <string name="history_clear_body">ستُحذف كل المحاولات المحفوظة من هذا الهاتف.</string>
+    <string name="history_clear_confirm">مسح</string>
+    <string name="cancel">إلغاء</string>
+    <string name="history_clean">لا فروق</string>
+    <string name="history_memorization">حفظ</string>
+    <plurals name="history_differences">
+        <item quantity="zero">لا فروق</item>
+        <item quantity="one">فرق واحد</item>
+        <item quantity="two">فرقان</item>
+        <item quantity="few">%1$d فروق</item>
+        <item quantity="many">%1$d فرقًا</item>
+        <item quantity="other">%1$d فرق</item>
+    </plurals>
 </resources>

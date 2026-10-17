@@ -8,6 +8,7 @@ object AppPreferences {
     private const val FILE = "mutqin_preferences"
     private const val LANGUAGE = "language"
     private const val STRICTNESS = "strictness"
+    private const val MEMORIZATION = "memorization"
 
     private fun Context.prefs() = getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -20,6 +21,17 @@ object AppPreferences {
         .prefs()
         .edit()
         .putString(LANGUAGE, language.tag)
+        .apply()
+
+    fun memorization(context: Context): Boolean = context.prefs().getBoolean(MEMORIZATION, false)
+
+    fun saveMemorization(
+        context: Context,
+        on: Boolean,
+    ) = context
+        .prefs()
+        .edit()
+        .putBoolean(MEMORIZATION, on)
         .apply()
 
     fun strictness(context: Context): Int =
