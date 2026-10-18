@@ -90,7 +90,7 @@ mq_engine_ayah_count(engine, surah);                    /* for a range picker */
 mq_session_set_strictness(session, level);              /* MQ_STRICTNESS_RELAXED / STANDARD / STRICT, any time */
 mq_session_reset(session);                              /* new attempt on the same range */
 mq_session_word_count / mq_session_word_status(...)     /* MQ_WORD_OK / WRONG / SKIPPED */
-mq_session_event_count / mq_session_event(...)          /* skipped, wrong, repeated, added */
+mq_session_event_count / mq_session_event(...)          /* skipped, wrong, added (repeated is never produced) */
 ```
 
 Recognition models plug in behind `AcousticModel` (CTC posteriors) or `TokenRecognizer` (tokens; the

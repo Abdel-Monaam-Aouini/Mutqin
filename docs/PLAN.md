@@ -57,7 +57,7 @@ Goal: hifz mode on a laptop with Python.
 - Use an existing Quran-fine-tuned CTC model (char or phoneme level), see `DATA_AND_MODEL.md`.
 - Streaming pipeline: VAD → features → model → incremental alignment against the expected
   ayah range.
-- Detect: skipped word, wrong word, repeated word, added word; track current position.
+- Detect: skipped word, wrong word, added word; track current position. Going back and reading again (a word, an ayah, from the middle) is practice and is not reported.
 - Evaluation set: correct recitations + recitations with injected word errors.
 
 **Done when:** false alarm rate < 2% on correct recitations, word-error recall > 90%,
@@ -187,7 +187,7 @@ for now; opt-in sharing of saved takes for beta testing; no required disclaimer 
 | Metric | Target | Measured (2026-10-14) |
 |--------|--------|------------------------|
 | False alarm rate on correct recitation | < 2% (most important) | 0.9% of words flagged (surah 5, one reciter, 49 min); 0.1% (339 clips, second reciter) |
-| Word-error recall | > 90% | skipped 100%, wrong 97%, repeated 99%, added 94% (mistakes injected into real model output) |
+| Word-error recall | > 90% | skipped 100%, wrong 97%, added 94% (mistakes injected into real model output; measured before going back became silent, not re-measured) |
 | Latency (speech → event) | < 300 ms (desktop CPU now; on phone in Phase 3b) | 1-2 s |
 | Real-time factor | < 0.3 (desktop CPU now; on phone in Phase 3b) | 0.03 on a desktop CPU (4 threads); **0.14 on a mid-range phone** (Galaxy A15, 2 threads) |
 | Model size | < 100 MB | 73 MB model; about 100 MB with data and libraries; 194 MB of memory in use on the phone |

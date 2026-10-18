@@ -372,3 +372,34 @@ times include the lead-in of the recording and the three attempts in a row the s
 Found while testing: the sliding window could move on early when only a few units had been heard (the alignment
 may put the reciter anywhere in the window then), after which the real recitation was not found. The window now
 moves only once at least 150 units are heard; the 49-minute run is unchanged (identical output).
+
+## Going back and reading again is practice (not reported)
+
+A learner repeats a word, an ayah or part of one many times, so this is not a mistake. Before, a repeated word
+was reported as "repeated" and the first of two readings of a word stayed the one that was judged. Now every
+jump back (the last 1-3 words, any earlier word of the same ayah up to 12 words back or its start, the start of
+the last 3 ayahs from the end of an ayah) is silent, and when a word is read again the later reading replaces the
+earlier one (a word that was stumbled and then read right counts as right; one that is wrong and not read again
+stays wrong). The "repeated" kind stays in the API but is never produced.
+
+The 49-minute recitation of surah 5 (a correct one, so every event is a false alarm; `mutqin-cli`, real model,
+standard level, ayahs 1-120), the same audio and the same session before and after:
+
+| Events | Before | After |
+|---|---|---|
+| skipped | 10 | 10 |
+| wrong | 9 | 8 |
+| repeated | 29 | 0 |
+| added | 8 | 6 |
+| all | 56 (2.3% of about 2430 words) | 24 (1.0%) |
+
+More than half of the events on this correct recitation were "repeated" ones (the reciter goes back over a word
+now and then). Time for the 2942 s of audio: 2 min 05 s before, 2 min 16 s after (one run each; the extra arcs
+cost a little). Unit tests: `tools/prototype/tests` (a word read twice, a stumbled word read again, restarting
+from the middle of an ayah, a mistake that is not read again, still reported) and `core/tests/test_session_events.cpp`;
+the C++ and the Python aligner agree on all the parity cases.
+
+Not re-measured: the recall of skipped, wrong and added mistakes injected into real model output (97%, 94%, 100%
+before): the saved model output of that measurement is not available here, so those numbers are from before this
+change. The new arcs could in principle absorb an extra spoken word that resembles earlier text (it would then
+not be reported as "added"); that errs on the side of missing a mistake, as the project rules prefer.

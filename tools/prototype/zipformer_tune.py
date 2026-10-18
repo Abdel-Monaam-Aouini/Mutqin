@@ -29,7 +29,7 @@ from tools.prototype.decode import Token  # noqa: E402
 from tools.prototype.phoneme_data import WordPhonemes  # noqa: E402
 from tools.prototype.zipformer_eval import ROOT, expected_words  # noqa: E402
 
-KINDS = ("skipped", "wrong", "repeated", "added")
+KINDS = ("skipped", "wrong", "added")  # going back and reading again is not reported any more
 EDGE = 3  # words at each end of a window that are not scored
 
 

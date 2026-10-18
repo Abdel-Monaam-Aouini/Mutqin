@@ -15,7 +15,7 @@ struct Step {
     int a = 0, b = 0;  // diag: heard, flat; del: flat; ins: heard; jump: from, to
 };
 
-enum class JumpKind { kSkip, kRepeat, kRestart };
+enum class JumpKind { kSkip, kRestart };
 
 struct Jump {
     int from, to;
@@ -53,21 +53,6 @@ int EditDistanceWild(const std::vector<int>& heard, const std::vector<char>& wil
     for (int t = 1; t <= free_units; ++t)
         best = std::min(best, prev[expected.size() - static_cast<size_t>(t)]);
     return best;
-}
-
-int LcsWild(const std::vector<int>& heard, const std::vector<char>& wild, const std::vector<int>& expected) {
-    std::vector<int> prev(expected.size() + 1, 0), cur(expected.size() + 1, 0);
-    for (size_t i = 0; i < heard.size(); ++i) {
-        cur[0] = 0;
-        for (size_t j = 0; j < expected.size(); ++j) {
-            if (wild[i] || heard[i] == expected[j])
-                cur[j + 1] = prev[j] + 1;
-            else
-                cur[j + 1] = std::max(prev[j + 1], cur[j]);
-        }
-        prev = cur;
-    }
-    return prev.back();
 }
 
 }  // namespace
@@ -117,17 +102,29 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
                     {st.bounds[b], st.bounds[b + k], params.skip_cost * k, JumpKind::kSkip, b});
             for (int r = 1; r <= std::min(params.max_jump_words, b); ++r)
                 st.jumps.push_back({st.bounds[b], st.bounds[b - r], params.repeat_cost + 0.5 * (r - 1),
-                                    JumpKind::kRepeat, b - 1});
+                                    JumpKind::kRestart, b - 1});
         }
-        // An ayah (or the last few) recited again from its start is practice: it is not reported. These
-        // arcs come last so that, for the same (from, to), they decide how the jump is read.
+        // Going back and reading again is how one learns: from any word boundary of an ayah (its end
+        // included) back to an earlier word of the same ayah, from its end back to the start of the last few
+        // ayahs. None of these is reported, and the reading that comes last is the one that counts (see the
+        // judging below).
         std::vector<int> starts;
         for (int w = 0; w < st.n_words; ++w)
             if (w == 0 || words[static_cast<size_t>(w)].ayah != words[static_cast<size_t>(w) - 1].ayah)
                 starts.push_back(w);
         for (size_t i = 0; i < starts.size(); ++i) {
+            const int first = starts[i];
             const int end = i + 1 < starts.size() ? starts[i + 1] : st.n_words;
-            for (size_t k = 0; k < static_cast<size_t>(params.max_restart_ayahs) && k <= i; ++k)
+            for (int b = first + 1; b <= end; ++b) {
+                std::vector<int> targets;
+                targets.push_back(first);
+                for (int t = std::max(first + 1, b - params.max_restart_words); t < b; ++t)
+                    targets.push_back(t);
+                for (int t : targets)
+                    st.jumps.push_back({st.bounds[static_cast<size_t>(b)], st.bounds[static_cast<size_t>(t)],
+                                        params.restart_cost + 0.02 * (b - t - 1), JumpKind::kRestart, b - 1});
+            }
+            for (size_t k = 1; k < static_cast<size_t>(params.max_restart_ayahs) && k <= i; ++k)
                 st.jumps.push_back(
                     {st.bounds[static_cast<size_t>(end)], st.bounds[static_cast<size_t>(starts[i - k])],
                      params.restart_cost + 0.5 * static_cast<double>(k), JumpKind::kRestart, end - 1});
@@ -285,6 +282,9 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
     const int span = last_w - first_w + 1;
     std::vector<std::vector<int>> aligned_at(span);  // heard indices aligned to each word
     std::vector<char> skipped(span, 0);
+    std::vector<int> seen_pass(static_cast<size_t>(span),
+                               -1);  // the reading (0 = the first) that last gave a word tokens
+    int pass_id = 0;
     bool has_cur = false;
     int cur_word = 0;
     std::vector<int> run;
@@ -315,11 +315,22 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
             const int w = flat_word[op.b];
             cur_word = w;
             has_cur = true;
-            if (in_span(w))
-                aligned_at[w - first_w].push_back(op.a);
+            if (in_span(w)) {
+                const size_t slot = static_cast<size_t>(w - first_w);
+                if ((seen_pass[slot] >= 0 && seen_pass[slot] != pass_id) || skipped[slot]) {
+                    // this word was read (or skipped) before and is read again now: the new reading replaces
+                    // it
+                    aligned_at[slot].clear();
+                    skipped[slot] = 0;
+                    result.events.erase(std::remove_if(result.events.begin(), result.events.end(),
+                                                       [w](const AlignEvent& e) { return e.index == w; }),
+                                        result.events.end());
+                }
+                seen_pass[slot] = pass_id;
+                aligned_at[slot].push_back(op.a);
+            }
         } else if (op.type == Step::kJumpStep) {
             const auto info = jump_of[{op.a, op.b}];
-            const int w = info.second;
             if (info.first == JumpKind::kSkip) {
                 for (int sw = word_at_bound(op.a); sw < word_at_bound(op.b); ++sw) {
                     if (in_span(sw)) {
@@ -327,38 +338,9 @@ AlignResult AlignImpl(DpState& st, const std::vector<HeardToken>& heard,
                         result.events.push_back({"skipped", sw, 1.0});
                     }
                 }
-            } else {
-                const int end_pos = op.a;
-                int pos = op.b;
-                std::vector<int> taken;
-                while (k < ops.size() && pos < end_pos) {
-                    const Step nxt = ops[k++];
-                    if (nxt.type == Step::kDiagStep) {
-                        taken.push_back(nxt.a);
-                        pos = nxt.b + 1;
-                    } else if (nxt.type == Step::kInsStep) {
-                        taken.push_back(nxt.a);
-                    } else if (nxt.type == Step::kDelStep) {
-                        pos = nxt.a + 1;
-                    }
-                }
-                std::vector<int> target(flat_sym.begin() + op.b, flat_sym.begin() + end_pos);
-                std::vector<int> taken_sym;
-                std::vector<char> taken_low;
-                for (int t : taken) {
-                    taken_sym.push_back(heard_sym[t]);
-                    taken_low.push_back(low[t]);
-                }
-                const double ratio = static_cast<double>(LcsWild(taken_sym, taken_low, target)) /
-                                     static_cast<double>(std::max<size_t>(1, target.size()));
-                if (info.first == JumpKind::kRestart) {
-                    // an ayah recited again from its start: not reported
-                } else if (ratio >= params.repeat_min_ratio)
-                    result.events.push_back({"repeated", w, ratio});
-                else if (static_cast<int>(taken.size()) >= params.add_min_tokens)
-                    result.events.push_back({"added", w, 1.0});
-                cur_word = w;
-                has_cur = true;
+            } else {  // going back to read again: what is read from here on replaces the earlier reading
+                ++pass_id;
+                has_cur = false;
             }
         }
     }

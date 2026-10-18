@@ -55,7 +55,7 @@ The app asks the core every 100-200 ms (UI thread; allowed while the worker thre
 | `mq_session_item_units`, `mq_session_item_heard` | the expected units of an item and, for a wrong item, the units heard; the app shows both in a sheet when a flagged word is tapped, with the differing units marked (the units are the model's own sounds) |
 | `mq_session_create_auto`, `mq_session_located` | the home screen's detect option: the session listens, finds the surah and ayah by itself and shows the text from there (see ARCHITECTURE, "Finding the place automatically") |
 | `mq_session_word_status` | per item: not judged yet / ok / wrong / skipped |
-| `mq_session_event_count`, `mq_session_event` | skipped, wrong, repeated, added (with the item they refer to) |
+| `mq_session_event_count`, `mq_session_event` | skipped, wrong, added (with the item they refer to); `repeated` stays in the API but is never produced |
 
 Behaviour that the app must respect:
 
@@ -67,12 +67,14 @@ Behaviour that the app must respect:
   state; the result screen uses it.
 - **Starting in the middle** is fine: earlier words simply stay not judged. For surahs other than 1 and 9 an
   optional basmala before ayah 1 is accepted and reported as ayah 0 (do not show it as a mistake if missing).
-- Pauses, hesitations and restarts of a word are tolerated; repeating words is reported as "repeated", which
-  the user may do on purpose (the mark is informational, not an error count).
-  Reciting a whole ayah again from its start (or the last two or three ayahs together), as one does when
-  practising, is not reported at all: the aligner has restart arcs from the end of an ayah back to its start.
-  Only the first reading of each word is judged. Measured effect on false alarms and recall: not yet re-run
-  (the saved 49-minute recording is not available here); tests are synthetic.
+- Pauses, hesitations and restarts of a word are tolerated. **Going back and reading again is practice and is
+  never reported**: repeating a word, an ayah or the last few ayahs, restarting an ayah from its beginning or from
+  the middle, as one does when learning. The aligner has cheap arcs for going back (the last 1-3 words, any earlier
+  word of the same ayah up to 12 words back or its start, and from the end of an ayah the start of the last
+  ayahs); the reading that comes last is the one that is judged, so a word that was stumbled and then read right
+  counts as right, and one that is wrong and not read again stays wrong. Only the first reading of a word that
+  is never read again is judged. Measured effect on false alarms: docs/EVAL_RESULTS.md. Recall of the other kinds
+  of mistakes after this change: not re-measured (the saved model output is not available here).
 - Hifz mode reveals a word when its item becomes judged; wrong and skipped words are revealed with their mark.
 
 ## 5. Visual design (decided: professional, few colors)
@@ -101,7 +103,7 @@ The result lists the flagged words themselves (a strip of cards and a full list)
 | ok | normal text (optionally a faint accent underline when the word is confirmed) |
 | wrong | attention color, solid underline |
 | skipped | attention color, dotted underline under the word's place and a small gap marker (in hifz mode the word is shown with this mark) |
-| repeated | attention color, double underline under the repeated words |
+| repeated | (not used: going back and reading again is practice and is not reported) |
 | added | small attention-colored caret between the words |
 
 Typography: the Quran text in the Uthmani script (section 12, item 6), large, right to left, generous line

@@ -32,14 +32,17 @@ struct AlignParams {
     double skip_aligned_max = 0.25;
     double low_conf = 0.55;
     int min_mismatch = 2;
-    double repeat_min_ratio = 0.75;
     double skip_cost = 1.5;
     double repeat_cost = 1.0;
     int add_min_tokens = 4;
     int add_inside_min = 3;
     int max_jump_words = 3;
-    double restart_cost = 1.0;  // a whole ayah recited again from its start (practice): not reported
-    int max_restart_ayahs = 3;  // the restart may go back to the start of this many ayahs
+    double restart_cost =
+        1.0;  // a jump back to the start of an ayah or inside the current one: practice, not reported
+    int max_restart_ayahs =
+        3;  // from the end of an ayah the jump may go back to the start of this many ayahs
+    int max_restart_words =
+        12;  // inside an ayah it may go back this many words (or to the start of the ayah)
     int pause_frames = 8;
     int edge_free =
         0;  // leading / trailing expected units (at most 1/3 of a word) that may be missing at no cost
@@ -51,7 +54,8 @@ struct AlignParams {
 AlignParams StrictnessProfile(int level);
 
 struct AlignEvent {
-    std::string kind;  // "skipped" | "wrong" | "repeated" | "added"
+    std::string
+        kind;  // "skipped" | "wrong" | "added" (going back and reading again is practice: never reported)
     int index = 0;
     double confidence = 0.0;
 };

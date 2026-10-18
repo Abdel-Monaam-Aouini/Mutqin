@@ -108,28 +108,64 @@ TEST(SessionEvents, SkippedWordIsReported) {
     EXPECT_EQ(mq_session_word_status(f.session, 8), MQ_WORD_SKIPPED);
 }
 
-TEST(SessionEvents, RepeatedWordsAreReportedAndStreamingMatchesBatch) {
+TEST(SessionEvents, WordsReadTwiceAreNotReportedAndStreamingMatchesBatch) {
     Fixture f;
     if (!f.ok)
         GTEST_SKIP() << "data/quran missing";
     std::vector<size_t> order = AllWords(f.words.size());
-    order.insert(order.begin() + 12, {10, 11});  // 10, 11, 10, 11, 12 ...
+    order.insert(order.begin() + 12, {10, 11});  // 10, 11, 10, 11, 12 ...: going back is practice
     const std::vector<float> rows = f.Speak(order);
     const size_t frames = rows.size() / MQ_VOCAB_SIZE;
     for (size_t at = 0; at < frames; at += 37)  // chunked pushes
         ASSERT_EQ(mq_session_push_posteriors(f.session, rows.data() + at * MQ_VOCAB_SIZE,
                                              std::min<size_t>(37, frames - at)),
                   MQ_OK);
-    bool repeated = false;
-    for (size_t i = 0; i < mq_session_event_count(f.session); ++i) {
-        mq_event e{};
-        ASSERT_EQ(mq_session_event(f.session, i, &e), MQ_OK);
-        if (e.kind == MQ_EVENT_REPEATED)
-            repeated = true;
-        EXPECT_NE(e.kind, MQ_EVENT_SKIPPED);
-        EXPECT_NE(e.kind, MQ_EVENT_WRONG);
-    }
-    EXPECT_TRUE(repeated);
+    EXPECT_EQ(mq_session_event_count(f.session), 0u);
+    for (size_t w = 0; w < f.words.size(); ++w)
+        EXPECT_EQ(mq_session_word_status(f.session, w), MQ_WORD_OK) << w;
+}
+
+TEST(SessionEvents, AStumbledWordReadAgainCorrectlyIsJudgedByTheLastReading) {
+    Fixture f;
+    if (!f.ok)
+        GTEST_SKIP() << "data/quran missing";
+    // posterior rows of whole unit sequences (the same shape as Fixture::Speak)
+    auto rows_of = [](const std::vector<std::vector<std::string>>& words) {
+        std::vector<float> rows;
+        for (const auto& units : words) {
+            for (const std::string& sym : units) {
+                for (int i = 0; i < 4; ++i) {
+                    std::vector<float> r(MQ_VOCAB_SIZE, 0.05f / (MQ_VOCAB_SIZE - 1));
+                    r[static_cast<size_t>(i < 3 ? TokenId(sym) : 0)] = 0.95f;
+                    rows.insert(rows.end(), r.begin(), r.end());
+                }
+            }
+        }
+        return rows;
+    };
+    // word 8 first comes out wrong (two of its units are other sounds), then the reciter goes back and reads
+    // it
+    std::vector<std::vector<std::string>> words;
+    for (const WordRef& w : f.words)
+        words.push_back(w.reading.cont);
+    std::vector<std::string> stumbled = words[8];
+    ASSERT_GE(stumbled.size(), 4u);
+    stumbled[1] = words[4].front();
+    stumbled[2] = words[5].front();
+    std::vector<std::vector<std::string>> heard = words;
+    heard.insert(heard.begin() + 8, stumbled);  // ... 7, 8 (stumbled), 8, 9 ...
+    const std::vector<float> rows = rows_of(heard);
+    ASSERT_EQ(mq_session_push_posteriors(f.session, rows.data(), rows.size() / MQ_VOCAB_SIZE), MQ_OK);
+    EXPECT_EQ(mq_session_event_count(f.session), 0u);
+    EXPECT_EQ(mq_session_word_status(f.session, 8), MQ_WORD_OK);
+
+    // a clearly wrong word that is not read again stays a mistake
+    mq_session_reset(f.session);
+    heard = words;
+    heard[8] = words[4];
+    const std::vector<float> rows2 = rows_of(heard);
+    ASSERT_EQ(mq_session_push_posteriors(f.session, rows2.data(), rows2.size() / MQ_VOCAB_SIZE), MQ_OK);
+    EXPECT_EQ(mq_session_word_status(f.session, 8), MQ_WORD_WRONG);
 }
 
 TEST(SessionEvents, RejectsBadArguments) {

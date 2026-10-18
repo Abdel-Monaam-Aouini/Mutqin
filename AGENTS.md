@@ -11,7 +11,7 @@ recognition.
 same repo (`android/`, `ios/`) but are deferred; those folders are placeholders.
 
 Error levels, built in this order:
-1. **Word level**: skipped, wrong, repeated, or added words (hifz / memorization mode).
+1. **Word level**: skipped, wrong or added words (hifz / memorization mode). Going back and reading again is practice, never an error.
 2. **Harakat level**: wrong vowels (fatha/kasra/damma/sukun), wrong letters.
 3. **Tajweed level**: ghunnah, madd lengths, qalqalah, idgham, ikhfa, iqlab, tafkhim/tarqiq.
 

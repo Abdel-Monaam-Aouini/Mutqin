@@ -4,9 +4,11 @@ Method (decode, then align):
   1. The model output is greedy-CTC decoded into recognised tokens with confidences (decode.py).
   2. The tokens are aligned to the expected phonemes of the range with an edit-distance dynamic
      programme over (heard tokens, expected tokens). Besides match / substitute / insert / delete it
-     has word-level jump arcs at word boundaries: skip the next 1..3 words, or repeat the last 1..3
-     words, each for a small fixed cost. Whole-word skips and repeats are therefore cheap, as they are
-     for a real reciter, instead of costing one edit per phoneme. The start (at a word boundary) and
+     has word-level jump arcs at word boundaries: skip the next 1..3 words, or go back and read again
+     (the last 1..3 words, any earlier word of the ayah, or the start of the last ayahs), each for a small
+     fixed cost. Skips and going back are therefore cheap, as they are for a real reciter, instead of
+     costing one edit per phoneme. Going back is practice and is never reported; the reading that comes
+     last is the one that is judged. The start (at a word boundary) and
      the end of the expected side are free: the reciter may begin later or stop earlier.
   3. Words between the first and the last aligned word are judged: ok, wrong or skipped. Runs of
      unexplained tokens longer than a few phonemes are added words.
@@ -28,18 +30,18 @@ class Params:
     skip_aligned_max: float = 0.25  # aligned tokens / expected tokens at or under which it is "skipped"
     low_conf: float = 0.55  # tokens under this confidence are cheap to substitute / insert, and wildcards
     min_mismatch: int = 2  # mismatched tokens needed before a word can be called wrong
-    repeat_min_ratio: float = 0.75  # a repeat jump must reproduce the repeated words this well
     skip_cost: float = 1.5  # per word skipped by a jump arc
-    repeat_cost: float = 1.0  # a repeat jump arc (+0.5 for each extra word repeated)
+    repeat_cost: float = (
+        1.0  # a jump back over the last 1..3 words (+0.5 for each extra word): practice, not reported
+    )
     add_min_tokens: int = 4  # unexplained run length (between words) to call an added word
     add_inside_min: int = 3  # same, for a run in the middle of a word (noise rarely does this)
     max_jump_words: int = 3
     restart_cost: float = (
-        1.0  # a whole ayah recited again (practice, not a mistake): jump from its end back to its start
+        1.0  # a jump back to the start of an ayah or inside the current ayah: practice, not reported
     )
-    max_restart_ayahs: int = (
-        3  # the restart may go back to the start of this many ayahs (the last one included)
-    )
+    max_restart_ayahs: int = 3  # from the end of an ayah the jump may go back to the start of this many ayahs
+    max_restart_words: int = 12  # inside an ayah it may go back this many words (or to the start of the ayah)
     pause_frames: int = 8  # a gap this long between tokens is a pause (a stop is possible there)
     edge_free: int = 0  # leading / trailing expected units that may be missing without cost (word joins)
 
@@ -60,8 +62,8 @@ def strictness_params(name: str) -> Params:
 
 @dataclass(frozen=True)
 class Event:
-    kind: str  # "skipped" | "wrong" | "repeated" | "added"
-    index: int  # expected word index (for "added": the word it follows; for "repeated": the last repeated)
+    kind: str  # "skipped" | "wrong" | "added" (going back and reading again is practice and is not reported)
+    index: int  # expected word index (for "added": the word it follows)
     confidence: float
 
 
@@ -129,15 +131,24 @@ def align_tokens(heard: list[Token], words: list[WordPhonemes], params: Params |
         for k in range(1, min(params.max_jump_words, n_words - 1 - b) + 1):
             jumps.append((bounds[b], bounds[b + k], params.skip_cost * k, "skip", b))
         for r in range(1, min(params.max_jump_words, b) + 1):
-            jumps.append((bounds[b], bounds[b - r], params.repeat_cost + 0.5 * (r - 1), "repeat", b - 1))
-    # Reciting an ayah (or the last few) again from its start is how one practises: it is not reported.
-    # These arcs come last, so for the same (from, to) they decide how the jump is read.
+            jumps.append((bounds[b], bounds[b - r], params.repeat_cost + 0.5 * (r - 1), "restart", b - 1))
+    # Going back and reading again is how one learns: from any word boundary of an ayah (its end included)
+    # back to an earlier word of the same ayah, and from its end back to the start of the last few ayahs.
+    # None of these is reported, and the reading that comes last is the one that counts (see below).
     starts = [w for w in range(n_words) if w == 0 or words[w].key[:2] != words[w - 1].key[:2]]
     for i in range(len(starts)):
+        first = starts[i]
         end = starts[i + 1] if i + 1 < len(starts) else n_words
-        for k in range(min(params.max_restart_ayahs, i + 1)):
-            cost = params.restart_cost + 0.5 * k
-            jumps.append((bounds[end], bounds[starts[i - k]], cost, "restart", end - 1))
+        for b in range(first + 1, end + 1):
+            targets = set(range(max(first, b - params.max_restart_words), b)) | {first}
+            for t in sorted(targets):
+                jumps.append(
+                    (bounds[b], bounds[t], params.restart_cost + 0.02 * (b - t - 1), "restart", b - 1)
+                )
+        for k in range(1, min(params.max_restart_ayahs, i + 1)):
+            jumps.append(
+                (bounds[end], bounds[starts[i - k]], params.restart_cost + 0.5 * k, "restart", end - 1)
+            )
 
     inf = float("inf")
     sub_low, ins_low = 0.4, 0.5
@@ -203,6 +214,8 @@ def align_tokens(heard: list[Token], words: list[WordPhonemes], params: Params |
     aligned: dict[int, list[Token]] = {w: [] for w in range(first_w, last_w + 1)}
     aligned_at: dict[int, list[int]] = {w: [] for w in range(first_w, last_w + 1)}
     skipped: set[int] = set()
+    seen_pass: dict[int, int] = {}  # the reading (0 = the first) in which a word last got its tokens
+    pass_id = 0
     cur_word: int | None = None
     run: list[Token] = []
 
@@ -227,6 +240,13 @@ def align_tokens(heard: list[Token], words: list[WordPhonemes], params: Params |
             w = flat[op[2]][0]
             cur_word = w
             if first_w <= w <= last_w:
+                if (w in seen_pass and seen_pass[w] != pass_id) or w in skipped:
+                    # this word was read (or skipped) before and is read again: the new reading replaces it
+                    aligned[w] = []
+                    aligned_at[w] = []
+                    skipped.discard(w)
+                    result.events = [e for e in result.events if e.index != w]
+                seen_pass[w] = pass_id
                 aligned[w].append(heard[op[1]])
                 aligned_at[w].append(op[1])
         elif op[0] == "jump":
@@ -236,28 +256,9 @@ def align_tokens(heard: list[Token], words: list[WordPhonemes], params: Params |
                     if first_w <= sw <= last_w:
                         skipped.add(sw)
                         result.events.append(Event("skipped", sw, 1.0))
-            else:  # "repeat" or "restart"
-                # tokens consumed while the path re-walks the repeated words
-                end_pos, pos, taken = op[1], op[2], []
-                while k < len(ops) and pos < end_pos:
-                    nxt = ops[k]
-                    k += 1
-                    if nxt[0] == "diag":
-                        taken.append(heard[nxt[1]])
-                        pos = nxt[2] + 1
-                    elif nxt[0] == "ins":
-                        taken.append(heard[nxt[1]])
-                    elif nxt[0] == "del":
-                        pos = nxt[1] + 1
-                target = tuple(sym for _w, sym in flat[op[2] : end_pos])
-                ratio = lcs_wild(taken, target, params.low_conf) / max(1, len(target))
-                if kind == "restart":
-                    pass  # an ayah recited again from its start: not reported
-                elif ratio >= params.repeat_min_ratio:
-                    result.events.append(Event("repeated", w, ratio))
-                elif len(taken) >= params.add_min_tokens:
-                    result.events.append(Event("added", w, 1.0))
-                cur_word = w
+            else:  # "restart": going back to read again; what is read from here on replaces the earlier
+                pass_id += 1
+                cur_word = None
     flush_run()
 
     for w in range(first_w, last_w + 1):

@@ -87,9 +87,18 @@ def test_skipped_word():
     assert result.statuses[1] == "skipped"
 
 
-def test_repeated_word():
+def test_a_word_read_twice_is_not_reported():
+    # going back and reading again is practice, never a mistake
     result = align_tokens(toks("b a t i k u m a k u m a s a l u n i d a"), WORDS)
-    assert [(e.kind, e.index) for e in result.events] == [("repeated", 1)]
+    assert result.events == []
+    assert set(result.statuses.values()) == {"ok"}
+
+
+def test_a_stumbled_word_read_again_correctly_counts_as_read_correctly():
+    # the second word is garbled first, then read again properly: the later reading is the one judged
+    result = align_tokens(toks("b a t i k o z a k u m a s a l u n i d a"), WORDS)
+    assert result.events == []
+    assert result.statuses[1] == "ok"
 
 
 def _ayahs(sizes: list[int]) -> list[WordPhonemes]:
@@ -120,11 +129,35 @@ def test_the_last_two_ayahs_recited_again_are_not_reported():
     assert result.events == []
 
 
-def test_repeating_part_of_an_ayah_is_still_reported():
+def test_restarting_from_the_middle_of_an_ayah_is_not_reported():
     words = _ayahs([6, 6])
     text = lambda a, b: " ".join(" ".join(w.cont) for w in words[a:b])  # noqa: E731
-    result = align_tokens(toks(" ".join([text(0, 4), text(2, 6), text(6, 12)])), words)
-    assert [e.kind for e in result.events] == ["repeated"]
+    for first_pass in (4, 6):  # restart after a stop in the middle, and after the whole ayah
+        heard = [text(0, first_pass), text(2, 6), text(2, 6), text(6, 12)]
+        result = align_tokens(toks(" ".join(heard)), words)
+        assert result.events == [], first_pass
+        assert set(result.statuses.values()) == {"ok"}
+
+
+def test_restarting_the_ayah_after_a_wrong_word_judges_the_last_reading():
+    words = _ayahs([6])
+    text = lambda a, b: " ".join(" ".join(w.cont) for w in words[a:b])  # noqa: E731
+    garbled = " ".join(["zz"] * 4)  # a word that is not the one expected
+    first = " ".join([text(0, 2), garbled, text(3, 4)])
+    result = align_tokens(toks(" ".join([first, text(0, 6)])), words)
+    assert result.events == []
+    assert set(result.statuses.values()) == {"ok"}
+
+
+def test_a_mistake_that_is_not_read_again_is_still_reported():
+    words = _ayahs([6])
+    text = lambda a, b: " ".join(" ".join(w.cont) for w in words[a:b])  # noqa: E731
+    garbled = " ".join(["zz"] * 4)
+    # a word wrong, and the ayah read again from the middle (not from that word): it stays wrong
+    heard = " ".join([text(0, 2), garbled, text(3, 6), text(4, 6)])
+    result = align_tokens(toks(heard), words)
+    assert result.statuses[2] == "wrong"
+    assert [e.kind for e in result.events] == ["wrong"]
 
 
 def test_wrong_word():

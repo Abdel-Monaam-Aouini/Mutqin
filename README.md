@@ -1,7 +1,7 @@
 # Mutqin (متقن)
 
 An on-device Quran recitation checker. You recite, the engine listens, and it flags where your recitation
-differs from the text: skipped, repeated, added or wrong words. Everything runs locally, with no network
+differs from the text: skipped, added or wrong words (going back to read a word, an ayah or part of one again is practice and is never flagged). Everything runs locally, with no network
 connection and no cloud service at run time. The goal is to help learners reach *itqan*, precise mastery.
 
 > **Status: early.** A C++ core and a command-line tool work end to end with a real recognition model, at word
@@ -14,7 +14,7 @@ connection and no cloud service at run time. The goal is to help learners reach 
 microphone / WAV (16 kHz mono)
   -> streaming Zipformer CTC model (phoneme units, runs through sherpa-onnx)
   -> aligner: compares the units heard with the canonical units of the chosen ayah range
-  -> events: skipped / wrong / repeated / added word, with its place in the Quran (surah:ayah:word)
+  -> events: skipped / wrong / added word, with its place in the Quran (surah:ayah:word)
 ```
 
 Because the model outputs *what was actually said* (phonemes) and has no language model, it does not quietly
@@ -28,7 +28,7 @@ Measured on real recitations (details and caveats in [`docs/EVAL_RESULTS.md`](do
 |---|---|
 | False alarms, 49 min of a correct recitation (surah 5, one reciter) | 0.9% of words flagged, 2.5% events (target: below 2% flagged) |
 | False alarms, 339 single-ayah clips of a second reciter | 0.1% of words flagged |
-| Mistakes injected into the real model output | skipped 100%, wrong 97%, repeated 99%, added 94% found |
+| Mistakes injected into the real model output (measured before going back became silent, see EVAL_RESULTS) | skipped 100%, wrong 97%, added 94% found |
 | Time to report a mistake | about 1-2 s after it is spoken (the model looks ahead about 1 s) |
 
 Not measured yet: learners' recitation, phone microphones, other recitation styles.
