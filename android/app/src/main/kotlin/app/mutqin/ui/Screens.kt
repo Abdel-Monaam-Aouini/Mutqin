@@ -149,7 +149,7 @@ fun MutqinApp(
     onLanguageSelected: (AppLanguage) -> Unit,
     onStart: (auto: Boolean) -> Unit,
 ) {
-    val layoutDirection = if (language == AppLanguage.ARABIC) LayoutDirection.Rtl else LayoutDirection.Ltr
+    val layoutDirection = if (language.rtl) LayoutDirection.Rtl else LayoutDirection.Ltr
     CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
             Box(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 20.dp)) {

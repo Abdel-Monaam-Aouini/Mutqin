@@ -38,8 +38,6 @@
     <string name="error_generic">Something went wrong: %1$s</string>
     <string name="app_tagline">Qur\'an recitation</string>
     <string name="language">Language</string>
-    <string name="language_english">English</string>
-    <string name="language_arabic">Arabic</string>
     <string name="whole_surah">Whole surah</string>
     <string name="range_summary">Ayahs %1$d to %2$d</string>
     <string name="strictness_relaxed_hint">Reports only clear differences. Fewer false alarms, may miss small ones.</string>
@@ -130,4 +128,6 @@
     <string name="about_free">Free to use, with no ads, no payments and no tracking.</string>
     <string name="memorization_banner">Memorization mode: each word appears as you recite it.</string>
     <string name="memorization_show">Show text</string>
+    <string name="choose_language">Choose a language</string>
+    <string name="search">Search</string>
 </resources>

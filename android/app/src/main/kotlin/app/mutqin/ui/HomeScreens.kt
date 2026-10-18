@@ -709,19 +709,162 @@ private fun ThemeTile(
     }
 }
 
-/** Three small bars that fill with the level of feedback. */
+/** Three small bars that fill with the level of feedback (0, 1 or 2). */
 @Composable
-private fun LevelMeter(level: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom) {
+private fun LevelMeter(
+    level: Int,
+    selected: Boolean,
+) {
+    val on = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(Modifier.height(26.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom) {
         for (i in 0..2) {
             Box(
                 Modifier
-                    .width(8.dp)
-                    .height((8 + 6 * i).dp)
+                    .width(9.dp)
+                    .height((10 + 7 * i).dp)
                     .clip(RoundedCornerShape(3.dp))
-                    .background(if (i <= level) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+                    .background(if (i <= level) on else MaterialTheme.colorScheme.outlineVariant),
             )
         }
+    }
+}
+
+/** A choice as a bordered tile with a small picture over its label; the chosen one has a green frame. */
+@Composable
+private fun ChoiceTile(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    picture: @Composable () -> Unit,
+) {
+    val primary = MaterialTheme.colorScheme.primary
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier
+            .clip(shape)
+            .background(if (selected) primary.copy(alpha = 0.08f) else Color.Transparent)
+            .border(if (selected) 2.dp else 1.dp, if (selected) primary else MaterialTheme.colorScheme.outlineVariant, shape)
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp, horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        picture()
+        Spacer(Modifier.height(10.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) primary else MaterialTheme.colorScheme.onBackground)
+    }
+}
+
+/** The chosen language, in its own name, as a field that opens the list of languages. */
+@Composable
+private fun LanguageField(
+    language: AppLanguage,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(language.nativeName, style = MaterialTheme.typography.titleMedium)
+            if (language.englishName != language.nativeName) {
+                Text(language.englishName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Text("⌄", color = LocalGold.current, fontSize = 20.sp)
+    }
+}
+
+/**
+ * Every language of the app, each in its own name (and in English), with a search field once the list is long.
+ * The list comes from AppLanguage.entries, so a new language appears here by itself.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LanguageSheet(
+    selected: AppLanguage,
+    onPick: (AppLanguage) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    val shown =
+        remember(query) {
+            val q = query.trim().lowercase()
+            AppLanguage.entries.filter {
+                q.isEmpty() ||
+                    it.nativeName.lowercase().contains(
+                        q,
+                    ) || it.englishName.lowercase().contains(q) || it.tag.startsWith(q)
+            }
+        }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.background,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    ) {
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            Eyebrow(stringResource(R.string.language))
+            Text(stringResource(R.string.choose_language), style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(8.dp))
+            OrnamentRule()
+            if (AppLanguage.entries.size > 8) {
+                Spacer(Modifier.height(10.dp))
+                BasicTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { inner ->
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                        ) {
+                            if (query.isEmpty()) Text(stringResource(R.string.search), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            inner()
+                        }
+                    },
+                )
+            }
+        }
+        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
+            itemsIndexed(shown) { _, language ->
+                val chosen = language == selected
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(if (chosen) LocalGold.current.copy(alpha = 0.14f) else Color.Transparent)
+                        .clickable { onPick(language) }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            language.nativeName,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (language.englishName != language.nativeName) {
+                            Text(language.englishName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (chosen) Text("✓", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
     }
 }
 
@@ -742,6 +885,7 @@ internal fun PreferencesScreen(
     var draftLanguage by rememberSaveable { mutableStateOf(language) }
     var draftLevel by rememberSaveable { mutableIntStateOf(state.strictness) }
     var draftTheme by rememberSaveable { mutableStateOf(appearance.mode) }
+    var choosingLanguage by remember { mutableStateOf(false) }
     val discard = {
         appearance.preview(appearance.saved)
         onClose()
@@ -758,17 +902,8 @@ internal fun PreferencesScreen(
         }
     CompositionLocalProvider(
         LocalContext provides preview,
-        LocalLayoutDirection provides if (draftLanguage == AppLanguage.ARABIC) LayoutDirection.Rtl else LayoutDirection.Ltr,
+        LocalLayoutDirection provides if (draftLanguage.rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
     ) {
-        val segmentColors =
-            SegmentedButtonDefaults.colors(
-                activeContainerColor = MaterialTheme.colorScheme.primary,
-                activeContentColor = MaterialTheme.colorScheme.onPrimary,
-                activeBorderColor = MaterialTheme.colorScheme.primary,
-                inactiveContainerColor = Color.Transparent,
-                inactiveContentColor = MaterialTheme.colorScheme.onBackground,
-                inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant,
-            )
         Column(Modifier.fillMaxSize()) {
             HeaderBar(stringResource(R.string.app_name), stringResource(R.string.preferences), discard, backIcon = { BackArrow() })
             OrnamentRule(Modifier.padding(bottom = 14.dp))
@@ -806,23 +941,10 @@ internal fun PreferencesScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(14.dp))
-                    val languages = listOf(AppLanguage.ENGLISH to R.string.language_english, AppLanguage.ARABIC to R.string.language_arabic)
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        languages.forEachIndexed { index, (option, label) ->
-                            SegmentedButton(
-                                selected = draftLanguage == option,
-                                onClick = { draftLanguage = option },
-                                shape = SegmentedButtonDefaults.itemShape(index, languages.size),
-                                colors = segmentColors,
-                            ) { Text(stringResource(label)) }
-                        }
-                    }
+                    LanguageField(draftLanguage) { choosingLanguage = true }
                 }
                 PaperCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Eyebrow(stringResource(R.string.strictness), Modifier.weight(1f))
-                        LevelMeter(draftLevel)
-                    }
+                    Eyebrow(stringResource(R.string.strictness))
                     Spacer(Modifier.height(14.dp))
                     val levels =
                         listOf(
@@ -830,14 +952,15 @@ internal fun PreferencesScreen(
                             Triple(Strictness.STANDARD, R.string.strictness_standard, R.string.strictness_standard_hint),
                             Triple(Strictness.STRICT, R.string.strictness_strict, R.string.strictness_strict_hint),
                         )
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        levels.forEachIndexed { i, (level, label, _) ->
-                            SegmentedButton(
+                    // separate tiles, not a joined segmented control: they follow the layout direction by themselves
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        levels.forEach { (level, label, _) ->
+                            ChoiceTile(
+                                stringResource(label),
                                 selected = draftLevel == level,
                                 onClick = { draftLevel = level },
-                                shape = SegmentedButtonDefaults.itemShape(i, levels.size),
-                                colors = segmentColors,
-                            ) { Text(stringResource(label)) }
+                                modifier = Modifier.weight(1f),
+                            ) { LevelMeter(level, selected = draftLevel == level) }
                         }
                     }
                     Spacer(Modifier.height(12.dp))
@@ -879,6 +1002,12 @@ internal fun PreferencesScreen(
                 Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
+        }
+        if (choosingLanguage) {
+            LanguageSheet(draftLanguage, onPick = {
+                draftLanguage = it
+                choosingLanguage = false
+            }, onDismiss = { choosingLanguage = false })
         }
     }
 }

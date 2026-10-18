@@ -42,8 +42,6 @@
     <string name="error_generic">حدث خطأ: %1$s</string>
     <string name="app_tagline">اقرأ بإتقان</string>
     <string name="language">اللغة</string>
-    <string name="language_english">English</string>
-    <string name="language_arabic">العربية</string>
     <string name="whole_surah">السورة كاملة</string>
     <string name="range_summary">الآيات من %1$d إلى %2$d</string>
     <string name="strictness_relaxed_hint">ينبّه إلى الفروق الواضحة فقط. تنبيهات أقل وقد يفوّت بعض الفروق الصغيرة.</string>
@@ -138,4 +136,6 @@
     <string name="about_free">مجاني بلا إعلانات ولا مدفوعات ولا تتبّع.</string>
     <string name="memorization_banner">وضع الحفظ: تظهر كل كلمة عند تلاوتها.</string>
     <string name="memorization_show">إظهار النص</string>
+    <string name="choose_language">اختر اللغة</string>
+    <string name="search">بحث</string>
 </resources>
