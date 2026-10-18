@@ -1,5 +1,6 @@
 package app.mutqin.ui
 
+import android.content.ClipData
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -61,6 +62,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -76,7 +78,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -84,7 +87,6 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -97,6 +99,7 @@ import androidx.compose.ui.unit.sp
 import app.mutqin.AppLanguage
 import app.mutqin.R
 import app.mutqin.core.Strictness
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.DateFormat
 import java.util.Date
@@ -148,7 +151,8 @@ internal fun ErrorScreen(
     error: String,
     onRetry: () -> Unit,
 ) {
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
     var copied by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().padding(vertical = 24.dp)) {
         Eyebrow(stringResource(R.string.app_name), color = LocalAttention.current)
@@ -166,7 +170,7 @@ internal fun ErrorScreen(
             SecondaryButton(
                 stringResource(if (copied) R.string.error_copied else R.string.error_copy),
                 onClick = {
-                    clipboard.setText(AnnotatedString(error))
+                    scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("error", error))) }
                     copied = true
                 },
                 modifier = Modifier.weight(1f),
