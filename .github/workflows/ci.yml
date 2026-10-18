@@ -21,9 +21,40 @@ env:
 # (Settings > Secrets and variables > Actions > Variables). The download must match the committed
 # checksums or the job fails. Without the variable, tests that need the text are skipped.
 
+# Which jobs run depends on the directories a push or pull request changed (.github/scripts/changes.sh): a change of
+# android/ or core/ runs the Android job, of core/, cli/ or tools/ the C++ jobs, of tools/ the Python tests. A change
+# of CI itself, a manual run and the first push of a branch run everything; a change of docs only runs none of them.
+
 jobs:
+  changes:
+    name: what changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      android: ${{ steps.filter.outputs.android }}
+      cpp: ${{ steps.filter.outputs.cpp }}
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: filter
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          case "$EVENT" in
+            pull_request) base="$PR_BASE" ;;
+            push) base="$PUSH_BEFORE" ;;
+            *) base="" ;;
+          esac
+          .github/scripts/changes.sh "$base" "$GITHUB_SHA"
+
   format-lint:
     name: format + lint
+    needs: changes
+    if: needs.changes.outputs.cpp == 'true' || needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -44,6 +75,8 @@ jobs:
 
   python-tests:
     name: python tests (${{ matrix.python }})
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -80,6 +113,8 @@ jobs:
 
   build-test:
     name: build + test (${{ matrix.name }})
+    needs: changes
+    if: needs.changes.outputs.cpp == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
@@ -156,6 +191,8 @@ jobs:
 
   sherpa-backend:
     name: sherpa-onnx backend (linux)
+    needs: changes
+    if: needs.changes.outputs.cpp == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -221,6 +258,8 @@ jobs:
 
   android:
     name: android app (ktlint, lint, build)
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:

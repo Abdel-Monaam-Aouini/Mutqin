@@ -148,7 +148,7 @@ cmake -S . -B build -DMUTQIN_WERROR=ON && cmake --build build && ctest --test-di
 make android-check                                        # Android app: ktlint, lint, debug build (needs the SDK)
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs the same on every push and pull request: format and lint, Python
+GitHub Actions (`.github/workflows/ci.yml`) runs the same on every push and pull request, but only the parts a change touches (`.github/scripts/changes.sh`: `android/` or `core/` runs the app job, `core/`, `cli/` or `tools/` the C++ jobs, `tools/` the Python tests; a change of CI itself or a manual run runs everything, a change of docs only runs none): format and lint, Python
 tests, and build + test on Linux (gcc, clang, AddressSanitizer + UBSan), macOS and Windows, plus the sherpa-onnx
 backend on Linux. an `android` job checks the app (ktlint, Android lint, debug and R8 release builds). Dependabot updates the GitHub Actions, Python and Gradle packages; a weekly job reports newer releases
 of the pinned C++ dependencies (GoogleTest, miniaudio, sherpa-onnx).
