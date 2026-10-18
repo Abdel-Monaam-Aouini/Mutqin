@@ -111,7 +111,8 @@ internal fun flowOf(
     val lines = basmala + rest
     val lineOfItem = HashMap<Int, Int>()
     for ((index, range) in lines.withIndex()) {
-        for (u in range) lineOfItem.putIfAbsent(units[u].item, index)
+        // (not putIfAbsent: it needs Android 7, and the app supports Android 5)
+        for (u in range) if (!lineOfItem.containsKey(units[u].item)) lineOfItem[units[u].item] = index
     }
     return QuranFlow(units, lines, basmala.size, lineOfItem)
 }
