@@ -39,12 +39,14 @@ Keep test sets separated by **speaker**, never by ayah only, to avoid leaking vo
 ## 4. Models
 
 ### Phase 2–3: word level
+
 - Start with an existing Quran-fine-tuned **CTC** model (wav2vec2 / XLS-R, char-level), or
   fine-tune a small streaming Conformer/Zipformer with icefall/k2 for sherpa-onnx.
 - Avoid relying on Whisper alone: its language model tends to output the correct
   memorized text even when the user made a mistake.
 
 ### Phase 4–5: phoneme level
+
 - Fine-tune on the phoneme inventory from `TAJWEED_SPEC.md`; labels come from running the
   rule engine on the reference text of each recording.
 - Streaming Zipformer-CTC (small, ~20–70M params) is the target for mobile.
@@ -52,6 +54,7 @@ Keep test sets separated by **speaker**, never by ayah only, to avoid leaking vo
   are not enough.
 
 ### Export
+
 - ONNX export → int8 dynamic quantization → test accuracy drop (< 1% absolute allowed).
 - Run with sherpa-onnx / ONNX Runtime inside the C++ core (desktop first; Android and iOS
   later in Phase 3b).

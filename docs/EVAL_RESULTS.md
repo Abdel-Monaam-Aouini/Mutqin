@@ -18,7 +18,7 @@ ranges of 1 to 3 ayahs. Targets (docs/PLAN.md): false alarms < 2%, mistake recal
 
 Parameters: `Params(wrong_below=0.5, skip_aligned_max=0.25, low_conf=0.55, min_mismatch=2, repeat_min_ratio=0.75, skip_cost=1.5, repeat_cost=1.0, add_min_tokens=4, add_inside_min=3, max_jump_words=3, pause_frames=8)`.
 
-### Simulated phoneme error rate 5%, model confidence tells right from wrong tokens
+## Simulated phoneme error rate 5%, model confidence tells right from wrong tokens
 
 False alarms on correct recitations: **0.09% of words** (7/7580); recitations with at least one false alarm: **2.7%** (8/300).
 

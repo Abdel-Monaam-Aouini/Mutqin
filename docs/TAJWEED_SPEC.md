@@ -46,6 +46,7 @@ Output: list of expected phonemes. Each item has:
 | Ikhfa haqiqi | ت ث ج د ذ ز س ش ص ض ط ظ ف ق ك | hidden noon, ghunnah 2 counts |
 
 Exceptions:
+
 - Idgham only applies **across two words**. Inside one word with ي or و after noon sakinah,
   it is izhar mutlaq (four words in the Quran — load the list from data, do not hardcode
   the Arabic from memory; to be confirmed with the teacher).
@@ -66,6 +67,7 @@ Ghunnah, 2 counts.
 ### 3.4 Qalqalah
 
 Letters ق ط ب ج د when sakin (with sukun, or sakin because of waqf).
+
 - Sughra: sakin in the middle of the word or when continuing.
 - Kubra: at waqf on that letter (stronger).
 

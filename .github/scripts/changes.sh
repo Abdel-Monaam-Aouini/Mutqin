@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Decides which CI jobs a push or pull request needs, from the directories it changed.
-# Writes android=, cpp= and python= (true/false) to $GITHUB_OUTPUT. Everything runs when the base is unknown
+# Writes android=, cpp=, python= and markdown= (true/false) to $GITHUB_OUTPUT. Everything runs when the base is unknown
 # (a first push, a manual run) or when CI itself changed.
 #   usage: changes.sh BASE_SHA HEAD_SHA        (BASE_SHA empty or all zeros: run everything)
 set -euo pipefail
@@ -27,10 +27,13 @@ android='^(android/|core/)'
 # the C++ jobs build the core and the CLI; the parity tests run the Python tools
 cpp='^(core/|cli/|CMakeLists\.txt|tools/|\.clang-format$)'
 python='^(tools/|ruff\.toml$)'
+# the Markdown files and their lint rules
+markdown='\.md$|^\.markdownlint-cli2\.jsonc$'
 
 out() { if matches "$common" || matches "$2"; then echo "$1=true"; else echo "$1=false"; fi; }
 {
   out android "$android"
   out cpp "$cpp"
   out python "$python"
+  out markdown "$markdown"
 } | tee -a "${GITHUB_OUTPUT:-/dev/stdout}"

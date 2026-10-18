@@ -3,6 +3,7 @@
 Work one task at a time, run the tests, then tick it here.
 
 ## Phase 0 — Foundation
+
 - [x] 0.1 Create folder layout from ARCHITECTURE.md (incl. `cli/`, placeholder `android/` and `ios/`), `.gitignore`, `.editorconfig`
 - [x] 0.2 CMake project for `core/` with GoogleTest; one passing dummy test
 - [x] 0.3 CI (GitHub Actions): build + test (Linux gcc/clang, ASan+UBSan, macOS, Windows), Python tests, lint and format checks
@@ -12,6 +13,7 @@ Work one task at a time, run the tests, then tick it here.
 - [x] 0.7 `docs/LICENSES.md` with every source and its license
 
 ## Phase 1 — Rule engine
+
 - [x] 1.1 Phoneme inventory (`tools/phonemizer/inventory.py`) + docs
 - [x] 1.2 Uthmani text normalization → letters + diacritics per word (no text changes, only parsing)
 - [x] 1.3 Basic letters + short vowels + sukun + shaddah → phonemes
@@ -26,6 +28,7 @@ Work one task at a time, run the tests, then tick it here.
 - [x] 1.12 C++ port + full-Quran equality test with Python (phonemizer ported to core/src/tajweed; tools such as report, validate and show stay in Python)
 
 ## Phase 2 — Desktop prototype
+
 - [x] 2.1 Evaluate 2–3 candidate CTC models on EveryAyah subset; pick one — Zipformer chosen (Whisper 10.2% word errors, wav2vec2 word clips only); 1.8% flagged words untuned on 49 min of correct recitation
 - [x] 2.2 Synthetic error generator (text-side and audio-side)
 - [x] 2.3 Streaming pipeline: VAD → model → posteriors — sherpa-onnx streaming backend, real-time factor about 0.03
@@ -34,6 +37,7 @@ Work one task at a time, run the tests, then tick it here.
 - [x] 2.6 Evaluation script + first results in EVAL_RESULTS.md
 
 ## Phase 3 — C++ core + mutqin-cli
+
 - [x] 3.1 C++ audio ring buffer, VAD, features — ring buffer, log-mel (80 bins, 25/10 ms) and energy VAD done; Silero VAD and exact model feature settings follow with task 2.1
 - [x] 3.2 sherpa-onnx integration in core — sherpa-onnx backend with the real Zipformer through the C API (model-native units); CI runs it with a public test model
 - [x] 3.3 Port aligner + detector to C++, with Python-vs-C++ parity test — 180 generated cases match the Python prototype
@@ -53,4 +57,5 @@ Work one task at a time, run the tests, then tick it here.
 - [x] 3.8 `mutqin-cli`: WAV (16 kHz mono) and live microphone input, surah + ayah range, prints events and mistakes — expected phonemes, WAV, live microphone (--mic), posterior replay, --model for the real model
 
 ## Phase 4–6
+
 Tasks will be broken down when Phase 3 is done.

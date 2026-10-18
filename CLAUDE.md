@@ -4,6 +4,7 @@ On-device Quran recitation checker. Monorepo: one repo for the whole product.
 Read and follow `AGENTS.md` (rules) and the relevant file in `docs/` before every task.
 
 ## Current scope: C++ core + CLI only (a real model already works end to end)
+
 - Build only `core/` (library **MutqinCore**, C++17) and `cli/` (**mutqin-cli**), plus Python in `tools/`.
 - `android/` holds the Android app (Kotlin, Compose, JNI; see `android/README.md` and `docs/APP_SPEC.md`). `ios/` is a
   **placeholder only**: write no Swift or AVAudioEngine code there until the user says so.
@@ -11,6 +12,7 @@ Read and follow `AGENTS.md` (rules) and the relevant file in `docs/` before ever
 - Naming: C API prefix `mq_`, header `core/include/mutqin.h`, C++ namespace `mutqin`.
 
 ## Hard rules (never break)
+
 1. Never write, type, or generate Quran text from memory — not one word, not in tests.
    Load from `data/quran/` and verify the SHA-256 checksum. Tests refer to (surah, ayah).
 2. Never modify files in `data/quran/` (also blocked in `.claude/settings.json`).
@@ -23,6 +25,7 @@ Read and follow `AGENTS.md` (rules) and the relevant file in `docs/` before ever
 8. Mutqin stays free: no ads, payments, subscriptions or tracking.
 
 ## Workflow
+
 - One task from `docs/TASKS.md` at a time, in order. Use `/next-task`.
 - Before: 2–3 lines on what and which files. After: run tests, show results, tick the box,
   commit (Conventional Commits, e.g. `feat(tools): add Tanzil download script`, no AI mention;
@@ -34,6 +37,7 @@ Read and follow `AGENTS.md` (rules) and the relevant file in `docs/` before ever
 - Track multi-step state with claude-mem `work_state_write`.
 
 ## Layout
+
 `core/` C++ library · `cli/` mutqin-cli · `tools/` Python · `data/quran/` verified text ·
 `models/` · `docs/` · `android/`, `ios/` (deferred) · `.claude/` rules and skills.
 CI: `.github/workflows/ci.yml` (build + test on Linux/macOS/Windows, ASan/UBSan, pytest, lint, format).
@@ -41,6 +45,7 @@ Before every commit run the same checks locally (`make check`; see README, "Deve
 the tasks (build, test, lint, live, record, check-wav ...).
 
 ## Decisions to respect (details in `AGENTS.md`)
+
 - Code is Apache-2.0; the Zipformer model is NPL-1.1 and stays outside the repo (`licenses/`, `NOTICE`,
   `docs/LICENSES.md` must be updated with any dependency, dataset or model change).
 - Model-native units + tuned aligner profile; no own training, no GPU/cloud proposals, no extra models unless

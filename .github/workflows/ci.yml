@@ -23,7 +23,8 @@ env:
 
 # Which jobs run depends on the directories a push or pull request changed (.github/scripts/changes.sh): a change of
 # android/ or core/ runs the Android job, of core/, cli/ or tools/ the C++ jobs, of tools/ the Python tests. A change
-# of CI itself, a manual run and the first push of a branch run everything; a change of docs only runs none of them.
+# of CI itself, a manual run and the first push of a branch run everything; a change of Markdown files runs the Markdown
+# check, and a change of docs only runs nothing else.
 
 jobs:
   changes:
@@ -34,6 +35,7 @@ jobs:
       android: ${{ steps.filter.outputs.android }}
       cpp: ${{ steps.filter.outputs.cpp }}
       python: ${{ steps.filter.outputs.python }}
+      markdown: ${{ steps.filter.outputs.markdown }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -50,6 +52,18 @@ jobs:
             *) base="" ;;
           esac
           .github/scripts/changes.sh "$base" "$GITHUB_SHA"
+
+  markdown:
+    name: markdown lint
+    needs: changes
+    if: needs.changes.outputs.markdown == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      # markdownlint-cli2 (MIT), pinned; Node.js is on the runner; the rules are in .markdownlint-cli2.jsonc
+      - name: Markdown lint
+        run: npx --yes markdownlint-cli2@0.23.3 $(git ls-files '*.md')
 
   format-lint:
     name: format + lint

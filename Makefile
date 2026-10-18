@@ -36,7 +36,7 @@ PY         := $(VENV)/bin/python
 JOBS       ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
 .DEFAULT_GOAL := help
-.PHONY: help venv build test test-py format lint check data units sherpa build-live model-check \
+.PHONY: help venv build test test-py format lint lint-md format-md check data units sherpa build-live model-check \
         live check-wav record demo bench shared install android android-app android-bundle android-run android-model android-replay android-log android-format android-lint android-check clean
 
 help: ## show this list
@@ -61,14 +61,25 @@ test: build ## run the C++ tests
 test-py: ## run the Python tests
 	$(PY) -I -m pytest -q
 
-format: ## format Python and C++ in place
+format: format-md ## format Python and C++ in place, and fix the Markdown files
 	$(VENV)/bin/ruff format tools
 	git ls-files '*.h' '*.cpp' | xargs $(VENV)/bin/clang-format -i
 
-lint: ## check formatting and lint without changing anything
+lint: lint-md ## check formatting and lint without changing anything
 	$(VENV)/bin/ruff format --check tools
 	$(VENV)/bin/ruff check tools
 	git ls-files '*.h' '*.cpp' | xargs $(VENV)/bin/clang-format --dry-run --Werror
+
+# markdownlint-cli2 (MIT) through npx, rules in .markdownlint-cli2.jsonc; skipped when Node.js is not installed
+MARKDOWNLINT := npx --yes markdownlint-cli2@0.23.3
+
+lint-md: ## check the Markdown files (needs Node.js)
+	@command -v npx >/dev/null 2>&1 || { echo "Node.js (npx) not found: the Markdown files are not checked"; exit 0; }; \
+		$(MARKDOWNLINT) $$(git ls-files '*.md')
+
+format-md: ## fix what markdownlint can fix in the Markdown files (needs Node.js)
+	@command -v npx >/dev/null 2>&1 || { echo "Node.js (npx) not found: the Markdown files are not fixed"; exit 0; }; \
+		$(MARKDOWNLINT) --fix $$(git ls-files '*.md') || true
 
 check: lint test test-py ## everything CI runs: lint, C++ tests, Python tests
 

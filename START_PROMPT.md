@@ -8,6 +8,7 @@ You are the lead engineer on "Mutqin" (متقن), an on-device Quran recitation 
 scope: C++17 core (MutqinCore) + command-line tool (mutqin-cli) only. Android/iOS are deferred.
 
 First, read these files completely:
+
 - AGENTS.md
 - docs/PLAN.md
 - docs/ARCHITECTURE.md

@@ -8,14 +8,14 @@ the license text was read from the upstream source, not from memory.
 
 | Item | Used for | License | Verified from | Notes |
 |------|----------|---------|---------------|-------|
-| Tanzil Quran text, v1.1 (Uthmani + Simple Clean) | Verified Quran text in `data/quran/` | Creative Commons Attribution 3.0, plus Tanzil Terms of Use | https://tanzil.net/docs/Text_License (read 2026-10-13) | See below |
-| Tanzil Quran metadata, v1.0 (`quran-data.xml`) | Localized surah names in the Android picker and recitation header | Creative Commons Attribution (CC BY) | https://tanzil.net/docs/Quran_Metadata (read 2026-10-14) | Only the Arabic and transliterated surah names are reproduced; credit Tanzil Project and link tanzil.net in the app credits |
+| Tanzil Quran text, v1.1 (Uthmani + Simple Clean) | Verified Quran text in `data/quran/` | Creative Commons Attribution 3.0, plus Tanzil Terms of Use | <https://tanzil.net/docs/Text_License> (read 2026-10-13) | See below |
+| Tanzil Quran metadata, v1.0 (`quran-data.xml`) | Localized surah names in the Android picker and recitation header | Creative Commons Attribution (CC BY) | <https://tanzil.net/docs/Quran_Metadata> (read 2026-10-14) | Only the Arabic and transliterated surah names are reproduced; credit Tanzil Project and link tanzil.net in the app credits |
 | Mutqin itself (this repository) | The project code | Apache-2.0 (`LICENSE`, `NOTICE`), chosen by the owner 2026-10-14 | official text from apache.org/licenses/LICENSE-2.0.txt | The Zipformer model and other third-party items below keep their own licenses and are not part of the repository |
 | GoogleTest v1.18.0 | C++ tests only (fetched by CMake, never linked into MutqinCore or the CLI) | BSD-3-Clause | `LICENSE` in the fetched source | |
-| sherpa-onnx v1.13.8 (k2-fsa/sherpa-onnx; bundles ONNX Runtime, MIT) | Optional recognition backend (`-DMUTQIN_WITH_SHERPA=ON`), linked through its C API; release archive downloaded by the developer, not committed | Apache-2.0 (GitHub API license field, read 2026-10-13) | approved by the owner 2026-10-13 ("work on sherpa-onnx backend"); default builds and CI do not use it |
-| sherpa-onnx-streaming-zipformer-ctc-multi-zh-hans-int8-2023-12-13 (public test model) | Plumbing test of the backend only (Chinese; units mapped to phonemes arbitrarily); not shipped | model card not read for the license: test use only, never redistributed | downloaded 2026-10-13 into the scratchpad, not in the repo |
-| miniaudio 0.11.25 (single header, mackron/miniaudio) | Live microphone capture in `mutqin-cli` only (never in `core/`); downloaded at CMake configure time with a pinned SHA-256, not committed | Public domain (Unlicense) or MIT No Attribution, at the user's choice | `LICENSE` in the 0.11.25 tag, read 2026-10-13; approved by the owner 2026-10-13 |
-| Amiri Quran 1.003 (`AmiriQuran.ttf`, aliftype/amiri) | The typeface of the Quran text in the Android app (every Quran word); the unmodified file is committed as `android/app/src/main/res/font/amiri_quran.ttf` (SHA-256 `e2a47644...455c`, taken from the release archive with SHA-256 `81af0aff...d05e`) and bundled in the APK with its license text | SIL Open Font License 1.1 (`licenses/OFL-AmiriQuran.txt`), copyright 2010-2022 The Amiri Project Authors; the owner approved it 2026-10-18 | `OFL.txt` of the 1.003 release archive from https://github.com/aliftype/amiri/releases/tag/1.003 | The OFL allows bundling in free and paid software and forbids selling the font by itself; the notice and license travel with it (assets/licenses/AmiriQuran-OFL.txt). All 69 distinct characters of the verified Tanzil Uthmani text are in the font (checked 2026-10-18 with fontTools, a one-off check, not a dependency) |
+| sherpa-onnx v1.13.8 (k2-fsa/sherpa-onnx; bundles ONNX Runtime, MIT) | Optional recognition backend (`-DMUTQIN_WITH_SHERPA=ON`), linked through its C API; release archive downloaded by the developer, not committed | Apache-2.0 (GitHub API license field, read 2026-10-13) | approved by the owner 2026-10-13 ("work on sherpa-onnx backend"); default builds and CI do not use it | |
+| sherpa-onnx-streaming-zipformer-ctc-multi-zh-hans-int8-2023-12-13 (public test model) | Plumbing test of the backend only (Chinese; units mapped to phonemes arbitrarily); not shipped | model card not read for the license: test use only, never redistributed | downloaded 2026-10-13 into the scratchpad, not in the repo | |
+| miniaudio 0.11.25 (single header, mackron/miniaudio) | Live microphone capture in `mutqin-cli` only (never in `core/`); downloaded at CMake configure time with a pinned SHA-256, not committed | Public domain (Unlicense) or MIT No Attribution, at the user's choice | `LICENSE` in the 0.11.25 tag, read 2026-10-13; approved by the owner 2026-10-13 | |
+| Amiri Quran 1.003 (`AmiriQuran.ttf`, aliftype/amiri) | The typeface of the Quran text in the Android app (every Quran word); the unmodified file is committed as `android/app/src/main/res/font/amiri_quran.ttf` (SHA-256 `e2a47644...455c`, taken from the release archive with SHA-256 `81af0aff...d05e`) and bundled in the APK with its license text | SIL Open Font License 1.1 (`licenses/OFL-AmiriQuran.txt`), copyright 2010-2022 The Amiri Project Authors; the owner approved it 2026-10-18 | `OFL.txt` of the 1.003 release archive from <https://github.com/aliftype/amiri/releases/tag/1.003> | The OFL allows bundling in free and paid software and forbids selling the font by itself; the notice and license travel with it (assets/licenses/AmiriQuran-OFL.txt). All 69 distinct characters of the verified Tanzil Uthmani text are in the font (checked 2026-10-18 with fontTools, a one-off check, not a dependency) |
 | pytest 8.x | Python tests only (`tools/requirements.txt`) | MIT | package metadata of the installed pytest 8.4.2 | |
 
 ### Tanzil Quran text: required notice and terms
@@ -33,10 +33,10 @@ Terms of use (summarized from the page above):
 
 - Verbatim copies may be copied and distributed; **changing the text is not allowed**.
 - Usable in any website or application, provided the source (**Tanzil Project**) is clearly
-  indicated and a link to https://tanzil.net is made so users can track changes.
+  indicated and a link to <https://tanzil.net> is made so users can track changes.
 - The copyright notice must be included in all verbatim copies and reproduced appropriately in
   all files derived from or containing a substantial portion of the text.
-- Updates: http://tanzil.net/updates/
+- Updates: <http://tanzil.net/updates/>
 
 How the project complies:
 
@@ -54,6 +54,7 @@ How the project complies:
 |------|----------|---------|---------------|
 | ruff 0.17.0 | Python lint and format (`tools/requirements-dev.txt`, CI) | MIT | PyPI metadata 2026-10-13 |
 | clang-format 23.1.3 | C++ format (`tools/requirements-dev.txt`, CI) | Apache-2.0 with LLVM exception | PyPI metadata 2026-10-13 |
+| markdownlint-cli2 0.23.3 (David Anson; uses markdownlint 0.41.1) | Markdown style check (`make lint-md`, CI; run through `npx`, pinned in the Makefile and `ci.yml`, rules in `.markdownlint-cli2.jsonc`) | MIT | npm metadata (`npm view markdownlint-cli2 license`) 2026-10-18; the owner asked for it 2026-10-18 |
 | actions/checkout, actions/setup-python, actions/cache (v4 / v5) | GitHub Actions steps in `.github/workflows/ci.yml` | MIT | GitHub Marketplace listings, not re-verified here |
 
 ## To verify before use (not yet used)

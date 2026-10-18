@@ -10,7 +10,7 @@ connection and no cloud service at run time. The goal is to help learners reach 
 
 ## How it works
 
-```
+```text
 microphone / WAV (16 kHz mono)
   -> streaming Zipformer CTC model (phoneme units, runs through sherpa-onnx)
   -> aligner: compares the units heard with the canonical units of the chosen ayah range
@@ -53,7 +53,7 @@ The steps below are what they run.
 
 Requirements: a C++17 compiler, CMake 3.16+, Python 3.10+ (for the tools), `ffmpeg` to convert audio.
 
-```
+```sh
 cmake -S . -B build && cmake --build build
 python3 tools/quran_text/download.py            # verified Quran text from Tanzil (asks you to accept its terms)
 ./build/cli/mutqin-cli --surah 1 --ayah 1-7     # expected phonemes with rule tags
@@ -61,7 +61,7 @@ python3 tools/quran_text/download.py            # verified Quran text from Tanzi
 
 Without a recognition model you can replay simulated model output through the same pipeline:
 
-```
+```sh
 python3 tools/prototype/make_posteriors.py /tmp/p.f32 --surah 1 --ayahs 1-7 --scenario skip
 ./build/cli/mutqin-cli --surah 1 --ayah 1-7 --posteriors /tmp/p.f32   # reports the skipped word
 ```
@@ -70,33 +70,33 @@ python3 tools/prototype/make_posteriors.py /tmp/p.f32 --surah 1 --ayahs 1-7 --sc
 
 1. Get access to [Muno459/zipformer_p-quran](https://huggingface.co/Muno459/zipformer_p-quran) (gated, free
    use only, see [License](#license)) and download it into `models/zipformer_p-quran/`.
-2. Download a [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx/releases) "shared" release (v1.13.8 was
+1. Download a [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx/releases) "shared" release (v1.13.8 was
    used) and build with it:
 
-```
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMUTQIN_WITH_SHERPA=ON \
-      -DSHERPA_ONNX_DIR=/path/to/sherpa-onnx-v1.13.8-linux-x64-shared-no-tts
-cmake --build build
-python3 tools/zipformer/expected_units.py      # once: builds the expected-units table from the model's files
-```
+   ```sh
+   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMUTQIN_WITH_SHERPA=ON \
+         -DSHERPA_ONNX_DIR=/path/to/sherpa-onnx-v1.13.8-linux-x64-shared-no-tts
+   cmake --build build
+   python3 tools/zipformer/expected_units.py      # once: builds the expected-units table from the model's files
+   ```
 
-3. Create `models/zipformer_p-quran/mutqin_model.txt`:
+1. Create `models/zipformer_p-quran/mutqin_model.txt`:
 
-```
-model=quran_phoneme_zipformer.int8.onnx
-tokens=tokens.txt
-units=expected_units.tsv
-collapse_runs=2
-threads=4
-```
+   ```ini
+   model=quran_phoneme_zipformer.int8.onnx
+   tokens=tokens.txt
+   units=expected_units.tsv
+   collapse_runs=2
+   threads=4
+   ```
 
-4. Recite, live or from a recording (`make live`, `make record`, `make check-wav WAV=take.wav` do the same):
+1. Recite, live or from a recording (`make live`, `make record`, `make check-wav WAV=take.wav` do the same):
 
-```
-./build/cli/mutqin-cli --surah 1 --ayah 1-7 --model models/zipformer_p-quran/mutqin_model.txt --mic
-./build/cli/mutqin-cli ... --strictness strict   # relaxed | standard (default) | strict
-./build/cli/mutqin-cli --surah 1 --ayah 1-7 --model models/zipformer_p-quran/mutqin_model.txt --wav take.wav --timeline
-```
+   ```sh
+   ./build/cli/mutqin-cli --surah 1 --ayah 1-7 --model models/zipformer_p-quran/mutqin_model.txt --mic
+   ./build/cli/mutqin-cli ... --strictness strict   # relaxed | standard (default) | strict
+   ./build/cli/mutqin-cli --surah 1 --ayah 1-7 --model models/zipformer_p-quran/mutqin_model.txt --wav take.wav --timeline
+   ```
 
 Events look like `[ 12.3 s] skipped 1:2:3` (surah 1, ayah 2, word 3). Convert recordings to 16 kHz mono first:
 `ffmpeg -i in.mp3 -ac 1 -ar 16000 out.wav`. Details of the manifest and the model-native units:
@@ -136,9 +136,11 @@ Events look like `[ 12.3 s] skipped 1:2:3` (surah 1, ayah 2, word 3). Convert re
 
 ## Development
 
-`make venv` then `make check` runs everything below (lint, C++ tests, Python tests).
+`make venv` then `make check` runs everything below (lint, C++ tests, Python tests). `make lint-md` checks the
+Markdown files with [markdownlint](https://github.com/DavidAnson/markdownlint-cli2) (rules in
+`.markdownlint-cli2.jsonc`; needs Node.js) and `make format-md` fixes what it can.
 
-```
+```sh
 python3 -m venv .venv   # or: uv venv .venv
 .venv/bin/pip install -r tools/requirements-dev.txt       # pytest, numpy, ruff, clang-format (pinned)
 .venv/bin/ruff format tools && .venv/bin/ruff check tools
@@ -148,10 +150,13 @@ cmake -S . -B build -DMUTQIN_WERROR=ON && cmake --build build && ctest --test-di
 make android-check                                        # Android app: ktlint, lint, debug build (needs the SDK)
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs the same on every push and pull request, but only the parts a change touches (`.github/scripts/changes.sh`: `android/` or `core/` runs the app job, `core/`, `cli/` or `tools/` the C++ jobs, `tools/` the Python tests; a change of CI itself or a manual run runs everything, a change of docs only runs none): format and lint, Python
-tests, and build + test on Linux (gcc, clang, AddressSanitizer + UBSan), macOS and Windows, plus the sherpa-onnx
-backend on Linux. an `android` job checks the app (ktlint, Android lint, debug and R8 release builds). Dependabot updates the GitHub Actions, Python and Gradle packages; a weekly job reports newer releases
-of the pinned C++ dependencies (GoogleTest, miniaudio, sherpa-onnx).
+GitHub Actions (`.github/workflows/ci.yml`) runs the same on every push and pull request, but only the parts a
+change touches (`.github/scripts/changes.sh`): `android/` or `core/` runs the app job, `core/`, `cli/` or `tools/`
+the C++ jobs, `tools/` the Python tests, any `.md` file the Markdown check. A change of CI itself or a manual run
+runs everything. The jobs are: format and lint, Python tests, build + test on Linux (gcc, clang, AddressSanitizer +
+UBSan), macOS and Windows, the sherpa-onnx backend on Linux, the Markdown check, and an `android` job that checks the
+app (ktlint, Android lint, debug and R8 release builds). Dependabot updates the GitHub Actions, Python and Gradle
+packages; a weekly job reports newer releases of the pinned C++ dependencies (GoogleTest, miniaudio, sherpa-onnx).
 
 **Quran text in CI.** `data/quran/*.txt` is not in the repository. The jobs download it from Tanzil only if the
 repository Actions variable `TANZIL_TERMS_ACCEPTED=true` is set (Settings, Secrets and variables, Actions,

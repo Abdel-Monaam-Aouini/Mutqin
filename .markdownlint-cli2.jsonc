@@ -1,0 +1,12 @@
+// Markdown style of the repository (markdownlint-cli2, MIT; run with `make lint-md`, also in CI).
+{
+  "config": {
+    "default": true,
+    // long lines are left alone: prose is wrapped at about 110 characters, but some task and report lines are
+    // single long bullets and Markdown wraps them when it is shown
+    "MD013": false,
+    // the tables are written compactly (`|---|---|`), without padding
+    "MD060": false
+  },
+  "gitignore": true
+}

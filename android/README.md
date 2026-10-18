@@ -23,7 +23,7 @@ automated UI tests.
 Needs: JDK 21, the Android SDK with API 37 and NDK 27.1 (CMake 3.22), the Quran text in `data/quran/`
 (`make data`), and the gated model in `models/zipformer_p-quran/` (see the main README). From the repository root:
 
-```
+```sh
 make android-app      # downloads the sherpa-onnx Android libraries (checksummed) on first use, builds the debug APK
 make android-bundle   # builds a shareable release APK with your local model embedded
 make android-run      # installs it on the connected phone and starts it
@@ -45,7 +45,7 @@ because it also contains the separately licensed Tanzil text.
 
 Debug builds also accept, for automated checks:
 
-```
+```sh
 adb shell am start -n app.mutqin/.MainActivity --es wav take.wav --ei surah 5 --ei from 1 --ei to 8 --ei level 1   # replay a WAV from the app's folder (make android-replay)
 adb shell am start -n app.mutqin/.MainActivity --ez corrupt_quran true                                            # shows the real checksum error screen
 ```
