@@ -1,5 +1,14 @@
 package app.mutqin.core
 
+private val waqfSignAfterSpace = Regex(" (?=[ۖ-ۜ])")
+
+/**
+ * The Tanzil text keeps a waqf (pause) sign as a token of its own, so the item text has a space before it. Drawn like
+ * that the sign floats alone and the line seems to have a double space; in a mushaf the sign sits on its word. The
+ * space is dropped so that the sign is drawn on the word before it.
+ */
+internal fun attachWaqfSigns(text: String): String = waqfSignAfterSpace.replace(text, "")
+
 /** An error returned by the core (the codes MQ_ERR_* of mutqin.h). */
 class MutqinException(
     val code: Int,
@@ -124,7 +133,7 @@ class Session internal constructor(
             itemBuffer[1],
             itemBuffer[2],
             itemBuffer[3],
-            MutqinNative.sessionItemText(handle, index),
+            attachWaqfSigns(MutqinNative.sessionItemText(handle, index)),
             rules,
         )
     }

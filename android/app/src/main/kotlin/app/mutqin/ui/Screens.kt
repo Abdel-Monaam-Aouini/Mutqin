@@ -809,13 +809,7 @@ private fun AyahPage(
     onWordPlaced: (Int, Float) -> Unit,
 ) {
     val basmala = ayahs.firstOrNull()?.first == 0
-    FlowRow(
-        Modifier.fillMaxWidth().padding(vertical = 1.dp),
-        // the basmala is centered; the other lines are justified, edge to edge, as in a mushaf
-        horizontalArrangement = if (basmala) Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally) else Arrangement.SpaceBetween,
-        verticalArrangement = Arrangement.spacedBy(0.dp),
-        itemVerticalAlignment = Alignment.CenterVertically,
-    ) {
+    val units: @Composable () -> Unit = {
         ayahs.forEach { (ayah, words) ->
             if (ayah > 0 && words.isNotEmpty()) {
                 words.dropLast(1).forEach { WordText(it, hideUpcoming, onWordClick, onWordPlaced) }
@@ -828,8 +822,18 @@ private fun AyahPage(
                 words.forEach { WordText(it, hideUpcoming, onWordClick, onWordPlaced) }
             }
         }
-        // takes what is left of the last line, so that line is not stretched like the others
-        if (!basmala) Spacer(Modifier.weight(1f))
+    }
+    if (basmala) {
+        // the basmala is centered on its own line
+        FlowRow(
+            Modifier.fillMaxWidth().padding(vertical = 1.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) { units() }
+    } else {
+        // the other lines are justified like those of a mushaf (see JustifiedFlow)
+        JustifiedFlow(Modifier.fillMaxWidth().padding(vertical = 1.dp)) { units() }
     }
 }
 
@@ -972,6 +976,22 @@ private fun WordText(
                     }
                 }
             }
+    // one unit for the line breaking: the word and the caret of an added word after it stay together
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        WordOrPlaceholder(item, hideUpcoming, modifier, wordColor, accent) { baseline = it }
+        if (item.addedAfter) Text("‸", fontSize = 27.sp, color = attention) // a small caret between the words
+    }
+}
+
+@Composable
+private fun WordOrPlaceholder(
+    item: UiItem,
+    hideUpcoming: Boolean,
+    modifier: Modifier,
+    wordColor: Color,
+    accent: Color,
+    onBaseline: (Float) -> Unit,
+) {
     if (hideUpcoming && (item.state == ItemState.Upcoming || item.state == ItemState.Current)) {
         // memorization: the word is still hidden, only its length shows
         val width = (item.text.count { it.isLetter() } * 11).coerceIn(30, 130).dp
@@ -1000,10 +1020,9 @@ private fun WordText(
             fontSize = 27.sp,
             lineHeight = 40.sp,
             color = wordColor,
-            onTextLayout = { baseline = it.getLineBaseline(0) },
+            onTextLayout = { onBaseline(it.getLineBaseline(0)) },
         )
     }
-    if (item.addedAfter) Text("‸", fontSize = 27.sp, color = attention) // a small caret between the words
 }
 
 private fun tajweedLabelResource(rule: TajweedRule): Int? =
