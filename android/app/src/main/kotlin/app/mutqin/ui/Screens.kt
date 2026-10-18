@@ -1,6 +1,7 @@
 package app.mutqin.ui
 
 import android.content.res.Configuration
+import android.graphics.Paint
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -113,6 +114,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -126,14 +128,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.res.ResourcesCompat
 import app.mutqin.AppLanguage
 import app.mutqin.HistoryEntry
 import app.mutqin.R
 import app.mutqin.core.EventKind
 import app.mutqin.core.Strictness
 import app.mutqin.core.TajweedRule
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.DateFormat
 import java.util.Date
@@ -242,36 +247,19 @@ private fun ReciteScreen(
     state: UiState,
     vm: MainViewModel,
 ) {
-    val groups = remember(state.items) { state.items.groupBy { it.ayah }.toList() }
     val listState = rememberLazyListState()
-    // the ayahs run on one after the other, as in a mushaf; they are cut into pages of a few ayahs for the list
-    val pages =
-        remember(groups) {
-            val (basmala, ayahs) = groups.partition { it.first == 0 }
-            (if (basmala.isEmpty()) emptyList() else listOf(basmala)) + ayahs.chunked(AYAHS_PER_PAGE)
-        }
-    val currentPage = pages.indexOfFirst { page -> page.any { (_, words) -> words.any { it.state == ItemState.Current } } }
-    // item 0 of the list is the surah banner
-    LaunchedEffect(currentPage) { if (currentPage >= 0) listState.animateScrollToItem(currentPage + 1) }
     val reciting = state.phase == Phase.Reciting
     val scope = rememberCoroutineScope()
-    // where the flagged words are on the screen, to scroll to one exactly (their block of ayahs can be long)
-    val wordTops = remember { mutableStateMapOf<Int, Float>() }
-    var listTop by remember { mutableFloatStateOf(0f) }
+    // the lines of the whole range, cut once (so the text flows on from ayah to ayah), once the width is known
+    var flow by remember { mutableStateOf<QuranFlow?>(null) }
     var showAll by remember { mutableStateOf(false) }
     val flagged = remember(state.items) { state.items.filter { it.state == ItemState.Wrong || it.state == ItemState.Skipped || it.repeated || it.addedAfter } }
+    // item 0 of the list is the surah banner; the line being recited stays a few lines below the top
+    val currentItem = state.items.firstOrNull { it.state == ItemState.Current }?.index
+    val currentLine = currentItem?.let { flow?.lineOfItem?.get(it) }
+    LaunchedEffect(currentLine) { if (currentLine != null) listState.animateScrollToItem(currentLine + 1, -LINES_ABOVE_PX) }
     val goTo: (UiItem) -> Unit = { item ->
-        val page = pages.indexOfFirst { p -> p.any { it.first == item.ayah } }
-        scope.launch {
-            if (page >= 0) {
-                val visible = listState.layoutInfo.visibleItemsInfo.any { it.index == page + 1 }
-                if (!visible) {
-                    listState.scrollToItem(page + 1)
-                    delay(120)
-                }
-                wordTops[item.index]?.let { listState.animateScrollBy(it - listTop - 120f) }
-            }
-        }
+        flow?.lineOfItem?.get(item.index)?.let { line -> scope.launch { listState.animateScrollToItem(line + 1, -LINES_ABOVE_PX) } }
         if (item.state == ItemState.Wrong || item.state == ItemState.Skipped) vm.showDetail(item)
     }
 
@@ -327,22 +315,53 @@ private fun ReciteScreen(
                         )
                     },
             ) {
-                // the Quran text is always right to left, whatever the language of the app
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    LazyColumn(
-                        Modifier.fillMaxSize().onGloballyPositioned { listTop = it.positionInRoot().y },
-                        state = listState,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                        verticalArrangement = Arrangement.spacedBy(0.dp),
-                    ) {
-                        item { SurahBanner(stringArrayResource(R.array.surah_names)[state.surah - 1]) }
-                        itemsIndexed(pages) { _, page ->
-                            AyahPage(
-                                page,
-                                hideUpcoming = state.memorization && reciting,
-                                onWordClick = vm::showDetail,
-                                onWordPlaced = { index, top -> wordTops[index] = top },
-                            )
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                    val density = LocalDensity.current
+                    val context = LocalContext.current
+                    val contentWidth = constraints.maxWidth - with(density) { (2 * PAGE_PADDING_DP).dp.roundToPx() }
+                    val units = remember(state.items.size, state.surah, state.fromAyah, state.toAyah) { unitsOf(state.items) }
+                    // the width of every word in the Quran font, to cut the lines before they are drawn
+                    LaunchedEffect(units, contentWidth, density.fontScale) {
+                        flow =
+                            withContext(Dispatchers.Default) {
+                                val paint =
+                                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                        typeface = ResourcesCompat.getFont(context, R.font.amiri_quran)
+                                        textSize = with(density) { 27.sp.toPx() }
+                                    }
+                                val cache = HashMap<String, Float>()
+                                val padding = with(density) { 6.dp.toPx() } // 3 dp each side of a word
+                                val ring = with(density) { (6 + 4 + 31).dp.toPx() } // the gap, the margins and the ring
+                                flowOf(units, contentWidth, with(density) { 6.dp.roundToPx() }, 0.93f) { u ->
+                                    (cache.getOrPut(u.text) { paint.measureText(u.text) } + padding + (if (u.ring != null) ring else 0f)).toInt()
+                                }
+                            }
+                    }
+                    // the Quran text is always right to left, whatever the language of the app
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                        LazyColumn(
+                            Modifier.fillMaxSize(),
+                            state = listState,
+                            contentPadding = PaddingValues(horizontal = PAGE_PADDING_DP.dp, vertical = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(0.dp),
+                        ) {
+                            item { SurahBanner(stringArrayResource(R.array.surah_names)[state.surah - 1]) }
+                            flow?.let { f ->
+                                itemsIndexed(f.lines) { index, range ->
+                                    QuranLine(
+                                        f.units.subList(range.first, range.last + 1),
+                                        mode =
+                                            when {
+                                                index < f.basmalaLines -> LineMode.Centered
+                                                index == f.lines.lastIndex -> LineMode.Start
+                                                else -> LineMode.Justified
+                                            },
+                                        items = state.items,
+                                        hideUpcoming = state.memorization && reciting,
+                                        onWordClick = vm::showDetail,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -798,42 +817,32 @@ private fun MarkSample(kind: EventKind) {
     )
 }
 
-private const val AYAHS_PER_PAGE = 10
+private const val PAGE_PADDING_DP = 14
+private const val LINES_ABOVE_PX = 300 // the line shown by "go to" or while reciting sits this far below the top
 
-@OptIn(ExperimentalLayoutApi::class)
+/** One line of the text: its words, and the ring of an ayah right after the last word of it. */
 @Composable
-private fun AyahPage(
-    ayahs: List<Pair<Int, List<UiItem>>>,
+private fun QuranLine(
+    units: List<QuranUnit>,
+    mode: LineMode,
+    items: List<UiItem>,
     hideUpcoming: Boolean,
     onWordClick: (UiItem) -> Unit,
-    onWordPlaced: (Int, Float) -> Unit,
 ) {
-    val basmala = ayahs.firstOrNull()?.first == 0
-    val units: @Composable () -> Unit = {
-        ayahs.forEach { (ayah, words) ->
-            if (ayah > 0 && words.isNotEmpty()) {
-                words.dropLast(1).forEach { WordText(it, hideUpcoming, onWordClick, onWordPlaced) }
+    JustifiedLine(mode, Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+        for (u in units) {
+            val item = items.getOrNull(u.item) ?: continue
+            val ring = u.ring
+            if (ring != null) {
                 // the ring stays with the last word instead of wrapping onto a line of its own
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    WordText(words.last(), hideUpcoming, onWordClick, onWordPlaced)
-                    AyahMarker(ayah)
+                    WordPiece(item, u, hideUpcoming, onWordClick)
+                    AyahMarker(ring)
                 }
             } else {
-                words.forEach { WordText(it, hideUpcoming, onWordClick, onWordPlaced) }
+                WordPiece(item, u, hideUpcoming, onWordClick)
             }
         }
-    }
-    if (basmala) {
-        // the basmala is centered on its own line
-        FlowRow(
-            Modifier.fillMaxWidth().padding(vertical = 1.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-            verticalArrangement = Arrangement.spacedBy(0.dp),
-            itemVerticalAlignment = Alignment.CenterVertically,
-        ) { units() }
-    } else {
-        // the other lines are justified like those of a mushaf (see JustifiedFlow)
-        JustifiedFlow(Modifier.fillMaxWidth().padding(vertical = 1.dp)) { units() }
     }
 }
 
@@ -919,13 +928,13 @@ private fun UnitsRow(
     }
 }
 
-/** One item with its mark, drawn just under the letters (shapes, not colors, tell the problems apart). */
+/** One word of an item with its mark, drawn just under the letters (shapes, not colors, tell the problems apart). */
 @Composable
-private fun WordText(
+private fun WordPiece(
     item: UiItem,
+    unit: QuranUnit,
     hideUpcoming: Boolean,
     onClick: (UiItem) -> Unit,
-    onPlaced: (Int, Float) -> Unit,
 ) {
     val attention = LocalAttention.current
     val accent = MaterialTheme.colorScheme.primary
@@ -942,12 +951,6 @@ private fun WordText(
             .then(
                 if (item.state == ItemState.Wrong || item.state == ItemState.Skipped) {
                     Modifier.clip(RoundedCornerShape(8.dp)).clickable { onClick(item) }
-                } else {
-                    Modifier
-                },
-            ).then(
-                if (item.state == ItemState.Wrong || item.state == ItemState.Skipped || item.repeated || item.addedAfter) {
-                    Modifier.onGloballyPositioned { onPlaced(item.index, it.positionInRoot().y) }
                 } else {
                     Modifier
                 },
@@ -978,14 +981,15 @@ private fun WordText(
             }
     // one unit for the line breaking: the word and the caret of an added word after it stay together
     Row(verticalAlignment = Alignment.CenterVertically) {
-        WordOrPlaceholder(item, hideUpcoming, modifier, wordColor, accent) { baseline = it }
-        if (item.addedAfter) Text("‸", fontSize = 27.sp, color = attention) // a small caret between the words
+        WordOrPlaceholder(item, unit.text, hideUpcoming, modifier, wordColor, accent) { baseline = it }
+        if (item.addedAfter && unit.lastPiece) Text("‸", fontSize = 27.sp, color = attention) // a small caret between the words
     }
 }
 
 @Composable
 private fun WordOrPlaceholder(
     item: UiItem,
+    text: String,
     hideUpcoming: Boolean,
     modifier: Modifier,
     wordColor: Color,
@@ -994,7 +998,7 @@ private fun WordOrPlaceholder(
 ) {
     if (hideUpcoming && (item.state == ItemState.Upcoming || item.state == ItemState.Current)) {
         // memorization: the word is still hidden, only its length shows
-        val width = (item.text.count { it.isLetter() } * 11).coerceIn(30, 130).dp
+        val width = (text.count { it.isLetter() } * 11).coerceIn(30, 130).dp
         Box(Modifier.height(40.dp).padding(horizontal = 3.dp), contentAlignment = Alignment.Center) {
             Box(
                 Modifier
@@ -1014,7 +1018,7 @@ private fun WordOrPlaceholder(
         }
     } else {
         Text(
-            item.text,
+            text,
             modifier,
             fontFamily = QuranFont,
             fontSize = 27.sp,
