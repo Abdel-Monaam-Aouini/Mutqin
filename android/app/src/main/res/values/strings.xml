@@ -118,7 +118,7 @@
     <string name="result_tap_hint">Tap a word</string>
     <string name="result_see_all">See all</string>
     <string name="appearance">Appearance</string>
-    <string name="theme_hint">Light is like paper; dark is the same page at night.</string>
+    <string name="theme_hint">Light is white with shades of green; dark is the same page at night.</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>

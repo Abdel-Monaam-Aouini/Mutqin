@@ -20,13 +20,14 @@ import androidx.compose.ui.unit.sp
 import app.mutqin.R
 
 /**
- * The look of a printed mushaf: warm paper, deep green ink, a little gold for ornament, and one muted terracotta for
- * every kind of problem (docs/APP_SPEC.md, section 5). Dark mode is the same page at night: cream ink on deep green.
+ * White pages and several greens: deep green for text and buttons, a fresh mid green for the ornaments, pale mint
+ * for cards and soft green for borders, and one muted terracotta for every kind of problem (docs/APP_SPEC.md,
+ * section 5). Dark mode is the same page at night: pale green ink on a very dark green.
  */
 val LocalAttention = staticCompositionLocalOf { Color(0xFFB04A32) }
 
-/** The gold of the ornaments: ayah rings, rules and the surah banner. Never used for text that must be read. */
-val LocalGold = staticCompositionLocalOf { Color(0xFFA8832E) }
+/** The accent green of the ornaments (kept under its old name): ayah rings, rules, the surah banner. Never used for text that must be read. */
+val LocalGold = staticCompositionLocalOf { Color(0xFF3FA57A) }
 
 /**
  * The font of every Quran word: Amiri Quran (SIL Open Font License 1.1, res/font/amiri_quran.ttf, bundled in the app
@@ -37,34 +38,34 @@ val QuranFont = FontFamily(Font(R.font.amiri_quran))
 
 private val LightColors =
     lightColorScheme(
-        primary = Color(0xFF1C5B4B),
-        onPrimary = Color(0xFFF7F1DF),
-        background = Color(0xFFF4EEDC),
-        onBackground = Color(0xFF22302A),
-        surface = Color(0xFFF4EEDC),
-        onSurface = Color(0xFF22302A),
-        surfaceVariant = Color(0xFFFBF7EA),
-        onSurfaceVariant = Color(0xFF66766D),
-        secondaryContainer = Color(0xFFE4E7D2),
-        onSecondaryContainer = Color(0xFF1C5B4B),
-        outline = Color(0xFF8E9A8F),
-        outlineVariant = Color(0xFFDDD0AB),
+        primary = Color(0xFF17694A),
+        onPrimary = Color(0xFFFFFFFF),
+        background = Color(0xFFFFFFFF),
+        onBackground = Color(0xFF10281E),
+        surface = Color(0xFFFFFFFF),
+        onSurface = Color(0xFF10281E),
+        surfaceVariant = Color(0xFFF2F8F4),
+        onSurfaceVariant = Color(0xFF567565),
+        secondaryContainer = Color(0xFFDDEFE4),
+        onSecondaryContainer = Color(0xFF17694A),
+        outline = Color(0xFF8AA697),
+        outlineVariant = Color(0xFFCBE3D4),
     )
 
 private val DarkColors =
     darkColorScheme(
-        primary = Color(0xFF7DC9AC),
-        onPrimary = Color(0xFF0C241C),
-        background = Color(0xFF0F1613),
-        onBackground = Color(0xFFECE5D0),
-        surface = Color(0xFF0F1613),
-        onSurface = Color(0xFFECE5D0),
-        surfaceVariant = Color(0xFF17211C),
-        onSurfaceVariant = Color(0xFFA2B0A6),
-        secondaryContainer = Color(0xFF22332B),
-        onSecondaryContainer = Color(0xFF7DC9AC),
-        outline = Color(0xFF6D7C73),
-        outlineVariant = Color(0xFF2B3A32),
+        primary = Color(0xFF6FD3A4),
+        onPrimary = Color(0xFF06241A),
+        background = Color(0xFF0A1410),
+        onBackground = Color(0xFFE3F2EA),
+        surface = Color(0xFF0A1410),
+        onSurface = Color(0xFFE3F2EA),
+        surfaceVariant = Color(0xFF12201A),
+        onSurfaceVariant = Color(0xFF9CB8A9),
+        secondaryContainer = Color(0xFF1B3329),
+        onSecondaryContainer = Color(0xFF6FD3A4),
+        outline = Color(0xFF5F7E6E),
+        outlineVariant = Color(0xFF25392F),
     )
 
 private val Serif = FontFamily.Serif
@@ -127,7 +128,7 @@ fun MutqinTheme(
         }
     CompositionLocalProvider(
         LocalAttention provides if (dark) Color(0xFFE4896C) else Color(0xFFB04A32),
-        LocalGold provides if (dark) Color(0xFFD3B567) else Color(0xFFA8832E),
+        LocalGold provides if (dark) Color(0xFF4DBE8B) else Color(0xFF3FA57A),
     ) {
         MaterialTheme(
             colorScheme = if (dark) DarkColors else LightColors,

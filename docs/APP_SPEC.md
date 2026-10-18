@@ -82,17 +82,18 @@ Behaviour that the app must respect:
 **Few colors.** Two neutrals and two hues, no rainbow. Problems are told apart by **shape**, not by color, which
 also works for color-blind users and in grayscale.
 
-| Role | Light theme (warm paper) | Dark theme (the page at night) |
+| Role | Light theme (white and greens) | Dark theme (the page at night) |
 | --- | --- | --- |
-| Background / text | `#F4EEDC` / `#22302A` | `#0F1613` / `#ECE5D0` |
-| Card (a ruled panel) | `#FBF7EA`, border `#DDD0AB` | `#17211C`, border `#2B3A32` |
-| Accent (brand, ok words, buttons) | deep green `#1C5B4B` | `#7DC9AC` |
-| Gold (ornament only: rings, rules, the surah banner, the current word's tint) | `#A8832E` | `#D3B567` |
-| Attention (every kind of problem) | muted terracotta `#B04A32` | `#E4896C` |
+| Background / text | `#FFFFFF` / `#10281E` | `#0A1410` / `#E3F2EA` |
+| Card (a ruled panel) | pale mint `#F2F8F4`, border soft green `#CBE3D4` | `#12201A`, border `#25392F` |
+| Accent (brand, ok words, buttons) | deep green `#17694A` | `#6FD3A4` |
+| Ornament green (rings, rules, the surah banner, the current word's tint; kept under the old name `LocalGold`) | fresh green `#3FA57A` | `#4DBE8B` |
+| Pale greens (chips, steppers, selected tiles) | mint `#DDEFE4` | `#1B3329` |
+| Attention (every kind of problem; the one color that is not green) | muted terracotta `#B04A32` | `#E4896C` |
 
-The look is a printed mushaf: the Quran text is set on a framed page (a thin border and a gold line inside it)
-with the surah name on a ribbon at its head, the basmala centered on its own line, and every ayah closed by a
-gold ring with its number. Headings are in a serif, small labels are capitals with spacing (not in Arabic, where
+The look is white pages with several greens: the Quran text is set on a framed page (a thin border and a green line
+inside it) with the surah name on a ribbon at its head, the basmala centered on its own line, and every ayah closed
+by a green ring with its number. Headings are in a serif, small labels are capitals with spacing (not in Arabic, where
 spacing would break the letters), cards have a thin border and no shadow, and screens change with a short fade.
 The result lists the flagged words themselves (a strip of cards and a full list), each tappable to go to the word.
 

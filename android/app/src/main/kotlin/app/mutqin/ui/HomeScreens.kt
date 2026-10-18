@@ -644,8 +644,8 @@ private fun ThemeTile(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Canvas(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(10.dp))) {
-            val light = Color(0xFFF4EEDC)
-            val night = Color(0xFF0F1613)
+            val light = Color(0xFFFFFFFF)
+            val night = Color(0xFF0A1410)
 
             fun page(
                 left: Float,
@@ -680,7 +680,7 @@ private fun ThemeTile(
                     )
                     drawCircle(green, 5.dp.toPx(), Offset(w * 0.2f, size.height * 0.72f))
                     drawRoundRect(
-                        Color(0xFFB08D3C),
+                        Color(0xFF3FA57A),
                         Offset(w * 0.34f, size.height * 0.72f - 1.5.dp.toPx()),
                         androidx.compose.ui.geometry
                             .Size(w * 0.4f, 3.dp.toPx()),
@@ -691,16 +691,16 @@ private fun ThemeTile(
             }
             when (mode) {
                 ThemeMode.Light -> {
-                    page(0f, size.width, light, Color(0xFF22302A), Color(0xFF1C5B4B))
+                    page(0f, size.width, light, Color(0xFF10281E), Color(0xFF17694A))
                 }
 
                 ThemeMode.Dark -> {
-                    page(0f, size.width, night, Color(0xFFECE5D0), Color(0xFF7DC9AC))
+                    page(0f, size.width, night, Color(0xFFE3F2EA), Color(0xFF6FD3A4))
                 }
 
                 ThemeMode.System -> {
-                    page(0f, size.width / 2, light, Color(0xFF22302A), Color(0xFF1C5B4B))
-                    page(size.width / 2, size.width, night, Color(0xFFECE5D0), Color(0xFF7DC9AC))
+                    page(0f, size.width / 2, light, Color(0xFF10281E), Color(0xFF17694A))
+                    page(size.width / 2, size.width, night, Color(0xFFE3F2EA), Color(0xFF6FD3A4))
                 }
             }
         }
