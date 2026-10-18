@@ -7,6 +7,10 @@ Third-party material (details and licenses in docs/LICENSES.md):
 
 - Quran text: Tanzil (https://tanzil.net), Creative Commons Attribution 3.0 plus the Tanzil Terms of Use.
   Not included in this repository; downloaded by tools/quran_text/download.py after accepting the terms.
+- Amiri Quran font 1.003 (SIL Open Font License 1.1, copyright 2010-2022 The Amiri Project Authors,
+  https://github.com/aliftype/amiri; the license text is in licenses/OFL-AmiriQuran.txt and is shipped inside the
+  Android app next to the font): the typeface of the Quran text in the Android app. The unmodified font file is
+  committed in android/app/src/main/res/font/amiri_quran.ttf and bundled in the app.
 - sherpa-onnx (Apache-2.0, k2-fsa) and ONNX Runtime (MIT): optional recognition backend, downloaded by
   the developer, not included.
 - miniaudio (public domain / MIT-0, David Reid): live microphone capture in the command-line tool,

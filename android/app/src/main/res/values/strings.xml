@@ -126,6 +126,7 @@
     <string name="about_version">Version %1$s</string>
     <string name="about_privacy">Everything stays on this phone: your recitation is never sent anywhere.</string>
     <string name="about_free">Free to use, with no ads, no payments and no tracking.</string>
+    <string name="about_font">Quran font: Amiri Quran, by the Amiri Project Authors (SIL Open Font License 1.1).</string>
     <string name="memorization_banner">Memorization mode: each word appears as you recite it.</string>
     <string name="memorization_show">Show text</string>
     <string name="choose_language">Choose a language</string>

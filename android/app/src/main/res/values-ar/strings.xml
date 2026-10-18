@@ -134,6 +134,7 @@
     <string name="about_version">الإصدار %1$s</string>
     <string name="about_privacy">كل شيء يبقى على هذا الهاتف: لا تُرسل تلاوتك إلى أي مكان.</string>
     <string name="about_free">مجاني بلا إعلانات ولا مدفوعات ولا تتبّع.</string>
+    <string name="about_font">خط القرآن: «أميري قرآن» لفريق مشروع أميري (رخصة الخط المفتوح SIL ‏1.1).</string>
     <string name="memorization_banner">وضع الحفظ: تظهر كل كلمة عند تلاوتها.</string>
     <string name="memorization_show">إظهار النص</string>
     <string name="choose_language">اختر اللغة</string>

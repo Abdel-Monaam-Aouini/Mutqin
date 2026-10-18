@@ -12,10 +12,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.mutqin.R
 
 /**
  * The look of a printed mushaf: warm paper, deep green ink, a little gold for ornament, and one muted terracotta for
@@ -25,6 +27,13 @@ val LocalAttention = staticCompositionLocalOf { Color(0xFFB04A32) }
 
 /** The gold of the ornaments: ayah rings, rules and the surah banner. Never used for text that must be read. */
 val LocalGold = staticCompositionLocalOf { Color(0xFFA8832E) }
+
+/**
+ * The font of every Quran word: Amiri Quran (SIL Open Font License 1.1, res/font/amiri_quran.ttf, bundled in the app
+ * with its license text in assets/licenses), so the text and its marks look the same on every phone instead of
+ * depending on the phone's own Arabic font. It has every character of the verified Tanzil text.
+ */
+val QuranFont = FontFamily(Font(R.font.amiri_quran))
 
 private val LightColors =
     lightColorScheme(

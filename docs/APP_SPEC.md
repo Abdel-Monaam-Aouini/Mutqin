@@ -106,8 +106,11 @@ The result lists the flagged words themselves (a strip of cards and a full list)
 | repeated | (not used: going back and reading again is practice and is not reported) |
 | added | small attention-colored caret between the words |
 
-Typography: the Quran text in the Uthmani script (section 12, item 6), large, right to left, generous line
-spacing; UI text in the platform's system font. Motion: short, quiet fades; no sounds by default.
+Typography: the Quran text in the Uthmani script (section 12, item 6), set in the bundled font Amiri Quran (SIL
+OFL 1.1; the file is part of the app, its license text is shipped with it and credited in "About") so the words
+and their small marks look the same on every phone, 27 sp with a 40 sp line, right to left, the lines justified
+like a mushaf (the last line of a block is not stretched, the basmala is centered); headings in a serif and the
+rest of the UI text in the platform's system font. Motion: short, quiet fades; no sounds by default.
 Icon and name: section 11.
 
 ## 6. Data the app ships and how the model arrives

@@ -987,6 +987,8 @@ internal fun PreferencesScreen(
                     Text(stringResource(R.string.about_privacy), style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(6.dp))
                     Text(stringResource(R.string.about_free), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    Text(stringResource(R.string.about_font), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.height(2.dp))
             }

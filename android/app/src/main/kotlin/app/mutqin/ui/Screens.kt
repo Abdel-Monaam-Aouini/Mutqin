@@ -679,7 +679,7 @@ private fun ResultListSheet(
                         )
                     }
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                        Text(item.text, fontSize = 24.sp, lineHeight = 38.sp, color = LocalAttention.current)
+                        Text(item.text, fontFamily = QuranFont, fontSize = 24.sp, lineHeight = 38.sp, color = LocalAttention.current)
                     }
                 }
             }
@@ -737,7 +737,7 @@ private fun ResultPanel(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                            Text(item.text, fontSize = 22.sp, lineHeight = 34.sp, color = LocalAttention.current)
+                            Text(item.text, fontFamily = QuranFont, fontSize = 22.sp, lineHeight = 34.sp, color = LocalAttention.current)
                         }
                         Spacer(Modifier.height(2.dp))
                         MarkSample(kind)
@@ -811,7 +811,8 @@ private fun AyahPage(
     val basmala = ayahs.firstOrNull()?.first == 0
     FlowRow(
         Modifier.fillMaxWidth().padding(vertical = 1.dp),
-        horizontalArrangement = if (basmala) Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally) else Arrangement.spacedBy(6.dp),
+        // the basmala is centered; the other lines are justified, edge to edge, as in a mushaf
+        horizontalArrangement = if (basmala) Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally) else Arrangement.SpaceBetween,
         verticalArrangement = Arrangement.spacedBy(0.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
@@ -827,6 +828,8 @@ private fun AyahPage(
                 words.forEach { WordText(it, hideUpcoming, onWordClick, onWordPlaced) }
             }
         }
+        // takes what is left of the last line, so that line is not stretched like the others
+        if (!basmala) Spacer(Modifier.weight(1f))
     }
 }
 
@@ -864,7 +867,7 @@ private fun WordDetailSheet(
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                Text(detail.text, fontSize = 31.sp, lineHeight = 48.sp, color = attention, modifier = Modifier.fillMaxWidth())
+                Text(detail.text, fontFamily = QuranFont, fontSize = 31.sp, lineHeight = 48.sp, color = attention, modifier = Modifier.fillMaxWidth())
             }
             Eyebrow(
                 stringResource(if (detail.state == ItemState.Skipped) R.string.kind_skipped else R.string.kind_wrong) +
@@ -972,7 +975,7 @@ private fun WordText(
     if (hideUpcoming && (item.state == ItemState.Upcoming || item.state == ItemState.Current)) {
         // memorization: the word is still hidden, only its length shows
         val width = (item.text.count { it.isLetter() } * 11).coerceIn(30, 130).dp
-        Box(Modifier.height(44.dp).padding(horizontal = 3.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.height(40.dp).padding(horizontal = 3.dp), contentAlignment = Alignment.Center) {
             Box(
                 Modifier
                     .width(width)
@@ -993,8 +996,9 @@ private fun WordText(
         Text(
             item.text,
             modifier,
+            fontFamily = QuranFont,
             fontSize = 27.sp,
-            lineHeight = 44.sp,
+            lineHeight = 40.sp,
             color = wordColor,
             onTextLayout = { baseline = it.getLineBaseline(0) },
         )
