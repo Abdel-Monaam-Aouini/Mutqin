@@ -1,5 +1,5 @@
 # Model training (development machine / rented GPU only; CI does not install these).
 -r requirements.txt
-torch>=2.14.1          # BSD-3-Clause: use the CPU or CUDA build that fits the machine
+torch>=2.15.0          # BSD-3-Clause: use the CPU or CUDA build that fits the machine
 soundfile>=0.14.0     # BSD-3-Clause: read WAV files
-sherpa-onnx>=1.13.8   # Apache-2.0: runs the streaming Zipformer in tools/prototype/zipformer_eval.py
+sherpa-onnx>=2.0.1   # Apache-2.0: runs the streaming Zipformer in tools/prototype/zipformer_eval.py
